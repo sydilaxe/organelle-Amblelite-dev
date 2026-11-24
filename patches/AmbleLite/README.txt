@@ -1,42 +1,47 @@
 AMBLE LITE
 ==========
 
-Drone, sub, pads and percussion for real-time building. Loads silent: top C starts and stops.
+Drone, sub, pads and four percussion lanes for real-time building. Loads silent: top C starts and stops.
 
-ORGANELLE KEYS (one press each)
-  low C    show the DRONE
-  low C#   mute the drone
-  low D    show the SUB
-  low D#   mute the sub
-  low E    show the PADS
-  low F    show a PERC lane (again: the next lane)
-  low F#   mute the pads
-  low G    the MAIN / STORY / SYNC / PERFRM pages (again: the next one)
-  low G#   mute the percussion lane last shown
-  low A    page back
-  low A#   latch on / off for the shown layer (PERC: its pattern)
-  low B    page forward
+THE LAYERS: the low white keys, one each. A tap: the layer in / out (it fades over the PERFRM page's
+Fade time; out, a loop keeps its place, silent). Held (400 ms): its parameter pages.
+  low C    DRONE
+  low D    SUB
+  low E    PADS
+  low F    PERC1
+  low G    PERC2
+  low A    PERC3
+  low B    PERC4
+
+THE OTHER KEYS (one press each): the low black keys the views, the top octave playing
+  low C#   the play view (back from MIX / pattern / pages)
+  low D#   the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)
+  low F#   the pattern view on / off: every gate and lane as steps
+  low G#   the MAIN / STORY / SYNC / PERFRM pages (again: the next one)
+  low A#   page forward
   top C    start / stop
   top C#   clear the shown layer (back to its default)
   top D    previous chord
   top D#   the shown layer's looper: record, then play, overdub, play ...
   top E    next chord
-  top F    the play view (back from MIX / pattern)
+  top F    page back
   top F#   the shown layer's loop: stop / play
-  top G    the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)
+  top G    page forward
   top G#   clear the shown layer's loop
-  top A    the pattern view on / off: every gate and lane as steps
+  top A    latch on / off for the shown layer (drone, sub, pads)
   top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
   top A#   held + a key from low C to top D#: recall snapshot 1 - 16 (with aux: save it);
            tapped alone: COMPARE (back to the sound before the recall; again: forward)
 
 AUX held + key
-  low C    show the DRONE
-  low D    show the SUB
-  low E    show the PADS
-  low F    show a PERC lane (again: the next lane)
-  low A    page back
-  low B    page forward
+  low C    show the DRONE pages
+  low D    show the SUB pages
+  low E    show the PADS pages
+  low F    show the PERC1 pages
+  low G    show the PERC2 pages
+  low A    show the PERC3 pages
+  low A#   page back
+  low B    show the PERC4 pages
   top C    start / stop
   top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
   aux tap  page forward

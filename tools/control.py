@@ -11,6 +11,7 @@ NL = len(LAYERS)
 LX = {"drone": "d", "sub": "s"}
 FIRST_LANE = LAYERS.index(LANES[0])
 VIEW_LAYER, VIEW_GLOBAL, VIEW_MIX = 0, 1, 2
+IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
 GLOBALS = dict(allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
                alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
@@ -18,14 +19,15 @@ GLOBALS = dict(allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alaux
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
                alstv=0, alpn=0, alpv2=0, alcur0=-1, alcur1=-1, ali=0, alci=0, alcd=0, alcst=0,
                altime=0, alel=0, alek=0, aled=0, alep=100, alet2=0, alesl=0, alenew=0, alplane=FIRST_LANE,
-               alln=0, allv=0, allr=0, allm=0, alpatv=0, alpr=0, alpc2=0,
+               alln=0, allv=0, allr=0, allm=0, alpatv=0, alprow=0, alpc2=0, alil=0, aliv=0, alhk=-1, alhd=0,
+               aldk=0, alsk=0,
                alcpu=0, alcpux=0, alcpuh=0)
 for k in range(4):
     GLOBALS.update({f"alsl{k}": -1, f"allat{k}": 0, f"alpv{k}": -1})
 for L in LANES:
     GLOBALS.update({f"al{L}n": 0, f"al{L}v": 0})
 ARRAYS = dict(alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alks=0, alnp=0, aleng=NL, alusr=NL,
-              allatch=NL, almute=NL, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
+              allatch=NL, alin=NL, alprm=4, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
               alscn=len(M.MODES), alsk=0, alsd=0, alsr=0, alsy=0, alsdl=0, alsm=len(M.MODES) * 8,
               alsml=len(M.MODES), alty=0, altq=0, alpe=NSLOTS, alem=NSLOTS, alet=0, alew=0, alevs=0, alevp=0,
               alevy=0, allane=4, allrot=4, allrr=4, alfo=0, alfm=NSLOTS, alfn=NSLOTS)
@@ -109,7 +111,7 @@ def tables(c):
         ty += iv
         tq.append(q)
     rows.update(alsc=sc, alscn=scn, alsm=sm, alsml=sml, alsk=sk, alsd=sd, alsr=sr, alsy=sy, alsdl=sdl, alty=ty,
-                altq=tq, allatch=[1, 1, 1] + [1 if L == LANES[0] else 0 for L in LANES])
+                altq=tq, allatch=[1, 1, 1] + [0] * len(LANES), alin=[1 if L in IN_AT_START else 0 for L in LAYERS])
     et = [-1] * ((NL + 2) * MAXENG * M.EVOLVE_MAX)
     ew = [0] * ((NL + 2) * MAXENG * M.EVOLVE_MAX)
     for li, L in enumerate(LAYERS):
@@ -216,6 +218,50 @@ def knobs(c):
     proc(c, "al-popoff", [V("alpop", "0"), Call("al-redraw")])
 
 
+# ---------------------------------------------------------------------------------------------- in / out
+def fade_ms():
+    f = S("g", None, "Fade")
+    return f"if(alp[{f}] < 0.02, 0, 50*pow(400, alp[{f}]))"
+
+
+def layer_switches(c):
+    """each layer is in or out (alin). In: its level fades up (the PERFRM page's Fade) and it plays - the drone,
+    sub and pads their default or latched notes, a lane its pattern. Out: its level fades down, then its notes
+    release (remembered, to come back with it); a loop keeps its place, silent. al-inset 'layer 0|1' sets one,
+    al-tog-<layer> toggles it."""
+    _entry(c, "al-inset", ["alil", "aliv"], "al-inset-do")
+    rt = c.ch(c.recv("al-inset-do"), "t b", "expr alil", "route " + " ".join(str(i) for i in range(NL)))
+    for li, L in enumerate(LAYERS):
+        c.c((rt, li), 0, c.obj(f"s al-inset-{L}"), 0)
+        proc(c, f"al-tog-{L}", [SendL("al-inset", [str(li), f"1 - alin[{li}]"])])
+        # (the level's fade: 'in fade_ms' to the mix)
+        proc(c, f"al-inset-{L}", [
+            If(f"aliv != alin[{li}]", [
+                T("alin", str(li), "aliv"), SendL(f"al-in{li}", ["aliv", fade_ms()]),
+                If("aliv", [Send(f"al-outstop-{L}"), Call(f"al-inon-{L}")],
+                   [Arm(f"al-outrel-{L}", f"{fade_ms()} + 20", stop=f"al-outstop-{L}")]),
+                Call("al-redraw")])])
+        if L in ("drone", "sub"):
+            x = LX[L]
+            proc(c, f"al-outrel-{L}", [If(f"alin[{li}] == 0 && al{x}on", [
+                SendL(f"al-{L}-g", ["0", "0", "0"]), V(f"al{x}on", "0"), V(f"al{x}k", "1")])])
+            proc(c, f"al-inon-{L}", [If(f"al{x}on == 0", [
+                If(f"al{x}k", [V(f"al{x}k", "0"), V(f"al{x}tv", "0.85"), Call(f"al-mono-{L}")],
+                   [If(f"alrun && alusr[{li}] == 0", [Call(f"al-def-{L}")])])])])
+        elif L == "pad":
+            proc(c, "al-outrel-pad", [If("alin[2] == 0", [Loop("4", "alj", [If("alpg[alj]", [
+                T("alprm", "alj", "1"), SendL("al-pad-g", ["alj", "0", "0"]), T("alpg", "alj", "0")])])])])
+            proc(c, "al-inon-pad", [
+                V("alj", "alprm[0] + alprm[1] + alprm[2] + alprm[3]"),
+                If("alj > 0", [Loop("4", "alj", [If("alprm[alj]", [
+                    T("alprm", "alj", "0"), SendL("al-pad-n", ["alj", "alpvn[alj]", "0"]),
+                    SendL("al-pad-g", ["alj", "0.7", "0"]), T("alpg", "alj", "1")])])],
+                   [If("alrun && alusr[2] == 0", [Call("al-def-pad")])])])
+        else:
+            proc(c, f"al-outrel-{L}", [])
+            proc(c, f"al-inon-{L}", [])
+
+
 # ---------------------------------------------------------------------------------------------- pages, layers
 def pages(c):
     proc(c, "al-pgnext", [V("alpage", f"(alpage + 1) % {npages()}"), Call("al-pickreset"), Call("al-popup")])
@@ -224,26 +270,16 @@ def pages(c):
     for li, L in enumerate(LAYERS):
         proc(c, f"al-sel-{L}", [V("allayer", str(li)), V("alview", "0"), V("alpage", "0"), Call("al-pickreset"),
                                 Call("al-popup")] + ([V("alplane", str(li))] if L in LANES else []))
-        proc(c, f"al-mute-{L}", [T("almute", str(li), f"1 - almute[{li}]"), SendL(f"al-mute{li}", [f"almute[{li}]"]),
-                                 Call("al-redraw")])
-    # the percussion key: the lane last shown; again (while a lane is shown): the next lane
-    nl = len(LANES)
-    proc(c, "al-sel-perc", [
-        If(f"alview == 0 && allayer >= {FIRST_LANE}", [V("alplane", f"{FIRST_LANE} + (allayer - {FIRST_LANE} + 1) % {nl}")]),
-        V("allayer", "alplane"), V("alview", "0"), V("alpage", "0"), Call("al-pickreset"), Call("al-popup")])
-    proc(c, "al-mute-perc", [T("almute", "alplane", "1 - almute[alplane]"),
-                             SendL("al-mutel", ["alplane", "almute[alplane]"]), Call("al-redraw")])
-    ml = c.ch(c.recv("al-mutel"), "route " + " ".join(str(i) for i in range(NL)))
-    for i in range(NL):
-        c.c(ml, i, c.obj(f"s al-mute{i}"), 0)
+    layer_switches(c)
     proc(c, "al-global", [If(f"alview == {VIEW_GLOBAL}", [V("alpage", f"(alpage + 1) % {len(M.GLOBAL_PAGES)}")],
                              [V("alview", str(VIEW_GLOBAL)), V("alpage", "0")]), Call("al-pickreset"), Call("al-popup")])
     proc(c, "al-mix", [If(f"alview == {VIEW_MIX}", [V("alpage", f"(alpage + 1) % {len(M.MIX_PAGES)}")],
                           [V("alview", str(VIEW_MIX)), V("alpage", "0")]), V("alpop", "0"), Call("al-pickreset")])
     proc(c, "al-layerview", [V("alview", "0"), V("alpage", "0"), V("alpop", "0"), V("alpatv", "0"),
                              Call("al-pickreset")])
-    proc(c, "al-patview", [V("alpatv", "1 - alpatv"), V("alpop", "0"), Call("al-redraw")])
-    proc(c, "al-latch", [T("allatch", "allayer", "1 - allatch[allayer]"),
+    proc(c, "al-patview", [V("alpatv", "1 - alpatv"), V("alview", "if(alview == 2, 0, alview)"), V("alpop", "0"),
+                           Call("al-pickreset")])
+    proc(c, "al-latch", [If(f"allayer < {FIRST_LANE}", [T("allatch", "allayer", "1 - allatch[allayer]")]),
                          If("allatch[allayer] == 0", [Call("al-unlatch")]), Call("al-redraw")])
     proc(c, "al-unlatch", [
         If("allayer == 0 && aldhc == 0 && aldon", [SendL("al-drone-g", ["0", "0", "0"]), V("aldon", "0")]),
@@ -254,20 +290,24 @@ def pages(c):
         If("allayer == 0", [SendL("al-drone-g", ["0", "0", "0"]), V("aldon", "0"), V("aldhc", "0")]),
         If("allayer == 1", [SendL("al-sub-g", ["0", "0", "0"]), V("alson", "0"), V("alshc", "0")]),
         If("allayer == 2", [Call("al-prelall"), V("alphc", "0")]),
-        If("alrun", [Call("al-chord")]), Call("al-redraw")])
+        If("alrun && alin[allayer]", [Call("al-chord")]), Call("al-redraw")])
     proc(c, "al-notesmode", [V("alnotes", "1 - alnotes"), Call("al-redraw")])
 
 
 # ---------------------------------------------------------------------------------------------- Organelle keys
 # one press each; aux held: the second set. Unlisted keys do nothing yet (later milestones).
-KEYS = {60: "al-sel-drone", 61: "al-mute-drone", 62: "al-sel-sub", 63: "al-mute-sub", 64: "al-sel-pad",
-        65: "al-sel-perc", 66: "al-mute-pad", 67: "al-global", 68: "al-mute-perc", 69: "al-pgprev", 70: "al-latch",
-        71: "al-pgnext", 72: "al-startstop", 73: "al-clear", 74: "al-chordprev", 76: "al-chordnext",
-        75: "al-loop", 77: "al-layerview", 78: "al-loopstop", 79: "al-mix", 80: "al-loopclear", 81: "al-patview",
+# the low white keys: the seven layers - a tap: in / out; held (LAYER_HOLD ms): its pages
+LAYER_KEYS = {60: "drone", 62: "sub", 64: "pad", 65: "perc1", 67: "perc2", 69: "perc3", 71: "perc4"}
+LAYER_HOLD = 400
+# the low black keys: the views; the top octave: playing
+KEYS = {61: "al-layerview", 63: "al-mix", 66: "al-patview", 68: "al-global", 70: "al-pgnext",
+        72: "al-startstop", 73: "al-clear", 74: "al-chordprev", 75: "al-loop", 76: "al-chordnext",
+        77: "al-pgprev", 78: "al-loopstop", 79: "al-pgnext", 80: "al-loopclear", 81: "al-latch",
         83: "al-notesmode"}
 SLOT_KEY = 82          # held: the keys from low C to top D# recall a snapshot (with aux: save); tapped: COMPARE
-AUX_KEYS = {60: "al-sel-drone", 62: "al-sel-sub", 64: "al-sel-pad", 65: "al-sel-perc", 69: "al-pgprev",
-            71: "al-pgnext", 72: "al-startstop", 83: "al-notesmode"}
+# aux held + a layer key: its pages at once (in notes mode too); aux + a few others
+AUX_KEYS = {**{k: f"al-sel-{L}" for k, L in LAYER_KEYS.items()}, 70: "al-pgprev", 72: "al-startstop",
+            83: "al-notesmode"}
 
 
 def organelle(c):
@@ -276,15 +316,27 @@ def organelle(c):
     up = c.to((r, 1), "unpack f f")
     c.c((up, 1), 0, c.obj("v alkvel"), 0)
     c.c((up, 0), 0, c.obj("v alkn"), 0)
-    run_steps(c, (r, 0), [If(f"alkn == {SLOT_KEY}", [
-        If("alkvel > 0", [V("alslh", "1"), V("alslu", "0")],
-           [V("alslh", "0"), If("alslu == 0", [Call("al-compare")])])],
-        [If("alslh && alkvel > 0 && alkn >= 60 && alkn <= 75", [
-            V("alslot", "alkn - 60"), V("alslu", "1"), V("alauxu", "if(alaux, 1, alauxu)"),
-            If("alaux", [Call("al-save")], [Call("al-recall")])],
-            [If("alnotes && alaux == 0", [
-                SendL("al-note", ["allayer", "alkn", "alkvel/127"])], [If("alkvel > 0", [
-                    V("alauxu", "if(alaux, 1, alauxu)"), Send("al-keyfn")])])])])])
+    lk = " || ".join(f"alkn == {k}" for k in LAYER_KEYS)
+    # a layer key pressed: wait - held LAYER_HOLD ms shows its pages; let go before: a tap toggles it in / out
+    key_down = [If(f"alaux == 0 && ({lk})",
+                   [V("alhk", "alkn"), V("alhd", "0"), Arm("al-khold", str(LAYER_HOLD), stop="al-khstop")],
+                   [V("alauxu", "if(alaux, 1, alauxu)"), Send("al-keyfn")])]
+    key_up = [If("alkn == alhk", [Send("al-khstop"), If("alhd == 0", [SendL("al-togk", ["alkn"])]),
+                                  V("alhk", "-1")])]
+    normal = [If("alnotes && alaux == 0", [SendL("al-note", ["allayer", "alkn", "alkvel/127"])],
+                 [If("alkvel > 0", key_down, key_up)])]
+    slots = [If("alslh && alkvel > 0 && alkn >= 60 && alkn <= 75",
+                [V("alslot", "alkn - 60"), V("alslu", "1"), V("alauxu", "if(alaux, 1, alauxu)"),
+                 If("alaux", [Call("al-save")], [Call("al-recall")])], normal)]
+    run_steps(c, (r, 0), [If(f"alkn == {SLOT_KEY}",
+                             [If("alkvel > 0", [V("alslh", "1"), V("alslu", "0")],
+                                 [V("alslh", "0"), If("alslu == 0", [Call("al-compare")])])], slots)])
+    tg = c.ch(c.recv("al-togk"), "route " + " ".join(str(k) for k in LAYER_KEYS))
+    hx = c.ch(c.recv("al-khold"), "t b", "expr alhd = 1; alhk")
+    hl = c.to((hx, 1), "route " + " ".join(str(k) for k in LAYER_KEYS))
+    for i, (k, L) in enumerate(LAYER_KEYS.items()):
+        c.c((tg, i), 0, c.obj(f"s al-tog-{L}"), 0)
+        c.c((hl, i), 0, c.obj(f"s al-sel-{L}"), 0)
     fn = c.ch(c.recv("al-keyfn"), "expr alkn + 100*alaux")
     sel = c.obj("sel " + " ".join(str(k) for k in KEYS) + " " + " ".join(str(k + 100) for k in AUX_KEYS))
     c.c(fn, 0, sel, 0)
@@ -458,7 +510,7 @@ def lane_patterns(c):
                f"12*int((allane[{i}] % 8)/alscn[{m}]))")
         note = (f"if({pm} <= 2, alch[if({pm} == 2, if(allane[{i}] % 6 < 4, allane[{i}] % 6, 6 - allane[{i}] % 6), "
                 f"allane[{i}] % 4)] - 12, if({pm} == 3, alch[0] - 12, if({pm} == 4, alch[2] - 12, {scl})))")
-        steps.append(If(f"allatch[{li}] && alc24 % {rc} == 0 && {euclid(L, f'alc24/{rc} + allrot[{i}]')}", [
+        steps.append(If(f"alin[{li}] && alc24 % {rc} == 0 && {euclid(L, f'alc24/{rc} + allrot[{i}]')}", [
             T("allane", str(i), f"if({pm} == 1 || {pm} == 6, allane[{i}] + 7, allane[{i}] + 1)"),
             V("allv", acc),
             V("allr", swing_ms(L)),
@@ -516,7 +568,7 @@ def gates(c):
         proc(c, f"al-gaterel-{L}", [If(f"{opt(gate)} == 1", off)])
         proc(c, f"al-gateoff-{L}", [Send(f"al-gatestop-{L}"), If(f"{opt(gate)} == 0 && alrun", hold)])
         c.c(c.ch(c.recv(f"al-s{gate}"), "t b"), 0, c.obj(f"s al-gateoff-{L}"), 0)
-    proc(c, "al-gates", [If(f"alrun && {opt(S(L, None, 'Gate'))} == 1 && alc24 % {clocks(S(L, None, 'Rate'))} == 0 "
+    proc(c, "al-gates", [If(f"alrun && alin[{LAYERS.index(L)}] && {opt(S(L, None, 'Gate'))} == 1 && alc24 % {clocks(S(L, None, 'Rate'))} == 0 "
                             f"&& {gate_hit(L)}", [SendL(f"al-gsw-{L}", ["0", swing_ms(L)])])
                          for L in ("drone", "sub", "pad")])
     for L in ("drone", "sub", "pad"):
@@ -560,15 +612,14 @@ def story(c):
         V("alcs", "alstep + 1"), Call("al-chordcalc"), V("alnxr", "alcr"), V("alnxq", "alcq"),
         V("alcs", "alstep"), Call("al-chordcalc"),
         Loop("4", "alj", [T("alch", "alj", f"alct[alj] + {octave('pad')}")]),
-        If("alrun", [
-            If("alusr[0] == 0", [V("aldtn", f"48 + {k} + {octave('drone')}"), V("aldtv", "0.85"),
-                                 Call("al-mono-drone")]),
-            If("alusr[1] == 0", [V("alstn", sub_base), V("alstv", "0.85"), Call("al-mono-sub")]),
-            If("alusr[2] == 0", [Call("al-pbegin"),
-                                 Loop("4", "alci", [V("alptn", "alch[alci]"), V("alptv", "0.7"), V("alpkey", "-1"),
-                                                    Call("al-pnote")]),
-                                 Call("al-pend")])]),
+        If("alrun", [If(f"alusr[{i}] == 0 && alin[{i}]", [Call(f"al-def-{L}")]) for i, L in enumerate(("drone", "sub", "pad"))]),
         Call("al-redraw")])
+    proc(c, "al-def-drone", [V("aldtn", f"48 + {k} + {octave('drone')}"), V("aldtv", "0.85"), Call("al-mono-drone")])
+    proc(c, "al-def-sub", [V("alstn", sub_base), V("alstv", "0.85"), Call("al-mono-sub")])
+    proc(c, "al-def-pad", [Call("al-pbegin"),
+                           Loop("4", "alci", [V("alptn", "alch[alci]"), V("alptv", "0.7"), V("alpkey", "-1"),
+                                              Call("al-pnote")]),
+                           Call("al-pend")])
     proc(c, "al-chordnext", [V("alstep", f"(alstep + 1) % ({ln})"), Call("al-chord")])
     proc(c, "al-chordprev", [V("alstep", f"(alstep + {ln} - 1) % ({ln})"), Call("al-chord")])
     for sl in (key, mode, st, sub_to, voic):

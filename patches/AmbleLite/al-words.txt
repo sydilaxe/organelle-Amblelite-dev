@@ -10,6 +10,7 @@ Sync
 ClkOut
 Evolve
 Morph
+Fade
 Engine
 Level
 Cutoff
@@ -2289,6 +2290,7 @@ B6/9
 +
 GLOBAL
 off
+out
 SAVED
 LOADED
 EMPTY

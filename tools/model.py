@@ -235,7 +235,7 @@ GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opt
                 ("STORY", [Param("Story", 0, opts=[n for n, _, _ in STORIES]), Param("Bars", 3, opts=BARS),
                            Param("SubTo", 1, opts=SUBMODES), Param("Voicng", 0.4)]),
                 ("SYNC", [Param("Sync", 0, opts=["int", "ext"]), Param("ClkOut", 1, opts=ONOFF)]),
-                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3)])]
+                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Fade", 0.62)])]
 # the MIX view's pages: existing slots (layer, name)
 MIX_PAGES = [("MIX 1", [("drone", "Level"), ("sub", "Level"), ("pad", "Level"), ("g", "Volume")]),
              ("MIX 2", [(L, "Level") for L in LANES])]

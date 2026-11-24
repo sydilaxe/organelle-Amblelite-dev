@@ -30,10 +30,13 @@ def mix():
     mL, mR = c.obj("+~"), c.obj("+~")
     for li, L in enumerate(M.LAYERS):
         lvl = M.S(L, None, "Level")
-        g = c.obj(f"expr {level('alpe[%d]' % lvl)}*(1 - almute[{li}])*{TRIM[L]}")
+        g = c.obj(f"expr {level('alpe[%d]' % lvl)}*{TRIM[L]}")
         c.c(c.ch(c.recv(f"al-s{lvl}"), "t b"), 0, g, 0)
-        c.c(c.ch(c.recv(f"al-mute{li}"), "t b"), 0, g, 0)
-        gl = c.ch(g, "pack f 30", "line~")
+        gl0 = c.ch(g, "pack f 30", "line~")
+        # in / out: 'in fade_ms' (control.layer_switches) - the layer fades up or down over the Fade time
+        ins = c.ch(c.recv(f"al-in{li}"), "line~")
+        c.c(c.m(c.recv("al-init"), f"{1 if L in control.IN_AT_START else 0}"), 0, ins, 0)
+        gl = mul(c, gl0, ins)
         if M.kind(L) == "perc":       # (no Pan page: the lanes' voices spread themselves)
             bl, br = gl, gl
         else:

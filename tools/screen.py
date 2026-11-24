@@ -80,6 +80,8 @@ LINES.append("GLOBAL")
 OFF["global"] = len(LINES) - 1
 LINES.append("off")
 OFF["off"] = len(LINES) - 1
+LINES.append("out")
+OFF["out"] = len(LINES) - 1
 from features import TOASTS
 OFF["toast"] = len(LINES)
 LINES += TOASTS
@@ -133,9 +135,9 @@ def build(c):
         L = LAYERS[li]
         row(c, f"al-r-l{li}", 0, 22 + 10 * li, [
             ("w", f"if(allayer == {li}, {misc('>')}, {misc('-')})"), ("w", f"{OFF['layer']} + {li}"),
-            ("w", f"{OFF['eng-' + L]} + aleng[{li}]"), ("w", f"if(almute[{li}], {misc('M')}, {OFF['loopst']} + allps[{li}])")])
+            ("w", f"{OFF['eng-' + L]} + aleng[{li}]"), ("w", f"if(alin[{li}] == 0, {OFF['out']}, {OFF['loopst']} + allps[{li}])")])
     # the percussion row: the lane last shown, its engine, and which lanes play (their numbers; '.' silent)
-    lanes_on = " + ".join(f"{2 ** i}*(allatch[{fl + i}] && almute[{fl + i}] == 0)" for i in range(nl))
+    lanes_on = " + ".join(f"{2 ** i}*alin[{fl + i}]" for i in range(nl))
     row(c, "al-r-perc", 0, 52, [
         ("w", f"if(allayer >= {fl}, {misc('>')}, {misc('-')})"), ("w", f"{OFF['layer']} + alplane"),
         ("w", eng_word("alplane")), ("w", f"{OFF['lanes']} + {lanes_on}")])
@@ -149,7 +151,8 @@ def build(c):
                  SendL(OSC, [str(23 + 10 * li), f"max(1, int(alp[{lvl}]*20))"], "/oled/gFillArea 3 106 $1 $2 5 1")]
     play += [Call("al-r-perc")]
     # ---- layer view
-    lay = [Call("al-r-lhead"), Call("al-r-page")]
+    lay = [If("alview", [Call("al-r-ghead")], [Call("al-r-lhead")]), Call("al-r-page")]
+    row(c, "al-r-ghead", 0, 0, [("w", f"{OFF['global']}")])
     row(c, "al-r-lhead", 0, 0, [("w", f"if(alview, {OFF['global']}, {OFF['layer']} + allayer)"),
                                 ("w", f"if(alview, {misc('-')}, {eng_word('allayer')})")])
     row(c, "al-r-page", 0, 11, [("w", f"{OFF['page']} + {ctx()}*{M.MAXPAGES} + alpage"),
@@ -158,7 +161,7 @@ def build(c):
         row(c, f"al-r-k{k}", 0, 22 + 10 * k, [("w", f"if(alsl{k} < 0, {misc('-')}, {OFF['name']} + alsl{k})"),
                                               ("v", k)])
         lay += [Call(f"al-r-k{k}"),
-                If(f"alsl{k} >= 0 && aln[alsl{k}] <= 0",
+                If(f"alsl{k} >= 0 && (aln[alsl{k}] == 0 || aln[alsl{k}] == -1)",
                    [SendL(OSC, [str(23 + 10 * k), f"max(1, int(alp[alsl{k}]*46))"],
                           "/oled/gFillArea 3 80 $1 $2 5 1")])]
     # ---- mix view: every layer's level as a column, the master volume at the right; the shown page's columns
@@ -185,9 +188,11 @@ def build(c):
     for li, L in enumerate(LAYERS):
         lvl = S(L, None, "Level")
         x = 2 + 15 * li
-        mixv += [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(1, int(alp[{lvl}]*38))"],
-                       "/oled/gFillArea 3 $1 $2 10 $3 1"),
-                 If(f"almute[{li}]", [Fill(x, 13, 10, 1, 1)])]
+        # (a layer out: its column hollow)
+        mixv += [If(f"alin[{li}]", [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(1, int(alp[{lvl}]*38))"],
+                                          "/oled/gFillArea 3 $1 $2 10 $3 1")],
+                    [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(2, int(alp[{lvl}]*38))"],
+                           "/oled/gBox 3 $1 $2 10 $3 1")])]
     vol = S("g", None, "Volume")
     mixv += [SendL(OSC, [f"52 - int(alp[{vol}]*38)", f"max(1, int(alp[{vol}]*38))"], "/oled/gFillArea 3 112 $1 14 $2 1")]
     mixv += [Send(OSC, "/oled/gPrintln 3 0 55 8 1 " + " ".join(M.SHORT[L] for L in LAYERS) + " V")]
@@ -199,7 +204,7 @@ def build(c):
     # ---- pattern view: a row per layer (its gate or lane pattern), hits as boxes, the length as a tick; a
     # playhead under each row, moved every 16th (al-patmark)
     def row_on(r):
-        return f"if({r} < 3, alp[alrg[{r}]] >= 0.5, allatch[{r}])"
+        return f"alin[{r}] && if({r} < 3, alp[alrg[{r}]] >= 0.5, 1)"
     hits = "int(1 + alp[alrh[alpr]]*15 + 0.5)"
     steps = "int(2 + alp[alrs[alpr]]*14 + 0.5)"
     cell = f"(alpc2*{hits}) % {steps} < {hits}"

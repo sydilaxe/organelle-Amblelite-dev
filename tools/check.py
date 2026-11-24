@@ -12,7 +12,8 @@ FAILS = []
 
 
 def solo(L, t=60):
-    return [(t + i, f"al-mute-{o} bang") for i, o in enumerate(M.LAYERS) if o != L]
+    """only L in (every other layer out; L in)"""
+    return [(t + i, f"al-inset {i} {1 if o == L else 0}") for i, o in enumerate(M.LAYERS)]
 
 
 def seg(a, t0, t1):
@@ -135,9 +136,7 @@ def main():
 
     # the lanes: all four on, each at its own density (perc2 3/8 in 8ths, perc3 2/5 in quarters stacked, perc4
     # 7/16 in 16ths); perc1 in 8th triplets
-    on = []
-    for i, L in enumerate(M.LANES[1:]):
-        on += [(20 + 2 * i, f"al-sel-{L} bang"), (21 + 2 * i, "al-latch bang")]
+    on = [(20 + i, f"al-inset {M.LAYERS.index(L)} 1") for i, L in enumerate(M.LANES[1:])]
     on += [(40, f"al-set {M.S('perc1', None, 'Rate')} {(2 + 0.5) / 6}"),
            (41, f"al-set {M.S('perc3', None, 'Pitch')} {(7 + 0.5) / 8}")]
     log, a = H.run(on + [START], 5, d=d, keep=True, prints=tuple(f"al-{L}-hit" for L in M.LANES))
@@ -257,6 +256,16 @@ def main():
     gaps = np.diff(on_) * hop / SR
     alt = np.mean(np.abs(np.diff(gaps))) if len(gaps) > 3 else 0
     check("swing alternates the steps", alt > 0.04, f"gaps {[round(g, 3) for g in gaps[:6]]} s")
+
+    # in / out: a tap on low C takes the drone out (it fades over Fade: about 1.8 s), another brings it back; a
+    # hold (on low D) shows the sub's pages and leaves it in
+    ev4 = solo("drone") + [START, (2000, "notesRaw 60 100"), (2050, "notesRaw 60 0"), (6000, "notesRaw 60 100"),
+                           (6050, "notesRaw 60 0"), (6500, "notesRaw 62 100"), (7100, "notesRaw 62 0")]
+    log, a = H.run(ev4, 9, d=d, keep=True, prints=("oscOut",))
+    r1, r2, r3 = H.rms_db(seg(a, 1.5, 2)), H.rms_db(seg(a, 4.5, 5.5)), H.rms_db(seg(a, 8.3, 8.9))
+    held = any("gPrintln 3 0 0 8 1 SUB" in l for l in log.splitlines())
+    check("a tap takes a layer out and back in; a hold shows its pages", r1 > -40 and r2 < -80 and r3 > -40 and held,
+          f"{r1:.1f} -> out {r2:.1f} -> in {r3:.1f} dB, hold shows pages: {held}")
 
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()

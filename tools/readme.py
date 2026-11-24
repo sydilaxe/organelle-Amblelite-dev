@@ -1,16 +1,15 @@
 """The patch's README.txt (how to play it), from the same tables as the patch."""
 import model as M
-from control import KEYS, AUX_KEYS
+from control import KEYS, AUX_KEYS, LAYER_KEYS, LAYER_HOLD
 
 NAMES = {60: "C", 61: "C#", 62: "D", 63: "D#", 64: "E", 65: "F", 66: "F#", 67: "G", 68: "G#", 69: "A", 70: "A#",
          71: "B"}
-WHAT = {"al-sel-drone": "show the DRONE", "al-sel-sub": "show the SUB", "al-sel-pad": "show the PADS",
-        "al-sel-perc": "show a PERC lane (again: the next lane)", "al-mute-drone": "mute the drone", "al-mute-sub": "mute the sub",
-        "al-mute-pad": "mute the pads", "al-mute-perc": "mute the percussion lane last shown",
+WHAT = {**{f"al-sel-{L}": f"show the {M.LAYER_LABEL[L]} pages" for L in M.LAYERS},
         "al-global": "the MAIN / STORY / SYNC / PERFRM pages (again: the next one)", "al-pgprev": "page back",
-        "al-pgnext": "page forward", "al-latch": "latch on / off for the shown layer (PERC: its pattern)",
+        "al-pgnext": "page forward", "al-latch": "latch on / off for the shown layer (drone, sub, pads)",
         "al-startstop": "start / stop", "al-clear": "clear the shown layer (back to its default)",
-        "al-chordprev": "previous chord", "al-chordnext": "next chord", "al-layerview": "the play view (back from MIX / pattern)",
+        "al-chordprev": "previous chord", "al-chordnext": "next chord",
+        "al-layerview": "the play view (back from MIX / pattern / pages)",
         "al-mix": "the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)",
         "al-patview": "the pattern view on / off: every gate and lane as steps",
         "al-loop": "the shown layer's looper: record, then play, overdub, play ...",
@@ -24,8 +23,11 @@ def key(k):
 
 def text():
     out = ["AMBLE LITE", "==========", "",
-           "Drone, sub, pads and percussion for real-time building. Loads silent: top C starts and stops.", "",
-           "ORGANELLE KEYS (one press each)"]
+           "Drone, sub, pads and four percussion lanes for real-time building. Loads silent: top C starts and stops.", "",
+           "THE LAYERS: the low white keys, one each. A tap: the layer in / out (it fades over the PERFRM page's",
+           f"Fade time; out, a loop keeps its place, silent). Held ({LAYER_HOLD} ms): its parameter pages."]
+    out += [f"  {key(k):8} {M.LAYER_LABEL[L]}" for k, L in sorted(LAYER_KEYS.items())]
+    out += ["", "THE OTHER KEYS (one press each): the low black keys the views, the top octave playing"]
     out += [f"  {key(k):8} {WHAT[v]}" for k, v in sorted(KEYS.items())]
     out += ["  top A#   held + a key from low C to top D#: recall snapshot 1 - 16 (with aux: save it);",
             "           tapped alone: COMPARE (back to the sound before the recall; again: forward)"]

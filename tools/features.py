@@ -138,7 +138,7 @@ def saves(c):
     c.c(c.m(c.recv("al-init"), " ".join(str(x) for x in fav)), 0, c.obj("array set alfavix"), 0)
     proc(c, "al-gather", [
         ACopy("alp", 0, NSLOTS, "alsnap", 0), ACopy("allatch", 0, NL, "alsnap", NSLOTS),
-        ACopy("almute", 0, NL, "alsnap", NSLOTS + NL),
+        ACopy("alin", 0, NL, "alsnap", NSLOTS + NL),
         Loop(str(FAVN), "alsi", [T("alsnap", f"{NSLOTS + 2 * NL} + alsi", "alks[alfavix[alsi]]")])])
     # write line n of saves.txt from alsnap (array get -> text set: the line replaced), then the file
     wr = c.to(c.recv("al-snapwrite"), "t b f")
@@ -173,9 +173,9 @@ def saves(c):
     # apply alsnap: latches, mutes, FAV pages at once; the choices at once; the rest glides (or all at once)
     proc(c, "al-apply", [
         Loop(str(NL), "alsi", [T("allatch", "alsi", f"alsnap[{NSLOTS} + alsi]"),
-                               If(f"almute[alsi] != alsnap[{NSLOTS + NL} + alsi]", [
-                                   T("almute", "alsi", f"alsnap[{NSLOTS + NL} + alsi]"),
-                                   SendL("al-mutel", ["alsi", "almute[alsi]"])])]),
+                               # (layers in or out: each fades with the Fade time)
+                               If(f"alin[alsi] != alsnap[{NSLOTS + NL} + alsi]", [
+                                   SendL("al-inset", ["alsi", f"alsnap[{NSLOTS + NL} + alsi]"])])]),
         Loop(str(FAVN), "alsi", [T("alks", "alfavix[alsi]", f"alsnap[{NSLOTS + 2 * NL} + alsi]")]),
         V("almcnt", "0"), V("almdur", mms),
         Loop(str(NSLOTS), "alsi", [If("abs(alsnap[alsi] - alp[alsi]) > 0.0005", [
@@ -264,10 +264,11 @@ def looper(c):
             V("allpos", f"(alc24 - allp0[{li}]) % allpl[{li}]"),
             If("allpos == 0", [T("allpi", str(li), "0"), T("allpx", str(li), "alcr")]),
             Loop("6", "alli", [If(f"allpi[{li}] < allpc[{li}] && allpt[{base} + allpi[{li}]] == allpos", [
-                # (follow: moved by the nearest step from the chord it was played over to the cycle's chord)
-                SendL(f"al-in-{L}", [f"allpn[{base} + allpi[{li}]] + if({fol} == 0, "
+                # (follow: moved by the nearest step from the chord it was played over to the cycle's chord;
+                # a layer out: its loop keeps its place, silent)
+                If(f"alin[{li}]", [SendL(f"al-in-{L}", [f"allpn[{base} + allpi[{li}]] + if({fol} == 0, "
                                      f"(allpx[{li}] - allpq[{base} + allpi[{li}]] + 18) % 12 - 6, 0)",
-                                     f"allpv[{base} + allpi[{li}]]*alpe[{S(L, None, 'LpVel')}]/0.8"]),
+                                     f"allpv[{base} + allpi[{li}]]*alpe[{S(L, None, 'LpVel')}]/0.8"])]),
                 T("allpi", str(li), f"allpi[{li}] + 1")])]),
             # a first recording with a set length closes by itself
             If(f"allps[{li}] == 1 && allpl[{li}] > 0 && alc24 - allp0[{li}] >= allpl[{li}]", [

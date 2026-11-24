@@ -19,7 +19,7 @@ def build_tmp():
     return d
 
 
-def run(events, seconds, prints=("oscOut",), d=None, keep=False):
+def run(events, seconds, prints=("oscOut",), d=None, keep=False, extra=None):
     own = d is None
     if own:
         d = build_tmp()
@@ -55,6 +55,8 @@ def run(events, seconds, prints=("oscOut",), d=None, keep=False):
     c.c(z, 0, c.obj("s~ inL", 700, 90), 0)
     c.c(z, 0, c.obj("s~ inR", 800, 90), 0)
     c.obj("main", 20, 250)
+    if extra:
+        extra(c)
     for n in prints:
         c.c(c.obj("r " + n), 0, c.obj("print " + n), 0)
     c.save(os.path.join(d, "h_test.pd"))
