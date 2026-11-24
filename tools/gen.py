@@ -13,7 +13,7 @@ from dsp import mul, add
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "patches", "AmbleLite")
-TRIM = dict(drone=0.8, sub=0.9, pad=0.7, perc=0.8)      # the layers' balance at Level 50 %
+TRIM = dict(drone=0.8, sub=0.9, pad=0.7, perc1=0.8, perc2=0.7, perc3=0.7, perc4=0.6)   # the balance at Level 50 %
 
 
 def level(v):
@@ -33,7 +33,7 @@ def mix():
         c.c(c.ch(c.recv(f"al-s{lvl}"), "t b"), 0, g, 0)
         c.c(c.ch(c.recv(f"al-mute{li}"), "t b"), 0, g, 0)
         gl = c.ch(g, "pack f 30", "line~")
-        if L == "perc":       # (no Pan page: the voices spread themselves)
+        if M.kind(L) == "perc":       # (no Pan page: the lanes' voices spread themselves)
             bl, br = gl, gl
         else:
             pan = M.S(L, None, "Pan")
@@ -95,7 +95,8 @@ def build(out=OUT):
     main.save(os.path.join(out, "main.pd"))
     for L, v in voices.items():
         v.save(os.path.join(out, f"al-{L}.pd"))
-    open(os.path.join(out, "al-words.txt"), "w").write("".join(w + "\n" for w in screen.LINES))
+    # (a space escaped: a page name like WOOD 1 stays one word)
+    open(os.path.join(out, "al-words.txt"), "w").write("".join(w.replace(" ", "\\ ") + "\n" for w in screen.LINES))
     wavetables.write(os.path.join(out, "waves", "factory"))
     open(os.path.join(out, "pd-opts.txt"), "w").write("-audiobuf 25\n")
     import readme

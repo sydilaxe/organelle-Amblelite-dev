@@ -1,25 +1,33 @@
-"""Control: parameters, knobs (with pickup), pages, the Organelle keys, MIDI in, notes to voices, the transport and
-clock, the percussion pattern and the chord story. Written in pdlib steps (proc / V / T / If / Loop / SendL):
-[r name] -> steps in order, over global [value]s (al<word>) and arrays."""
-from pdlib import Canvas, proc, X, V, T, Send, Call, SendL, If, Loop, run_steps, Later
-import model as M
-from model import S, LAYERS, MAXENG, MAXPAGES, GLOBAL_LAYER, NSLOTS
+"""Control: parameters, knobs (with pickup), pages and views, the Organelle keys, MIDI in, notes to voices, the
+transport and clock, the percussion lanes' patterns, the gates, the chord story and Evolve. Written in pdlib steps
+(proc / V / T / If / Loop / SendL): [r name] -> steps in order, over global [value]s (al<word>) and arrays.
 
-LX = {"drone": "d", "sub": "s", "pad": "p", "perc": "c"}
-NV = M.VOICES
+Layers by number: 0 drone, 1 sub, 2 pads, 3..6 the percussion lanes (model.LAYERS)."""
+from pdlib import Canvas, proc, V, T, Send, Call, SendL, If, Loop, run_steps, Later, Arm
+import model as M
+from model import S, LAYERS, LANES, MAXENG, MAXPAGES, GLOBAL_LAYER, NSLOTS
+
+NL = len(LAYERS)
+LX = {"drone": "d", "sub": "s"}
+FIRST_LANE = LAYERS.index(LANES[0])
+VIEW_LAYER, VIEW_GLOBAL, VIEW_MIX = 0, 1, 2
 # globals and their start values (each gets a [v name])
 GLOBALS = dict(allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
-               alstep=0, alclock=0, alrr=0, alpc=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
-               alss=0, alsv=0, alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0,
+               alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
+               alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0, alcb=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
-               alstv=0, alcn=0, alcv=0, alpn=0, alpv2=0, alext=0, alcur0=-1, alcur1=-1, ali=0, alci=0, alcd=0,
-               altime=0, alel=0, alek=0, aled=0, alep=100, alet2=0, alesl=0, alenew=0)
+               alstv=0, alpn=0, alpv2=0, alcur0=-1, alcur1=-1, ali=0, alci=0, alcd=0, alcst=0,
+               altime=0, alel=0, alek=0, aled=0, alep=100, alet2=0, alesl=0, alenew=0, alplane=FIRST_LANE,
+               alln=0, allv=0, allr=0, allm=0, alpatv=0, alpr=0, alpc2=0)
 for k in range(4):
     GLOBALS.update({f"alsl{k}": -1, f"allat{k}": 0, f"alpv{k}": -1})
-ARRAYS = dict(alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alks=0, alnp=0, aleng=4, alusr=4,
-              allatch=4, almute=4, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
-              alscn=len(M.MODES), alsd=len(M.STORIES) * 8, alsdl=len(M.STORIES), alsm=len(M.MODES) * 8,
-              alsml=len(M.MODES), alpe=NSLOTS, alem=NSLOTS, alet=0, alew=0, alevs=4, alevp=4, alevy=4)
+for L in LANES:
+    GLOBALS.update({f"al{L}n": 0, f"al{L}v": 0})
+ARRAYS = dict(alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alks=0, alnp=0, aleng=NL, alusr=NL,
+              allatch=NL, almute=NL, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
+              alscn=len(M.MODES), alsk=0, alsd=0, alsr=0, alsy=0, alsdl=0, alsm=len(M.MODES) * 8,
+              alsml=len(M.MODES), alty=0, altq=0, alpe=NSLOTS, alem=NSLOTS, alet=0, alew=0, alevs=0, alevp=0,
+              alevy=0, allane=4, allrot=4, allrr=4)
 
 
 def opt(slot, n=None):
@@ -37,20 +45,41 @@ def octave(L):
     return f"12*({opt(S(L, None, 'Octave'))} - 3)"
 
 
+def pick(values, idx):
+    out = str(values[-1])
+    for i in range(len(values) - 2, -1, -1):
+        out = f"if({idx} == {i}, {values[i]}, {out})"
+    return out
+
+
 def ctx():
-    """the knob table index of the shown pages: (layer or the global pages) x engine"""
-    return f"(if(alview, {GLOBAL_LAYER}, allayer)*{MAXENG} + if(alview, 0, aleng[allayer]))"
+    """the knob table index of the shown pages: (a layer, the global pages or the mix pages) x engine"""
+    return (f"(if(alview == {VIEW_GLOBAL}, {GLOBAL_LAYER}, if(alview == {VIEW_MIX}, {GLOBAL_LAYER + 1}, allayer))"
+            f"*{MAXENG} + if(alview, 0, aleng[allayer]))")
 
 
 def npages():
     return f"alnp[{ctx()}]"
 
 
+def clocks(slot):
+    """a Rate choice as MIDI clocks a step"""
+    return pick(M.RATE_CLOCKS, opt(slot))
+
+
+def euclid(L, step):
+    """whether step (an expression) is a hit of layer L's pattern: hits spread evenly over steps, rotated"""
+    hits, steps, rot = (S(L, None, n) for n in ("Hits", "Steps", "Rotate"))
+    idx = f"((({step}) + {num(rot)}) % {num(steps)})"
+    return f"(({idx}*{num(hits)}) % {num(steps)} < {num(hits)})"
+
+
 # ---------------------------------------------------------------------------------------------- tables at load
 def tables(c):
     ks, np_, pnames = M.knob_table()
     n, lo, hi, ob, opts, names = M.slot_meta()
-    rows = dict(alp=[p.default for _, p in M.SLOTS], alpe=[p.default for _, p in M.SLOTS], aln=n, allo=lo, alhi=hi, alob=ob, alks=ks, alnp=np_)
+    rows = dict(alp=[p.default for _, p in M.SLOTS], alpe=[p.default for _, p in M.SLOTS], aln=n, allo=lo, alhi=hi,
+                alob=ob, alks=ks, alnp=np_)
     sc, scn, sm, sml = [], [], [], []
     for name, iv in M.MODES:
         sc += (iv + iv)[:7]
@@ -58,31 +87,46 @@ def tables(c):
         deg, ln = M.story_degrees(None, name)
         sm += deg
         sml.append(ln)
-    sd, sdl = [], []
-    for name, st in M.STORIES:
-        deg, ln = M.story_degrees(st or [0], "ionian")
-        sd += deg
+    sk, sd, sr, sy, sdl = [], [], [], [], []
+    for name, k, data in M.STORIES:
+        if k == "deg":
+            deg, ln = M.story_degrees(data or [0], "ionian")
+            sk.append(0)
+            sd += deg
+            sr += [0] * M.STORY_LEN
+            sy += [0] * M.STORY_LEN
+        else:
+            roots, types, ln = M.story_chords(data)
+            sk.append(1)
+            sd += [0] * M.STORY_LEN
+            sr += roots
+            sy += types
         sdl.append(ln)
-    rows.update(alsc=sc, alscn=scn, alsm=sm, alsml=sml, alsd=sd, alsdl=sdl, allatch=[1, 1, 1, 1])
-    et, ew = [-1] * ((len(LAYERS) + 1) * MAXENG * M.EVOLVE_MAX), [0] * ((len(LAYERS) + 1) * MAXENG * M.EVOLVE_MAX)
+    ty, tq = [], []
+    for name in M.TYPE_NAMES:
+        iv, q = M.CHORD_TYPES[name]
+        ty += iv
+        tq.append(q)
+    rows.update(alsc=sc, alscn=scn, alsm=sm, alsml=sml, alsk=sk, alsd=sd, alsr=sr, alsy=sy, alsdl=sdl, alty=ty,
+                altq=tq, allatch=[1, 1, 1] + [1 if L == LANES[0] else 0 for L in LANES])
+    et = [-1] * ((NL + 2) * MAXENG * M.EVOLVE_MAX)
+    ew = [0] * ((NL + 2) * MAXENG * M.EVOLVE_MAX)
     for li, L in enumerate(LAYERS):
-        for ei, (e, _) in enumerate(M.ENGINES[L]):
-            for k, (pn, w) in enumerate(M.EVOLVE[(L, e)]):
+        for ei, (e, _) in enumerate(M.engines(L)):
+            for k, (pn, w) in enumerate(M.EVOLVE[(M.kind(L), e)]):
                 et[(li * MAXENG + ei) * M.EVOLVE_MAX + k] = S(L, None, "Cutoff") if pn is None else S(L, e, pn)
                 ew[(li * MAXENG + ei) * M.EVOLVE_MAX + k] = w
     rows.update(alet=et, alew=ew, alevs=[S(L, None, "Evolve") for L in LAYERS],
                 alevp=[S(L, None, "Pace") for L in LAYERS], alevy=[S(L, None, "EvSync") for L in LAYERS])
-    c.comment("the tables: parameters (alp) and their kinds, the knob pages, scales and chord stories (tools/model.py)")
+    c.comment("the tables: parameters (alp) and their kinds, the knob pages, scales, chord stories (tools/model.py)")
     for name, size in ARRAYS.items():
         size = size or len(rows[name])
         c.obj(f"array define {name} {size}")
     init = c.ch(c.recv("al-init"), "t b b b")
     for name, vals in rows.items():
         c.c(c.m((init, 2), " ".join(f"{v:g}" for v in vals)), 0, c.obj(f"array set {name}"), 0)
-    for t in ("al-words",):
-        tx = c.obj(f"text define {t}")
-        c.c(c.m((init, 1), f"read -c {t}.txt"), 0, tx, 0)
-    # the wavetable bank
+    tx = c.obj("text define al-words")
+    c.c(c.m((init, 1), "read -c al-words.txt"), 0, tx, 0)
     from wavetables import TABLES
     for tn, _, _ in TABLES:
         c.obj(f"array define alwt-{tn} 2051")
@@ -91,23 +135,23 @@ def tables(c):
 
 
 def words():
-    """the screen's words, one per line of al-words.txt: slot names, options, page names, notes, modes, layers,
-    chord qualities. Returns (lines, offsets)"""
+    """the screen's words, one per line of al-words.txt. Returns (lines, offsets)"""
     n, lo, hi, ob, opts, names = M.slot_meta()
     ks, np_, pnames = M.knob_table()
     off, lines = {}, []
     for key, items in (("name", names), ("opt", opts), ("page", pnames), ("note", M.NOTE_NAMES),
                        ("mode", [m for m, _ in M.MODES]), ("layer", [M.LAYER_LABEL[L] for L in LAYERS]),
-                       ("qual", QUALS), ("misc", ["-", "RUN", "STOP", "M", ">", "NOTES", "LAT"])):
+                       ("short", [M.SHORT[L] for L in LAYERS]), ("qual", M.QUALS),
+                       ("misc", ["-", "RUN", "STOP", "M", ">", "NOTES", "LAT"])):
         off[key] = len(lines)
         lines += [w if w else "-" for w in items]
     for L in LAYERS:
         off["eng-" + L] = len(lines)
-        lines += [e for e, _ in M.ENGINES[L]]
+        lines += [e for e, _ in M.engines(L)]
     return lines, off
 
 
-QUALS = ["", "m", "dim", "+", "sus"]
+QUALS = M.QUALS
 
 
 # ---------------------------------------------------------------------------------------------- parameters
@@ -123,11 +167,10 @@ def params(c):
     snd = c.obj("s")
     c.c(c.to((o, 1), "makefilename al-s%d"), 0, snd, 1)
     c.c(c.to((o, 0), "expr alpe[$f1]"), 0, snd, 0)
-    # every parameter out once at load
     proc(c, "al-sendall", [Loop(str(NSLOTS), "ali", [SendL("al-set", ["ali", "alp[ali]"])])])
     # an engine change: the layer's pages change - keep the page in range, pick up the knobs again
     for li, L in enumerate(LAYERS):
-        ne = len(M.ENGINES[L])
+        ne = len(M.engines(L))
         e = c.ch(c.recv(f"al-s{S(L, None, 'Engine')}"), f"expr min({ne - 1}, int($f1*{ne}))")
         tw2 = c.obj("tabwrite aleng")
         c.c(c.m(c.obj("loadbang"), str(li)), 0, tw2, 1)
@@ -140,16 +183,15 @@ def params(c):
 # ---------------------------------------------------------------------------------------------- knobs
 def knobs(c):
     c.comment("the 4 knobs: each acts on its slot on the shown page once it has passed the stored value (pickup)")
-    proc(c, "al-pickreset", [V(f"allat{k}", "0") for k in range(4)] + [Call("al-redraw")])
+    proc(c, "al-pickreset", [V(f"allat{k}", "0") for k in range(4)] +
+         [V(f"alsl{k}", f"alks[({ctx()}*{MAXPAGES} + alpage)*4 + {k}]") for k in range(4)] + [Call("al-redraw")])
     for k in range(4):
         sc = Canvas(f"knob{k + 1}", w=1200)
         c.sub(sc)
         t = sc.ch(sc.recv(f"knob{k + 1}"), "t f f f")
-        sl = sc.obj(f"expr alsl{k} = alks[({ctx()}*{MAXPAGES} + alpage)*4 + {k}]")
-        sc.c(t, 2, sl, 0)
-        dec = sc.obj(f"expr allat{k} = if(alsl{k} < 0, 0, allat{k} || abs($f1 - alp[alsl{k}]) < 0.025 || "
-                     f"(alpv{k} >= 0 && (alpv{k} - alp[alsl{k}])*($f1 - alp[alsl{k}]) <= 0))")
-        sc.c(t, 1, dec, 0)
+        sc.c(t, 2, sc.obj(f"expr alsl{k} = alks[({ctx()}*{MAXPAGES} + alpage)*4 + {k}]"), 0)
+        sc.c(t, 1, sc.obj(f"expr allat{k} = if(alsl{k} < 0, 0, allat{k} || abs($f1 - alp[alsl{k}]) < 0.025 || "
+                          f"(alpv{k} >= 0 && (alpv{k} - alp[alsl{k}])*($f1 - alp[alsl{k}]) <= 0))"), 0)
         t2 = sc.to((t, 0), "t f f")
         sc.c((t2, 1), 0, sc.obj(f"v alpv{k}"), 0)
         g = sc.ch((t2, 0), f"expr if(allat{k}, $f1, -1)", "moses 0")
@@ -159,7 +201,8 @@ def knobs(c):
         sc.c((tt, 1), 0, sc.obj("s al-popup"), 0)
         sc.c((tt, 0), 0, lp, 0)
         sc.c(lp, 0, sc.obj("s al-set"), 0)
-    proc(c, "al-popup", [V("alpop", "1"), Later("al-popoff", 5000)])
+    proc(c, "al-popup", [If(f"alview != {VIEW_MIX}", [V("alpop", "1"), Later("al-popoff", 5000)],
+                            [Call("al-redraw")])])
     proc(c, "al-popoff", [V("alpop", "0"), Call("al-redraw")])
 
 
@@ -170,11 +213,26 @@ def pages(c):
                           Call("al-popup")])
     for li, L in enumerate(LAYERS):
         proc(c, f"al-sel-{L}", [V("allayer", str(li)), V("alview", "0"), V("alpage", "0"), Call("al-pickreset"),
-                                Call("al-popup")])
+                                Call("al-popup")] + ([V("alplane", str(li))] if L in LANES else []))
         proc(c, f"al-mute-{L}", [T("almute", str(li), f"1 - almute[{li}]"), SendL(f"al-mute{li}", [f"almute[{li}]"]),
                                  Call("al-redraw")])
-    proc(c, "al-global", [If("alview", [V("alpage", f"(alpage + 1) % {len(M.GLOBAL_PAGES)}")],
-                             [V("alview", "1"), V("alpage", "0")]), Call("al-pickreset"), Call("al-popup")])
+    # the percussion key: the lane last shown; again (while a lane is shown): the next lane
+    nl = len(LANES)
+    proc(c, "al-sel-perc", [
+        If(f"alview == 0 && allayer >= {FIRST_LANE}", [V("alplane", f"{FIRST_LANE} + (allayer - {FIRST_LANE} + 1) % {nl}")]),
+        V("allayer", "alplane"), V("alview", "0"), V("alpage", "0"), Call("al-pickreset"), Call("al-popup")])
+    proc(c, "al-mute-perc", [T("almute", "alplane", "1 - almute[alplane]"),
+                             SendL("al-mutel", ["alplane", "almute[alplane]"]), Call("al-redraw")])
+    ml = c.ch(c.recv("al-mutel"), "route " + " ".join(str(i) for i in range(NL)))
+    for i in range(NL):
+        c.c(ml, i, c.obj(f"s al-mute{i}"), 0)
+    proc(c, "al-global", [If(f"alview == {VIEW_GLOBAL}", [V("alpage", f"(alpage + 1) % {len(M.GLOBAL_PAGES)}")],
+                             [V("alview", str(VIEW_GLOBAL)), V("alpage", "0")]), Call("al-pickreset"), Call("al-popup")])
+    proc(c, "al-mix", [If(f"alview == {VIEW_MIX}", [V("alpage", f"(alpage + 1) % {len(M.MIX_PAGES)}")],
+                          [V("alview", str(VIEW_MIX)), V("alpage", "0")]), V("alpop", "0"), Call("al-pickreset")])
+    proc(c, "al-layerview", [V("alview", "0"), V("alpage", "0"), V("alpop", "0"), V("alpatv", "0"),
+                             Call("al-pickreset")])
+    proc(c, "al-patview", [V("alpatv", "1 - alpatv"), V("alpop", "0"), Call("al-redraw")])
     proc(c, "al-latch", [T("allatch", "allayer", "1 - allatch[allayer]"),
                          If("allatch[allayer] == 0", [Call("al-unlatch")]), Call("al-redraw")])
     proc(c, "al-unlatch", [
@@ -195,7 +253,7 @@ def pages(c):
 KEYS = {60: "al-sel-drone", 61: "al-mute-drone", 62: "al-sel-sub", 63: "al-mute-sub", 64: "al-sel-pad",
         65: "al-sel-perc", 66: "al-mute-pad", 67: "al-global", 68: "al-mute-perc", 69: "al-pgprev", 70: "al-latch",
         71: "al-pgnext", 72: "al-startstop", 73: "al-clear", 74: "al-chordprev", 76: "al-chordnext",
-        77: "al-popoff", 83: "al-notesmode"}
+        77: "al-layerview", 79: "al-mix", 81: "al-patview", 83: "al-notesmode"}
 AUX_KEYS = {60: "al-sel-drone", 62: "al-sel-sub", 64: "al-sel-pad", 65: "al-sel-perc", 69: "al-pgprev",
             71: "al-pgnext", 72: "al-startstop", 83: "al-notesmode"}
 
@@ -223,8 +281,8 @@ def organelle(c):
 
 # ---------------------------------------------------------------------------------------------- MIDI in
 def midi_in(c):
-    c.comment("MIDI notes: channel 1 (and 6 - 16) play the shown layer; channels 2 - 5 the drone, sub, pads, "
-              "percussion. [r al-midi] 'note vel ch' also lets the tests play.")
+    c.comment("MIDI notes: channel 1 (and 9 - 16) play the shown layer; channels 2 - 8 the drone, sub, pads and "
+              "percussion lanes 1 - 4. [r al-midi] 'note vel ch' also lets the tests play.")
     n = c.obj("notein")
     pk = c.obj("pack f f f")
     c.c((n, 2), 0, pk, 2)
@@ -235,8 +293,9 @@ def midi_in(c):
     up = c.to((r, 1), "unpack f f f")
     for i, nm in enumerate(("almn", "almv", "almc")):
         c.c((up, i), 0, c.obj(f"v {nm}"), 0)
-    run_steps(c, (r, 0), [SendL("al-note", ["if(almc >= 2 && almc <= 5, almc - 2, allayer)", "almn", "almv/127"])])
-    rt = c.ch(c.recv("al-note"), "route 0 1 2 3")
+    run_steps(c, (r, 0), [SendL("al-note", [f"if(almc >= 2 && almc <= {NL + 1}, almc - 2, allayer)", "almn",
+                                            "almv/127"])])
+    rt = c.ch(c.recv("al-note"), "route " + " ".join(str(i) for i in range(NL)))
     for i, L in enumerate(LAYERS):
         c.c((rt, i), 0, c.obj(f"s al-in-{L}"), 0)
 
@@ -255,7 +314,9 @@ def glide_ms(L):
 
 
 def zone(L):
-    return opt(S(L, None, "Artic"))
+    """the articulation: 0 artic, 1 legato, 2 porta, 3 slide. With the gate on, every note restarts (the gate needs
+    the envelope)"""
+    return f"if({opt(S(L, None, 'Gate'))} == 1, 0, {opt(S(L, None, 'Artic'))})"
 
 
 def mono(c, L):
@@ -304,19 +365,23 @@ def pads(c):
     proc(c, "al-prelall", [Loop("4", "alj", [If("alpg[alj]", [SendL("al-pad-g", ["alj", "0"]), T("alpg", "alj", "0")])])])
 
 
-def perc(c):
-    _entry(c, "al-in-perc", ["alcn", "alcv"], "al-in-perc-do")
-    dec = f"50*pow(600, alp[{S('perc', None, 'Decay')}])"
-    velo = f"alp[{S('perc', None, 'Velo')}]"
-    proc(c, "al-in-perc-do", [If("alcv > 0", [V("alrr", f"(alrr + 1) % {NV['perc']}"),
-                                              SendL("al-perc-hit", ["alrr", f"alcn + {octave('perc')}",
-                                                                    f"1 - {velo}*(1 - alcv)", dec])])])
+def lanes(c):
+    """each lane: a note-on strikes its next voice (round robin) with the lane's decay and velocity response"""
+    for i, L in enumerate(LANES):
+        li = LAYERS.index(L)
+        n, v = f"al{L}n", f"al{L}v"
+        _entry(c, f"al-in-{L}", [n, v], f"al-in-{L}-do")
+        dec = f"50*pow(600, alp[{S(L, None, 'Decay')}])"
+        velo = f"alp[{S(L, None, 'Velo')}]"
+        proc(c, f"al-in-{L}-do", [If(f"{v} > 0", [
+            T("allrr", str(i), f"(allrr[{i}] + 1) % {M.VOICES[L]}"),
+            SendL(f"al-{L}-hit", [f"allrr[{i}]", f"{n} + {octave(L)}", f"1 - {velo}*(1 - {v})", dec])])])
 
 
 # ---------------------------------------------------------------------------------------------- transport, clock
 def transport(c):
-    c.comment("the clock: 24 a beat (MIDI clock), the layers' rhythm in 32nds (every 3). Sync: internal, or an "
-              "incoming MIDI clock (start / stop follow it)")
+    c.comment("the clock: 24 a beat (MIDI clock). Each lane and gate steps at its own rate (in clocks: triplets "
+              "too); the story counts bars in 32nds (every 3 clocks). Sync: internal, or an incoming MIDI clock")
     tempo, sync, clk = S("g", None, "Tempo"), S("g", None, "Sync"), S("g", None, "ClkOut")
     met = c.obj("metro 30")
     c.c(c.recv("al-clock"), 0, met, 0)
@@ -331,58 +396,132 @@ def transport(c):
     c.c(c.recv("al-midibyte"), 0, mo, 0)
     proc(c, "al-24", [V("alc24", "alc24 + 1"),
                       If(f"{opt(clk)} == 1", [Send("al-midibyte", "248")]),
+                      Call("al-lanes"), Call("al-gates"),
                       If("alc24 % 3 == 0", [Call("al-tick")])])
     proc(c, "al-startstop", [If("alrun", [Call("al-stop")], [Call("al-start")])])
     proc(c, "al-start", [If("alrun == 0", [
-        V("alrun", "1"), V("altick", "-1"), V("alc24", "-1"), V("alstep", "0"), Call("al-chord"),
+        V("alrun", "1"), V("altick", "-1"), V("alc24", "-1"), V("alstep", "0"),
+        Loop("4", "alj", [T("allane", "alj", "-1"), T("allrot", "alj", "0")]), Call("al-chord"),
         If(f"{opt(clk)} == 1", [Send("al-midibyte", "250")]),
         If(f"{opt(sync)} == 0", [Send("al-clock", "1")]), Call("al-redraw")])])
     proc(c, "al-stop", [If("alrun", [
         V("alrun", "0"), Send("al-clock", "0"), If(f"{opt(clk)} == 1", [Send("al-midibyte", "252")]),
         SendL("al-drone-g", ["0", "0"]), SendL("al-sub-g", ["0", "0"]), Call("al-prelall"),
         V("aldon", "0"), V("alson", "0"), V("aldhc", "0"), V("alshc", "0"), V("alphc", "0"),
-        Loop("4", "alj", [T("alusr", "alj", "0")]), Call("al-redraw")])])
-    # each 32nd: the percussion pattern (Euclidean: hits spread evenly over steps, rotated) and the story's bars
-    hits, steps, rot, rate = (S("perc", None, n) for n in ("Hits", "Steps", "Rotate", "Rate"))
-    div = "if(%s == 0, 8, if(%s == 1, 4, if(%s == 2, 2, 1)))" % ((opt(rate),) * 3)
+        Loop(str(NL), "alj", [T("alusr", "alj", "0")]), Call("al-redraw")])])
     bars = S("g", None, "Bars")
-    nb = "if(%s == 1, 1, if(%s == 2, 2, if(%s == 3, 4, if(%s == 4, 8, 16))))" % ((opt(bars),) * 4)
-    idx = f"((altick/{div} + {num(rot)}) % {num(steps)})"
+    nb = pick(M.BAR_N, opt(bars))
     proc(c, "al-tick", [
         V("altick", "altick + 1"),
-        If(f"allatch[3] && altick % {div} == 0 && ({idx}*{num(hits)}) % {num(steps)} < {num(hits)}", [
-            V("alpc", "(alpc + 1) % 4"),
-            SendL("al-in-perc", ["alch[alpc]",
-                                 f"if({idx} == 0, 1, 0.72)"])]),
-        If(f"{opt(bars)} > 0 && altick > 0 && altick % (32*{nb}) == 0", [Call("al-chordnext")])])
+        If(f"{opt(bars)} > 0 && altick > 0 && altick % (32*{nb}) == 0", [Call("al-chordnext")]),
+        # each bar: the lanes with a Phase move one step against the others (Reich's phasing, in steps)
+        If("altick > 0 && altick % 32 == 0", [Call("al-phase")]),
+        If("alpatv", [Call("al-patmark")])])
+    proc(c, "al-phase", [If(f"{opt(S(L, None, 'Phase'))} > 0 && (altick/32) % "
+                            f"{pick(M.PHASE_BARS, opt(S(L, None, 'Phase')))} == 0",
+                            [T("allrot", str(i), f"allrot[{i}] + 1")]) for i, L in enumerate(LANES)])
+
+
+def lane_patterns(c):
+    """each lane: on its steps (its Rate), a hit of its Euclidean pattern (moved on by its phase) strikes a note
+    from its pitch source: the chord's tones up / down / up and down, the root, the fifth, the scale up / down, or
+    the chord stacked (three voices at once). The first step accented."""
+    key, mode = S("g", None, "Key"), S("g", None, "Mode")
+    m, k = opt(mode), opt(key)
+    steps = []
+    for i, L in enumerate(LANES):
+        li = LAYERS.index(L)
+        rc = clocks(S(L, None, "Rate"))
+        stp = f"(alc24/{rc} + allrot[{i}])"
+        acc = f"if(((alc24/{rc} + {num(S(L, None, 'Rotate'))} + allrot[{i}]) % {num(S(L, None, 'Steps'))}) == 0, 1, " \
+              f"1 - 0.6*alp[{S(L, None, 'Accent')}])"
+        pm = opt(S(L, None, "Pitch"))
+        scl = (f"(48 + {k} + alsc[{m}*7 + (allane[{i}] % 8) % alscn[{m}]] + "
+               f"12*int((allane[{i}] % 8)/alscn[{m}]))")
+        note = (f"if({pm} <= 2, alch[if({pm} == 2, if(allane[{i}] % 6 < 4, allane[{i}] % 6, 6 - allane[{i}] % 6), "
+                f"allane[{i}] % 4)] - 12, if({pm} == 3, alch[0] - 12, if({pm} == 4, alch[2] - 12, {scl})))")
+        steps.append(If(f"allatch[{li}] && alc24 % {rc} == 0 && {euclid(L, f'alc24/{rc} + allrot[{i}]')}", [
+            T("allane", str(i), f"if({pm} == 1 || {pm} == 6, allane[{i}] + 7, allane[{i}] + 1)"),
+            V("allv", acc),
+            If(f"{pm} == 7", [SendL(f"al-in-{L}", [f"alch[{j}] - 12", "allv"]) for j in range(3)],
+               [SendL(f"al-in-{L}", [note, "allv"])])]))
+    proc(c, "al-lanes", steps)
+
+
+def gate_hit(L):
+    """whether layer L's gate opens on this clock: a hit of its own pattern, or (Comp) where another layer's pattern
+    is silent - complementary rhythms"""
+    def step_of(O):
+        return f"alc24/{clocks(S(O, None, 'Rate'))}"
+    own = euclid(L, step_of(L))
+    others = [f"(1 - {euclid(O, step_of(O))})" for O in ("drone", "sub", "pad")]
+    return pick([own] + others, opt(S(L, None, "Comp")))
+
+
+def gates(c):
+    """the gate sequencer on the drone, sub and pads: on each hit of its pattern (or, with Comp, where another
+    layer's pattern is silent) the layer's notes restart their envelope; Length later (a share of the step) they
+    release. Off: they sustain again."""
+    tempo = S("g", None, "Tempo")
+    cms = f"60000/({num(tempo)}*24)"
+    for L in ("drone", "sub", "pad"):
+        rc = clocks(S(L, None, "Rate"))
+        gate = S(L, None, "Gate")
+        acc = (f"if(((alc24/{rc} + {num(S(L, None, 'Rotate'))}) % {num(S(L, None, 'Steps'))}) == 0, 1, "
+               f"1 - 0.5*alp[{S(L, None, 'Accent')}])")
+        if L == "pad":
+            on = [Loop("4", "alj", [If("alpg[alj]", [SendL("al-pad-g", ["alj", f"0.7*{acc}"])])])]
+            off = [Loop("4", "alj", [If("alpg[alj]", [SendL("al-pad-g", ["alj", "0"])])])]
+            hold = [Loop("4", "alj", [If("alpg[alj]", [SendL("al-pad-g", ["alj", "0.7"])])])]
+        else:
+            x = LX[L]
+            on = [If(f"al{x}on", [SendL(f"al-{L}-g", ["0", f"0.85*{acc}"])])]
+            off = [If(f"al{x}on", [SendL(f"al-{L}-g", ["0", "0"])])]
+            hold = [If(f"al{x}on", [SendL(f"al-{L}-g", ["0", "0.85"])])]
+        proc(c, f"al-gate-{L}", on + [Arm(f"al-gaterel-{L}", f"max(20, alp[{S(L, None, 'Length')}]*{rc}*{cms})",
+                                          stop=f"al-gatestop-{L}")])
+        proc(c, f"al-gaterel-{L}", [If(f"{opt(gate)} == 1", off)])
+        proc(c, f"al-gateoff-{L}", [Send(f"al-gatestop-{L}"), If(f"{opt(gate)} == 0 && alrun", hold)])
+        c.c(c.ch(c.recv(f"al-s{gate}"), "t b"), 0, c.obj(f"s al-gateoff-{L}"), 0)
+    proc(c, "al-gates", [If(f"alrun && {opt(S(L, None, 'Gate'))} == 1 && alc24 % {clocks(S(L, None, 'Rate'))} == 0 "
+                            f"&& {gate_hit(L)}", [Call(f"al-gate-{L}")]) for L in ("drone", "sub", "pad")])
 
 
 # ---------------------------------------------------------------------------------------------- the chord story
 def story(c):
     key, mode, st, sub_to, voic = (S("g", None, n) for n in ("Key", "Mode", "Story", "SubTo", "Voicng"))
-    m, k = opt(mode), opt(key)
-    ln = f"if({opt(st)} == 0, alsml[{m}], alsdl[{opt(st)}])"
-    deg = f"if({opt(st)} == 0, alsm[{m}*8 + alcs % {ln}], alsd[{opt(st)}*8 + alcs % {ln}])"
+    m, k, s_ = opt(mode), opt(key), opt(st)
+    ln = f"if({s_} == 0, alsml[{m}], alsdl[{s_}])"
+    deg = f"if({s_} == 0, alsm[{m}*8 + alcs % {ln}], alsd[{s_}*8 + alcs % {ln}])"
     nsc = f"alscn[{m}]"
 
     def pc(i):
         return f"(alsc[{m}*7 + (alcd + {2 * i}) % {nsc}] + 12*int((alcd + {2 * i})/{nsc}))"
-    # al-chordcalc: chord number alcs -> its root (pitch class, alcr), quality (alcq) and 4 tones (alct, from C4)
     third, fifth = f"(({pc(1)} - {pc(0)}) % 12)", f"(({pc(2)} - {pc(0)}) % 12)"
     vo = f"alp[{voic}]"
+    # a library chord: its root (semitones from the key) and type
+    lroot = f"alsr[{s_}*8 + alcs % {ln}]"
+    ltype = f"alsy[{s_}*8 + alcs % {ln}]"
     proc(c, "al-chordcalc", [
-        V("alcd", deg),
-        V("alcr", f"({k} + alsc[{m}*7 + alcd % {nsc}]) % 12"),
-        V("alcq", f"if({third} == 3 && {fifth} == 7, 1, if({third} == 4 && {fifth} == 7, 0, if({third} == 3 && "
-                  f"{fifth} == 6, 2, if({third} == 4 && {fifth} == 8, 3, 4))))"),
-        # the voicing: close; drop-2 (the third voice an octave down); open (the second an octave up)
-        T("alct", "0", f"60 + {k} + {pc(0)}"),
-        T("alct", "1", f"60 + {k} + {pc(1)} + 12*({vo} >= 0.66)"),
-        T("alct", "2", f"60 + {k} + {pc(2)} - 12*({vo} >= 0.33 && {vo} < 0.66)"),
-        T("alct", "3", f"60 + {k} + {pc(3)}")])
+        If(f"alsk[{s_}] == 0", [
+            # in the mode: thirds stacked on the degree
+            V("alcd", deg),
+            V("alcr", f"({k} + alsc[{m}*7 + alcd % {nsc}]) % 12"),
+            V("alcq", f"if({third} == 3 && {fifth} == 7, 1, if({third} == 4 && {fifth} == 7, 0, if({third} == 3 && "
+                      f"{fifth} == 6, 2, if({third} == 4 && {fifth} == 8, 3, 4))))"),
+            V("alcb", f"60 + {k} + {pc(0)}"),
+            T("alct", "0", "0"), T("alct", "1", f"{pc(1)} - {pc(0)}"), T("alct", "2", f"{pc(2)} - {pc(0)}"),
+            T("alct", "3", f"{pc(3)} - {pc(0)}")],
+            [V("alcst", ltype), V("alcr", f"({k} + {lroot}) % 12"), V("alcq", "altq[alcst]"),
+             V("alcb", f"60 + ({k} + {lroot}) % 12"),
+             Loop("4", "alj", [T("alct", "alj", "alty[alcst*4 + alj]")])]),
+        # keep the chord near middle C; the voicing: close; drop-2 (the third voice down); open (the second up)
+        V("alcb", "alcb - 12*(alcb >= 67)"),
+        T("alct", "0", "alcb + alct[0]"), T("alct", "1", f"alcb + alct[1] + 12*({vo} >= 0.66)"),
+        T("alct", "2", f"alcb + alct[2] - 12*({vo} >= 0.33 && {vo} < 0.66)"), T("alct", "3", "alcb + alct[3]")])
     sub_base = f"48 + if({opt(sub_to)} == 1, alcr, {k}) + {octave('sub')}"
     proc(c, "al-chord", [
-        V("alcs", f"alstep + 1"), Call("al-chordcalc"), V("alnxr", "alcr"), V("alnxq", "alcq"),
+        V("alcs", "alstep + 1"), Call("al-chordcalc"), V("alnxr", "alcr"), V("alnxq", "alcq"),
         V("alcs", "alstep"), Call("al-chordcalc"),
         Loop("4", "alj", [T("alch", "alj", f"alct[alj] + {octave('pad')}")]),
         If("alrun", [
@@ -394,9 +533,8 @@ def story(c):
                                                     Call("al-pnote")]),
                                  Call("al-pend")])]),
         Call("al-redraw")])
-    proc(c, "al-chordnext", [V("alstep", f"(alstep + 1) % ({ln.replace('alcs', 'alstep')})"), Call("al-chord")])
+    proc(c, "al-chordnext", [V("alstep", f"(alstep + 1) % ({ln})"), Call("al-chord")])
     proc(c, "al-chordprev", [V("alstep", f"(alstep + {ln} - 1) % ({ln})"), Call("al-chord")])
-    # key, mode, story, voicing or the sub's target changed: the chord again
     for sl in (key, mode, st, sub_to, voic):
         c.c(c.ch(c.recv(f"al-s{sl}"), "t b"), 0, c.obj("s al-chord-later"), 0)
     c.c(c.ch(c.recv("al-chord-later"), "delay 5"), 0, c.obj("s al-chord"), 0)
@@ -427,19 +565,19 @@ def evolve(c):
     tt = f"if(alp[alevy[alel]] >= 0.5, max(0, altick)*60/({num(tempo)}*8), altime)"
     mod = (f"aled*{w}*0.5*(0.65*sin(6.28319*(alet2/(alep*(1 + 0.37*alek + 0.11*alel)) + 0.31*alek + 0.17*alel)) + "
            f"0.35*sin(6.28319*(alet2/(alep*1.618*(1 + 0.37*alek + 0.11*alel)) + 0.7*alek)))")
-    proc(c, "al-evolve", [Loop(str(len(LAYERS)), "alel", [
+    proc(c, "al-evolve", [Loop(str(NL), "alel", [
         V("aled", f"alp[alevs[alel]]*alp[{master}]"), V("alep", per), V("alet2", tt),
         SendL("al-evd", ["alel", "aled", "alep"]),
         Loop(str(em), "alek", [If(f"{sl} >= 0", [
             V("alesl", sl), T("alem", "alesl", mod), V("alenew", "max(0, min(1, alp[alesl] + alem[alesl]))"),
             If("abs(alenew - alpe[alesl]) > 0.0004", [T("alpe", "alesl", "alenew"), SendL("al-out", ["alesl"])])])])])])
-    rt = c.ch(c.recv("al-evd"), "route " + " ".join(str(i) for i in range(len(LAYERS))))
-    for i in range(len(LAYERS)):
+    rt = c.ch(c.recv("al-evd"), "route " + " ".join(str(i) for i in range(NL)))
+    for i in range(NL):
         c.c(rt, i, c.obj(f"s al-evd{i}"), 0)
 
 
 def build(c):
-    for fn in (tables, params, knobs, pages, organelle, midi_in, transport, story, evolve):
+    for fn in (tables, params, knobs, pages, organelle, midi_in, transport, lane_patterns, gates, story, evolve):
         sc = Canvas(fn.__name__, w=2600)
         c.sub(sc)
         fn(sc)
@@ -447,7 +585,7 @@ def build(c):
         sc = Canvas(f"notes-{L}", w=2600)
         c.sub(sc)
         mono(sc, L)
-    for fn in (pads, perc):
+    for fn in (pads, lanes):
         sc = Canvas(f"notes-{fn.__name__}", w=2600)
         c.sub(sc)
         fn(sc)
@@ -456,7 +594,7 @@ def build(c):
     for name, v0 in GLOBALS.items():
         vals.obj(f"v {name}")
     lb = vals.obj("loadbang")
-    m = vals.m(lb, "; " + "; ".join(f"al-v-{n} {v0}" for n, v0 in GLOBALS.items() if v0 != 0) or "")
+    vals.m(lb, "; " + "; ".join(f"al-v-{n} {v0}" for n, v0 in GLOBALS.items() if v0 != 0))
     for name, v0 in GLOBALS.items():
         if v0 != 0:
             vals.c(vals.recv(f"al-v-{name}"), 0, vals.obj(f"v {name}"), 0)

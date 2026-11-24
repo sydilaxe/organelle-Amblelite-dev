@@ -2,7 +2,7 @@
 and returns (L, R) before the engine's own fade. Parameters by name: P(name) is the slot; prm / cx turn it into a
 signal. Nothing here is random: the only movement is what the parameters ask for."""
 from dsp import mul, add, sub, prm, saw_expr, pulse_expr, dt_of, blep
-from model import S, ENGINES
+from model import S, ENGINES, kind
 
 FM_RATIOS = [0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7]
 SUB_FM_RATIOS = [0.5, 1, 1.5, 2, 3]
@@ -65,7 +65,7 @@ def morph_from(c, ph, dt, w):
     return e
 
 
-def drone_analog(s, ins):
+def drone_analog(s, ins, L):
     f, env, note = ins
     P = lambda n: S("drone", "analog", n)
     ni = nopt("drone", "analog", "Intvl")
@@ -94,7 +94,7 @@ def drone_analog(s, ins):
     return L, R
 
 
-def drone_fm(s, ins):
+def drone_fm(s, ins, L):
     f, env, note = ins
     P = lambda n: S("drone", "fm", n)
     n = len(FM_RATIOS)
@@ -108,7 +108,7 @@ def drone_fm(s, ins):
     return o, o
 
 
-def drone_spectr(s, ins):
+def drone_spectr(s, ins, L):
     f, env, note = ins
     P = lambda n: S("drone", "spectr", n)
     L, R = s.obj("*~ 0.3"), s.obj("*~ 0.3")
@@ -134,7 +134,7 @@ def _body(s, sig, slot):
     return lp
 
 
-def sub_sine(s, ins):
+def sub_sine(s, ins, L):
     f, env, note = ins
     P = lambda n: S("sub", "sine", n)
     x = s.to(f, "osc~")
@@ -144,7 +144,7 @@ def sub_sine(s, ins):
     return o, o
 
 
-def sub_warm(s, ins):
+def sub_warm(s, ins, L):
     f, env, note = ins
     P = lambda n: S("sub", "warm", n)
     x = s.to(f, "osc~")
@@ -154,7 +154,7 @@ def sub_warm(s, ins):
     return o, o
 
 
-def sub_pulse(s, ins):
+def sub_pulse(s, ins, L):
     f, env, note = ins
     P = lambda n: S("sub", "pulse", n)
     e = s.obj("expr~ " + pulse_expr())
@@ -166,7 +166,7 @@ def sub_pulse(s, ins):
     return o, o
 
 
-def sub_fm(s, ins):
+def sub_fm(s, ins, L):
     f, env, note = ins
     P = lambda n: S("sub", "fm", n)
     n = len(SUB_FM_RATIOS)
@@ -178,7 +178,7 @@ def sub_fm(s, ins):
 
 
 # =========================================================================================== pads
-def pad_sine(s, ins):
+def pad_sine(s, ins, L):
     f, env, note = ins
     P = lambda n: S("pad", "sine", n)
     nc = nopt("pad", "sine", "Count")
@@ -206,7 +206,7 @@ def pad_sine(s, ins):
     return outs[0], outs[1]
 
 
-def pad_fm(s, ins):
+def pad_fm(s, ins, L):
     f, env, note = ins
     P = lambda n: S("pad", "fm", n)
     n = len(FM_RATIOS)
@@ -224,7 +224,7 @@ def pad_fm(s, ins):
     return o, o
 
 
-def pad_saws(s, ins):
+def pad_saws(s, ins, L):
     f, env, note = ins
     P = lambda n: S("pad", "saws", n)
     d = s.ch(prm(s, P("Detune")), "expr~ $v1*$v1*0.02")
@@ -244,7 +244,7 @@ def pad_saws(s, ins):
     return s.to(L, "*~ 0.28"), s.to(R, "*~ 0.28")
 
 
-def pad_pwm(s, ins):
+def pad_pwm(s, ins, L):
     f, env, note = ins
     P = lambda n: S("pad", "pwm", n)
     ph = s.to(f, "phasor~")
@@ -266,7 +266,7 @@ def pad_pwm(s, ins):
     return outs[0], outs[1]
 
 
-def pad_wave(s, ins):
+def pad_wave(s, ins, L):
     from wavetables import TABLES, STRIDE, CYCLE
     f, env, note = ins
     P = lambda n: S("pad", "wave", n)
@@ -349,9 +349,9 @@ def _partials(s, up, hzs, parts, bright="1"):
     return sm
 
 
-def perc_blip(s, ins):
+def perc_blip(s, ins, L):
     (strike,) = ins
-    P = lambda n: S("perc", "blip", n)
+    P = lambda n: S(L, "blip", n)
     up = s.to(strike, "unpack f f f")
     # pitch: a flick down from up to an octave above in 2 .. 100 ms
     fl = s.obj(f"expr $f1*(1 + {a(P('Flick'))}); $f1; 2*pow(50, {a(P('FlTime'))})")
@@ -382,9 +382,9 @@ def perc_blip(s, ins):
     return o, o
 
 
-def perc_lpg(s, ins):
+def perc_lpg(s, ins, L):
     (strike,) = ins
-    P = lambda n: S("perc", "lpg", n)
+    P = lambda n: S(L, "lpg", n)
     up = s.to(strike, "unpack f f f")
     fd = s.to(_env(s, up, f"3*2*{a(P('Fold'))}", 1, f"$f3*(0.1 + 0.9*{a(P('FoldDc'))})", sq=False), "+~ 0.6")
     o = s.to((up, 0), "osc~")
@@ -406,9 +406,9 @@ def perc_lpg(s, ins):
 BOWL = [(1, 0.45, 1.0, 0.6), (2.76, 0.26, 0.75, 1.1), (5.40, 0.13, 0.45, 0), (8.93, 0.07, 0.3, 0)]
 
 
-def perc_bowl(s, ins):
+def perc_bowl(s, ins, L):
     (strike,) = ins
-    P = lambda n: S("perc", "bowl", n)
+    P = lambda n: S(L, "bowl", n)
     up = s.to(strike, "unpack f f f")
     st = a(P("Strtch"))
     parts = [(f"pow({r}, 1 + 0.25*{st})" if r != 1 else 1, amp, d) for r, amp, d, _ in BOWL]
@@ -427,9 +427,9 @@ def perc_bowl(s, ins):
     return o, o
 
 
-def perc_wood(s, ins):
+def perc_wood(s, ins, L):
     (strike,) = ins
-    P = lambda n: S("perc", "wood", n)
+    P = lambda n: S(L, "wood", n)
     up = s.to(strike, "unpack f f f")
     m = a(P("Matrl"))      # marimba (1, 3.93, 9.2) .. a woodblock (1, 2.4, 5.1)
     parts = [(1, 0.5, 1.0), (f"(3.93 - 1.53*{m})", 0.2, 0.2), (f"(9.2 - 4.1*{m})", 0.07, 0.06)]
@@ -443,9 +443,9 @@ def perc_wood(s, ins):
     return o, o
 
 
-def perc_metal(s, ins):
+def perc_metal(s, ins, L):
     (strike,) = ins
-    P = lambda n: S("perc", "metal", n)
+    P = lambda n: S(L, "metal", n)
     up = s.to(strike, "unpack f f f")
     sig = _partials(s, up, None, [(1, 0.4, 1.0), (4.0, 0.12, 0.3), (10.0, 0.05, 0.08)],
                     bright=f"(2*{a(P('Bright'))})")

@@ -7,13 +7,12 @@ import harness as H
 import model as M
 
 SR = 44100
-MUTE = {"drone": 61, "sub": 63, "pad": 66, "perc": 68}
 START = (200, "notesRaw 72 100")
 FAILS = []
 
 
 def solo(L, t=60):
-    return [(t + i, f"notesRaw {MUTE[o]} 100") for i, o in enumerate(M.LAYERS) if o != L]
+    return [(t + i, f"al-mute-{o} bang") for i, o in enumerate(M.LAYERS) if o != L]
 
 
 def seg(a, t0, t1):
@@ -81,8 +80,8 @@ def main():
     check("pads latch a played chord", found and H.rms_db(x) > -40, f"peaks {[round(t) for t in tops][:8]}")
 
     # the percussion pattern: 5 hits in 8 sixteenths at 84 bpm, counted as strikes
-    log, a = H.run(solo("perc") + [START], 5, d=d, keep=True, prints=("al-perc-hit",))
-    hits = sum(1 for l in log.splitlines() if l.startswith("al-perc-hit"))
+    log, a = H.run(solo("perc1") + [START], 5, d=d, keep=True, prints=("al-perc1-hit",))
+    hits = sum(1 for l in log.splitlines() if l.startswith("al-perc1-hit"))
     expect = 4.8 / (60 / 84 / 4) * 5 / 8
     check("percussion plays its Euclidean pattern", abs(hits - expect) <= 2, f"{hits} strikes ({expect:.0f} expected)")
 
@@ -128,9 +127,53 @@ def main():
     hz = [peak_hz(seg(a, t, t + 1.5), 40, 200) for t in (2, 4, 6, 8, 10)]
     check("Drift bends the pitch", max(hz) - min(hz) > 0.4, f"{[round(h, 1) for h in hz]} Hz")
 
+    # the lanes: all four on, each at its own density (perc2 3/8 in 8ths, perc3 2/5 in quarters stacked, perc4
+    # 7/16 in 16ths); perc1 in 8th triplets
+    on = []
+    for i, L in enumerate(M.LANES[1:]):
+        on += [(20 + 2 * i, f"al-sel-{L} bang"), (21 + 2 * i, "al-latch bang")]
+    on += [(40, f"al-set {M.S('perc1', None, 'Rate')} {(2 + 0.5) / 6}"),
+           (41, f"al-set {M.S('perc3', None, 'Pitch')} {(7 + 0.5) / 8}")]
+    log, a = H.run(on + [START], 5, d=d, keep=True, prints=tuple(f"al-{L}-hit" for L in M.LANES))
+    n = {L: sum(1 for l in log.splitlines() if l.startswith(f"al-{L}-hit")) for L in M.LANES}
+    beats = 4.8 * 84 / 60
+    want = dict(perc1=beats * 3 * 5 / 8, perc2=beats * 2 * 3 / 8, perc3=3 * beats * 2 / 5, perc4=beats * 4 * 7 / 16)
+    ok = all(abs(n[L] - want[L]) <= max(2, 0.2 * want[L]) for L in M.LANES)
+    check("four lanes interlock (triplets, a stack)", ok, ", ".join(f"{L} {n[L]} ({want[L]:.0f})" for L in M.LANES))
+    check("all lanes together: no clipping", float(np.abs(a).max()) < 0.99, f"peak {float(np.abs(a).max()):.2f}")
+
+    # the gate sequencer on the pads: their level pulses in 8ths; then the sub gated where the pads' pattern is
+    # silent (Comp): the two alternate
+    def env(x, w=0.02):
+        m = np.abs(x.mean(axis=1))
+        n = int(w * SR)
+        return m[: len(m) // n * n].reshape(-1, n).mean(axis=1)
+    gp = [(30, f"al-set {M.S('pad', None, 'Gate')} 0.75"), (31, f"al-set {M.S('pad', None, 'Attack')} 0.1"),
+          (32, f"al-set {M.S('pad', None, 'Releas')} 0.2")]
+    _, a = run(solo("pad") + gp + [START], 4)
+    e1 = env(seg(a, 1.5, 4))
+    check("gate sequencer pulses the pads", np.std(e1) / (np.mean(e1) + 1e-9) > 0.4, f"variation {np.std(e1) / (np.mean(e1) + 1e-9):.2f}")
+    gs = [(33, f"al-set {M.S('sub', None, 'Gate')} 0.75"), (34, f"al-set {M.S('sub', None, 'Comp')} {(3 + 0.5) / 4}"),
+          (35, f"al-set {M.S('sub', None, 'Attack')} 0.1"), (36, f"al-set {M.S('sub', None, 'Releas')} 0.2")]
+    _, b = run(solo("sub") + gp + gs + [START], 4)
+    e2 = env(seg(b, 1.5, 4))
+    k = min(len(e1), len(e2))
+    r = float(np.corrcoef(e1[:k], e2[:k])[0, 1])
+    check("complementary gates alternate", r < -0.2, f"correlation {r:.2f}")
+
+    # the chord library: quartal on C - C F Bb Eb (Bb dropped an octave by the voicing)
+    _, a = run(solo("pad") + [(40, f"al-set {M.S('g', None, 'Story')} {(35 + 0.5) / len(M.STORIES)}"), START], 3)
+    x = seg(a, 2, 3).mean(axis=1)
+    sp = np.abs(np.fft.rfft(x * np.hanning(len(x))))
+    f = np.fft.rfftfreq(len(x), 1 / SR)
+    tops = f[np.argsort(sp)[-16:]]
+    want = [261.6, 349.2, 233.1, 622.3]
+    found = all(any(abs(t - w) < 4 for t in tops) for w in want)
+    check("library chord (quartal)", found, f"peaks {sorted(round(t) for t in tops)[:10]}")
+
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()
-    run([START], 30)
+    run(on + [START], 30)        # (all four lanes on)
     rt = (time.time() - t0) / 30
     check("CPU", rt < 0.08, f"{100 * rt:.1f} % of real time on this machine")
     print("\n" + ("all passed" if not FAILS else f"{len(FAILS)} failed: {', '.join(FAILS)}"))
