@@ -19,7 +19,7 @@ Source of engines: `sydilaxe/organelle-Amble-dev`.
 | Pads | fm, vox, part, fold, pulsr, saws, pwm, sync, sine, wave (was glass), cz, choir, vosim, lissa, chip, vector (new) (removed: bow, digi, tine, whistle, organ, reed, beat, air) |
 | Percussive (bells and motion merged) | lpg, bowl, wood, blip, metal, wave: longer decays, more tuning |
 | Cloud | granular, captures engine output or external input |
-| Audio input | kept, to be refined |
+| Audio input | modes: reso (chord strings), cloud (into the granular cloud), bands (8 tuned bands), morph (vocoder through the pads), octave (octave doubling); listening (pitch steers the chords) in every mode |
 
 ## The assistant (optional, rule-based, not random)
 Algorithmic help kept from Amble, each switched on or off. Rules, not dice: the same settings give the same result,
