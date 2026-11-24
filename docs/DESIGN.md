@@ -13,10 +13,13 @@ Source of engines: `sydilaxe/organelle-Amble-dev`.
 |---|---|
 | Drone | analog, fm, frost, choir, bowed, spectral, gendy (removed: pure, organ) |
 | Sub | sine, warm, pulse, fm |
-| Pads | fm, vox, part, fold, pulsr, saws, pwm, sync, sine, glass, cz, choir, vosim, lissa, chip (removed: bow, digi, tine, whistle, organ, reed, beat, air) |
-| Percussive (bells and motion merged) | lpg, bowl, wood, blip, metal: longer decays, more tuning |
+| Pads | fm, vox, part, fold, pulsr, saws, pwm, sync, sine, wave (was glass), cz, choir, vosim, lissa, chip (removed: bow, digi, tine, whistle, organ, reed, beat, air) |
+| Percussive (bells and motion merged) | lpg, bowl, wood, blip, metal, wave: longer decays, more tuning |
 | Cloud | granular, captures engine output or external input |
 | Audio input | kept, to be refined |
+
+## Wavetables
+A shared bank (factory PPG-style and Miniwave-style tables, plus your own WAVs in `waves/`); each engine picks its own table. See `WAVETABLES.md`.
 
 ## Removed
 Reverb, atmospheres, character effects, Freeze, JOURNEY, PUMP/DUCK, MOSAIC (in its old form), the 16 tuned / exotic scales.

@@ -164,12 +164,9 @@ The four sub engines share one set of controls.
 - Chorus: 0 = none (the default); up = a second, detuned sine on the right
 - Drawbar mode (alternative): the 4 knobs set the levels of harmonics 2, 3, 4 and 5 directly
 
-**glass**: morph between two wavetables
-- A ★ Morph
-- B ★ Shimmer (octave above)
-- C Drift rate (now fixed at 0.08 Hz)
-- D Drift depth
-- E Stereo detune
+**wave** (formerly glass): a wavetable oscillator on the shared bank (see `WAVETABLES.md`)
+- Table, Position, Scan (smooth ↔ stepped), Bits (clean ↔ 8-bit)
+- Shimmer (the table an octave up), Detune (stereo)
 
 **cz**: Casio CZ-style phase distortion
 - A ★ Bend
@@ -208,7 +205,7 @@ The four sub engines share one set of controls.
 - E Duty step rate
 - F Pulse / triangle blend (b)
 
-## Percussive layer (5)
+## Percussive layer (6)
 
 **Shared by all 5 engines (not part of the 4):**
 - Decay: a new absolute range of about 50 ms to 30 s. Today's maximums are short: wood about 2 s, blip about 2.7 s,
@@ -247,6 +244,9 @@ The four sub engines share one set of controls.
 - D Resonance (now 4)
 - E Sub level (now 0.35)
 - F Filter envelope time
+
+**wave**: a struck wavetable on the shared bank (its own table choice, see `WAVETABLES.md`)
+- Table, Position, Position envelope (start → end, time), Scan (smooth ↔ stepped), Bits
 
 **metal**: vibraphone modes with a beating twin and motor tremolo
 - A ★ Bright (in the original this knob is wired to nothing for metal: a bug)
