@@ -25,6 +25,12 @@ Reverb, atmospheres, character effects, Freeze, JOURNEY, PUMP/DUCK, MOSAIC (in i
 - Sound direction: rawer, purer. All engines will be fine-tuned later.
 - 4 engine knobs per engine (chosen from `PARAMETERS.md`), plus layer controls: envelope with default shapes and
   custom, filter, glide, and 2 LFOs per layer (free or clock-synced).
+- Glide, per layer, two controls:
+  - **Articulation** (one knob, three zones): *articulated* (every note retriggers its envelope, no slide);
+    *legato* (overlapping notes don't retrigger, the pitch jumps); *portamento* (overlapping notes slide); at the
+    far end, *always slide* (every note slides, even when detached).
+  - **Rate**: the slide time, from a few ms to several seconds. Constant time (not constant rate), so a big
+    leap and a step take the same time.
 - Harmony: from MIDI input or a step / chord sequencer. The composer becomes an optional assistant.
 - Scales: 12-tone with modes (to discuss).
 - Playing: select a layer and play it. Each layer has a default behaviour (for example, chords on the pads) and a
