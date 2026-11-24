@@ -18,6 +18,21 @@ Source of engines: `sydilaxe/organelle-Amble-dev`.
 | Cloud | granular, captures engine output or external input |
 | Audio input | kept, to be refined |
 
+## The assistant (optional, rule-based, not random)
+Algorithmic help kept from Amble, each switched on or off. Rules, not dice: the same settings give the same result,
+and a *Variation* number picks a different, equally repeatable result.
+- **Counterpoint:** pad voices move between chord tones as lines (neighbour, passing, contrary to the bass), with
+  amount, which voices, style and pace.
+- **Motifs:** a motif you play (or one drawn from the chord story) carried between layers, transformed (inverted,
+  reversed, transposed to the chord, augmented / diminished) by you or by the roadmap.
+- **Listening:** notes you play (MIDI or audio) pull the next chord to contain them; a held note can become the key
+  centre.
+- **Chord recommendation:** from the key, mode and current chord, the next chords ranked (function, voice leading,
+  modal colour); accept one with a key and it joins the chord story.
+- **Roadmap:** from a few setup parameters (length, arc, mode, tension, density), a plan of sections: each section's
+  chord story, which layers play, percussion density, motif transformations. Two ways to use it: *guide* (the screen
+  shows what is next, you play it) or *auto* (it happens, and you can hold, skip or override).
+
 ## Wavetables
 A shared bank (factory PPG-style and Miniwave-style tables, plus your own WAVs in `waves/`); each engine picks its own table. See `WAVETABLES.md`.
 
