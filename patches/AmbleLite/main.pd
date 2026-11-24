@@ -2329,12 +2329,7 @@
 #X connect 20 0 21 0;
 #X restore 20 236 pd story;
 #N canvas 50 50 2600 900 evolve 0;
-#X text 20 20 Evolve: every 60 ms \, each layer's targets (model.EVOLVE \, for its engine) move on two slow sines of their own -
-periods unrelated (x1 \, x1.37 \, x1.71 ... and x1.618 of those) \, so they phase against each other and the sound
-rarely repeats \, yet the same settings always move the same way. Time runs free (since the patch loaded) or locked
-to the clock (from Start). The base period: Pace 0 = 5 minutes .. 1 = 25 s. Depth: the layer's Evolve x the
-master Evolve (PERFRM page) x each target's weight. Each layer's depth and period also go to its voices
-(al-evd<n> 'depth period': the pads' breathing and orbit \, the drone's and sub's breathing).;
+#X text 20 20 Evolve: every 60 ms \, each layer's targets (model.EVOLVE \, for its engine) move on two slow sines of their own - periods unrelated (x1 \, x1.37 \, x1.71 ... and x1.618 of those) \, so they phase against each other and the sound rarely repeats \, yet the same settings always move the same way. Time runs free (since the patch loaded) or locked to the clock (from Start). The base period: Pace 0 = 5 minutes .. 1 = 25 s. Depth: the layer's Evolve x the master Evolve (PERFRM page) x each target's weight. Each layer's depth and period also go to its voices (al-evd<n> 'depth period': the pads' breathing and orbit \, the drone's and sub's breathing).;
 #X obj 20 44 metro 60;
 #X obj 20 68 r al-init;
 #X obj 20 92 timer;
@@ -3818,9 +3813,9 @@ master Evolve (PERFRM page) x each target's weight. Each layer's depth and perio
 #X obj 20 236 route float symbol;
 #X obj 20 260 makefilename %g;
 #X obj 20 284 expr alcpu;
-#X obj 20 308 makefilename cpu%d%%;
+#X obj 20 308 makefilename cpu%d;
 #X obj 20 332 expr alcpux;
-#X obj 20 356 makefilename pk%d%%;
+#X obj 20 356 makefilename pk%d;
 #X obj 20 380 list prepend /oled/gPrintln 3 0 0 8 1;
 #X obj 20 404 list trim;
 #X obj 20 428 s oscOut;

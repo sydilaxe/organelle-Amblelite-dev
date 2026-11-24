@@ -583,7 +583,7 @@ def evolve(c):
     to the clock (from Start). The base period: Pace 0 = 5 minutes .. 1 = 25 s. Depth: the layer's Evolve x the
     master Evolve (PERFRM page) x each target's weight. Each layer's depth and period also go to its voices
     (al-evd<n> 'depth period': the pads' breathing and orbit, the drone's and sub's breathing)."""
-    c.comment(evolve.__doc__.split(" - ")[0])
+    c.comment(" ".join(evolve.__doc__.split(" - ")[0].split()))    # (one line: the same on every Python)
     met = c.obj("metro 60")
     c.c(c.recv("al-init"), 0, met, 0)
     tm = c.obj("timer")
