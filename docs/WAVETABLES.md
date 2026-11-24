@@ -8,7 +8,7 @@ its own table from the bank, so the pads and the percussion can play different t
    - **Amble:** the original glass body and glass tables (A and B).
    - **PPG-style:** re-creations of the PPG Wave's *character*: 64 waves per table, harmonic sweeps (resonant
      peaks walking up the spectrum, pulse-width and sync-like sweeps, formant tables, organ-like drawbar steps).
-     Played at 8 bits with stepped scanning, they give the PPG's grainy, stepping sound.
+     They default to 8-bit mode (below), which gives the PPG's grainy, stepping sound.
    - **Miniwave-style:** banks of 16 waves, 8-bit, after the Wiard Miniwave's layout.
    - Basics: sine → triangle → saw → square, and additive sweeps.
 2. **Your own**, from the patch folder `waves/`, read at load (Pd's `[file glob]`):
@@ -23,7 +23,10 @@ example an export from a PPG product or a dump of an EPROM you own), drop them i
 ## Engine controls (wave pad and wave percussion)
 - **Table:** which table in the bank.
 - **Position:** where in the table (an LFO, breath or the envelope can scan it).
-- **Scan:** smooth (crossfaded between waves) ↔ stepped (jumps wave to wave, as the PPG does).
-- **Bits:** clean ↔ 8-bit (the PPG and Miniwave grit), and an optional lower sample rate.
+- **Mode** (a switch, per engine):
+  - **8-bit:** samples rounded to 8 bits, read without interpolation, and Position jumps from wave to wave (the
+    PPG and Miniwave grit).
+  - **Smooth:** clean 4-point interpolation, and Position crossfades between neighbouring waves.
+  - Each table has a default (PPG- and Miniwave-style tables 8-bit, the others smooth); your choice overrides it.
 - Pad: **Shimmer** (the table an octave up) and **Detune** (stereo). Percussion: **Position envelope** (each
   strike starts at one position and moves to another).

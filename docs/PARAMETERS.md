@@ -165,7 +165,7 @@ The four sub engines share one set of controls.
 - Drawbar mode (alternative): the 4 knobs set the levels of harmonics 2, 3, 4 and 5 directly
 
 **wave** (formerly glass): a wavetable oscillator on the shared bank (see `WAVETABLES.md`)
-- Table, Position, Scan (smooth ↔ stepped), Bits (clean ↔ 8-bit)
+- Table, Position, Mode (8-bit or smooth)
 - Shimmer (the table an octave up), Detune (stereo)
 
 **cz**: Casio CZ-style phase distortion
@@ -246,7 +246,7 @@ The four sub engines share one set of controls.
 - F Filter envelope time
 
 **wave**: a struck wavetable on the shared bank (its own table choice, see `WAVETABLES.md`)
-- Table, Position, Position envelope (start → end, time), Scan (smooth ↔ stepped), Bits
+- Table, Position, Position envelope (start → end, time), Mode (8-bit or smooth)
 
 **metal**: vibraphone modes with a beating twin and motor tremolo
 - A ★ Bright (in the original this knob is wired to nothing for metal: a bug)
