@@ -18,7 +18,8 @@ GLOBALS = dict(allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alaux
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
                alstv=0, alpn=0, alpv2=0, alcur0=-1, alcur1=-1, ali=0, alci=0, alcd=0, alcst=0,
                altime=0, alel=0, alek=0, aled=0, alep=100, alet2=0, alesl=0, alenew=0, alplane=FIRST_LANE,
-               alln=0, allv=0, allr=0, allm=0, alpatv=0, alpr=0, alpc2=0)
+               alln=0, allv=0, allr=0, allm=0, alpatv=0, alpr=0, alpc2=0,
+               alcpu=0, alcpux=0, alcpuh=0)
 for k in range(4):
     GLOBALS.update({f"alsl{k}": -1, f"allat{k}": 0, f"alpv{k}": -1})
 for L in LANES:

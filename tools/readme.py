@@ -11,7 +11,7 @@ WHAT = {"al-sel-drone": "show the DRONE", "al-sel-sub": "show the SUB", "al-sel-
         "al-pgnext": "page forward", "al-latch": "latch on / off for the shown layer (PERC: its pattern)",
         "al-startstop": "start / stop", "al-clear": "clear the shown layer (back to its default)",
         "al-chordprev": "previous chord", "al-chordnext": "next chord", "al-layerview": "the play view (back from MIX / pattern)",
-        "al-mix": "the MIX view: knobs set levels (again: the next mix page)",
+        "al-mix": "the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)",
         "al-patview": "the pattern view on / off: every gate and lane as steps",
         "al-loop": "the shown layer's looper: record, then play, overdub, play ...",
         "al-loopstop": "the shown layer's loop: stop / play", "al-loopclear": "clear the shown layer's loop",
