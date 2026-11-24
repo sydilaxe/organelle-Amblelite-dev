@@ -25,4 +25,16 @@ The patch is generated: edit the generator, not the `.pd` files.
 | `gen.py` | the patch: `python3 gen.py` |
 | `check.py` | offline checks in Pd: `python3 check.py` |
 
-Requirements: Python 3 with numpy, Pure Data 0.53+.
+## Build
+
+```
+tools/build.sh            # regenerate patches/AmbleLite from the generator
+tools/build.sh --check    # and run the offline checks in Pure Data
+tools/package.sh v0.3     # dist/AmbleLite-v0.3.zip (without saves.txt, so an update keeps your snapshots)
+```
+
+Requirements: Python 3 with numpy, Pure Data 0.53+ (`pd` on the path), zip.
+
+GitHub Actions (`.github/workflows/build.yml`) does the same on every push and pull request: it builds, fails if the
+committed patch differs from what the generator writes, runs the checks and packages the zip. Pushing a tag such as
+`v0.3`, or running the workflow by hand (Actions > Build > Run workflow), publishes a GitHub Release with the zip.
