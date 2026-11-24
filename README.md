@@ -33,7 +33,7 @@ tools/build.sh --check    # and run the offline checks in Pure Data
 tools/package.sh v0.3     # dist/AmbleLite-v0.3.zip (without saves.txt, so an update keeps your snapshots)
 ```
 
-Requirements: Python 3 with numpy, Pure Data 0.53+ (`pd` on the path), zip.
+Requirements: Python 3.12+ with numpy, Pure Data 0.53+ (`pd` on the path), zip.
 
 GitHub Actions (`.github/workflows/build.yml`) does the same on every push and pull request: it builds, fails if the
 committed patch differs from what the generator writes, runs the checks and packages the zip. Pushing a tag such as

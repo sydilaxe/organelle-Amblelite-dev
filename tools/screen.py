@@ -164,7 +164,23 @@ def build(c):
     # ---- mix view: every layer's level as a column, the master volume at the right; the shown page's columns
     # underlined
     row(c, "al-r-mixhead", 0, 0, [("w", f"{OFF['page']} + {ctx()}*{M.MAXPAGES} + alpage"),
-                                  ("w", f"{OFF['frac']} + ({npages()} - 1)*{M.MAXPAGES} + alpage")])
+                                  ("w", f"{OFF['frac']} + ({npages()} - 1)*{M.MAXPAGES} + alpage"),
+                                  ("n", "alcpu", "cpu%d"), ("n", "alcpux", "pk%d")])
+    # the CPU meter: Pd's own CPU time over each second of its time, as a share of one core (the patch runs on one);
+    # the peak: the highest second of the last ten. While the MIX view shows, it redraws every second.
+    met = c.obj("metro 1000")
+    c.c(c.m(c.recv("al-init"), "1"), 0, met, 0)
+    cb = c.to(met, "t b b")
+    ct = c.obj("cputime")
+    c.c((cb, 1), 0, ct, 1)          # (the second's CPU time read, then the count restarted)
+    c.c((cb, 0), 0, ct, 0)
+    c.c(c.ch(ct, "expr min(100, int($f1/10 + 0.5))"), 0, c.obj("s al-cpu"), 0)
+    cpu_in = c.ch(c.recv("al-cpu"), "t f f")
+    c.c((cpu_in, 1), 0, c.obj("v alcpu"), 0)
+    from pdlib import V as _V
+    run_steps(c, (c.to(cpu_in, "t b"), 0), [
+        _V("alcpuh", "alcpuh + 1"), _V("alcpux", "if(alcpuh % 10 == 1, alcpu, max(alcpux, alcpu))"),
+        If("alview == 2", [Call("al-redraw")])])
     mixv = [Call("al-r-mixhead")]
     for li, L in enumerate(LAYERS):
         lvl = S(L, None, "Level")

@@ -23,7 +23,7 @@ ORGANELLE KEYS (one press each)
   top E    next chord
   top F    the play view (back from MIX / pattern)
   top F#   the shown layer's loop: stop / play
-  top G    the MIX view: knobs set levels (again: the next mix page)
+  top G    the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)
   top G#   clear the shown layer's loop
   top A    the pattern view on / off: every gate and lane as steps
   top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
