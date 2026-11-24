@@ -73,8 +73,16 @@ Reverb, atmospheres, character effects, Freeze, JOURNEY, PUMP/DUCK, MOSAIC (in i
 - Keep: the PERFORM page (reworked: a continuous tone control with normal at the centre, low-pass to the
   right, something else to the left; Sink's silence near 0 fixed).
 
+## Screens (128 x 64 OLED)
+- **Play** (home): a row per layer (name, engine, level, a dot while it sounds), the chord now and next, the bar
+  and section position, key, mode and tempo.
+- **Layer**: the active layer and page, the 4 parameters with names, values and bars (an envelope or pattern
+  drawing where it helps). Shown while knobs turn.
+- **Mix**: every layer's level as a column, the one being turned framed with its value.
+- **Pattern**: the percussion lanes as step rows, down to 1/32, with the playhead.
+- **Roadmap**: the sections as a strip (length, role), the current one marked; editing a section's fields.
+
 ## Open
 - Pads: one engine for all 4 voices, or a 2 + 2 split.
-- The screen (keep the score view, or change it).
 - PERFORM's left side; Swell and Harm (keep, rework or drop); ANCHOR (drop?).
 - The scale / mode list.
