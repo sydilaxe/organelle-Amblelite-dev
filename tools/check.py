@@ -267,9 +267,18 @@ def main():
     check("a tap takes a layer out and back in; a hold shows its pages", r1 > -40 and r2 < -80 and r3 > -40 and held,
           f"{r1:.1f} -> out {r2:.1f} -> in {r3:.1f} dB, hold shows pages: {held}")
 
+    # the cloud: it records the other layers and grains them - the pads go out, the cloud keeps sounding them for
+    # a few seconds (its grains read up to about 4 s back); without the cloud, silence
+    ci, pi = M.LAYERS.index("cloud"), M.LAYERS.index("pad")
+    cl = solo("pad") + [(80, f"al-set {M.S('g', None, 'Fade')} 0"), START, (6000, f"al-inset {pi} 0")]
+    _, a = run(cl + [(81, f"al-inset {ci} 1")], 7.5)
+    _, b = run(cl, 7.5)
+    rc, r0 = H.rms_db(seg(a, 6.3, 7.3)), H.rms_db(seg(b, 6.3, 7.3))
+    check("the cloud grains the layers (and outlives them)", rc > -50 and r0 < -80, f"after the pads left: {rc:.1f} dB with the cloud, {r0:.1f} without")
+
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()
-    run(on + [START], 30)        # (all four lanes on)
+    run(on + [(25, f"al-inset {M.LAYERS.index('cloud')} 1"), START], 30)        # (all four lanes and the cloud in)
     rt = (time.time() - t0) / 30
     # (a report more than a test: machines differ - it fails only when something has gone badly wrong)
     check("CPU", rt < 0.5, f"{100 * rt:.1f} % of real time on this machine")

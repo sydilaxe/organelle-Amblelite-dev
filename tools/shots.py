@@ -34,7 +34,7 @@ def main():
     ev += [(9500, f"al-set {S('pad', None, 'L1Tgt')} {(14 + 0.5) / M.MAXC}"), (9600, f"al-set {S('pad', None, 'L1Dep')} 0.6"),
            (9800, "h-snap 4-layer-lfo")]
     ev += tap(11000, 61) + [(11500, "h-snap 5-play-again")]
-    ev += tap(12000, 63) + [(13500, "h-snap 6-mix")]
+    ev += [(11800, f"al-inset {M.LAYERS.index('cloud')} 1")] + tap(12000, 63) + [(13500, "h-snap 6-mix")]
     ev += tap(14000, 66) + [(15000, "h-snap 7-pattern")]
     ev += tap(16000, 61) + tap(16200, 68) + tap(16500, 68) + [(17000, "h-snap 8-story")]
     ev += tap(18000, 61) + [(18200, "notesRaw 82 100"), (18300, "aux 1"), (18400, "notesRaw 62 100"),

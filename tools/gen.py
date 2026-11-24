@@ -14,7 +14,7 @@ from dsp import mul, add
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "patches", "AmbleLite")
-TRIM = dict(drone=0.8, sub=0.9, pad=0.7, perc1=0.8, perc2=0.7, perc3=0.7, perc4=0.6)   # the balance at Level 50 %
+TRIM = dict(drone=0.8, sub=0.9, pad=0.7, perc1=0.8, perc2=0.7, perc3=0.7, perc4=0.6, cloud=0.9)   # at Level 50 %
 
 
 def level(v):
@@ -37,7 +37,7 @@ def mix():
         ins = c.ch(c.recv(f"al-in{li}"), "line~")
         c.c(c.m(c.recv("al-init"), f"{1 if L in control.IN_AT_START else 0}"), 0, ins, 0)
         gl = mul(c, gl0, ins)
-        if M.kind(L) == "perc":       # (no Pan page: the lanes' voices spread themselves)
+        if M.kind(L) in ("perc", "cloud"):       # (no Pan page: the lanes' voices and the grains spread themselves)
             bl, br = gl, gl
         else:
             pan = M.S(L, None, "Pan")
@@ -45,8 +45,12 @@ def mix():
             c.c(c.ch(c.recv(f"al-s{pan}"), "t b"), 0, pb, 0)
             bl = mul(c, gl, c.ch(pb, "pack f 30", "line~"))
             br = mul(c, gl, c.ch((pb, 1), "pack f 30", "line~"))
-        c.c(mul(c, c.obj(f"catch~ al-{L}-L"), bl), 0, mL, 0)
-        c.c(mul(c, c.obj(f"catch~ al-{L}-R"), br), 0, mR, 0)
+        oL, oR = mul(c, c.obj(f"catch~ al-{L}-L"), bl), mul(c, c.obj(f"catch~ al-{L}-R"), br)
+        c.c(oL, 0, mL, 0)
+        c.c(oR, 0, mR, 0)
+        if L != "cloud":            # (what the cloud records: every other layer, after its level)
+            c.c(oL, 0, c.obj("throw~ al-csrcL"), 0)
+            c.c(oR, 0, c.obj("throw~ al-csrcR"), 0)
         c.col(200)
     vol = c.ch(c.recv(f"al-s{M.S('g', None, 'Volume')}"), "expr $f1*$f1*2", "pack f 30", "line~")
     for x, o in ((mL, "outL"), (mR, "outR")):
@@ -80,12 +84,14 @@ def main_patch():
     flt = Canvas("filters", w=1600)
     filters.build(flt)
     m.sub(flt, 330, 250)
+    import cloud
+    m.sub(cloud.build(), 510, 250)
     m3 = Canvas("features", w=1600)
     features.build(m3)
     m.sub(m3, 420, 250)
     m.comment("voices", 20, 300)
     x = 20
-    for L in M.LAYERS:
+    for L in M.NOTE_LAYERS:
         for k in range(M.VOICES[L]):
             m.obj(f"al-{L} {k}", x, 325 + 25 * (k % 3))
             if k % 3 == 2:
@@ -97,7 +103,7 @@ def main_patch():
 def build(out=OUT):
     os.makedirs(out, exist_ok=True)
     main = main_patch()
-    voices = {L: voice.voice(L) for L in M.LAYERS}
+    voices = {L: voice.voice(L) for L in M.NOTE_LAYERS}
     pdlib.fold_patch(main, *voices.values())
     main.save(os.path.join(out, "main.pd"))
     for L, v in voices.items():

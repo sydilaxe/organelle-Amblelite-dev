@@ -297,12 +297,12 @@ def pages(c):
 # ---------------------------------------------------------------------------------------------- Organelle keys
 # one press each; aux held: the second set. Unlisted keys do nothing yet (later milestones).
 # the low white keys: the seven layers - a tap: in / out; held (LAYER_HOLD ms): its pages
-LAYER_KEYS = {60: "drone", 62: "sub", 64: "pad", 65: "perc1", 67: "perc2", 69: "perc3", 71: "perc4"}
+LAYER_KEYS = {60: "drone", 62: "sub", 64: "pad", 65: "perc1", 67: "perc2", 69: "perc3", 71: "perc4", 79: "cloud"}
 LAYER_HOLD = 400
 # the low black keys: the views; the top octave: playing
 KEYS = {61: "al-layerview", 63: "al-mix", 66: "al-patview", 68: "al-global", 70: "al-pgnext",
         72: "al-startstop", 73: "al-clear", 74: "al-chordprev", 75: "al-loop", 76: "al-chordnext",
-        77: "al-pgprev", 78: "al-loopstop", 79: "al-pgnext", 80: "al-loopclear", 81: "al-latch",
+        77: "al-pgprev", 78: "al-loopstop", 80: "al-loopclear", 81: "al-latch",
         83: "al-notesmode"}
 SLOT_KEY = 82          # held: the keys from low C to top D# recall a snapshot (with aux: save); tapped: COMPARE
 # aux held + a layer key: its pages at once (in notes mode too); aux + a few others
@@ -611,7 +611,7 @@ def story(c):
     proc(c, "al-chord", [
         V("alcs", "alstep + 1"), Call("al-chordcalc"), V("alnxr", "alcr"), V("alnxq", "alcq"),
         V("alcs", "alstep"), Call("al-chordcalc"),
-        Loop("4", "alj", [T("alch", "alj", f"alct[alj] + {octave('pad')}")]),
+        Loop("4", "alj", [T("alch", "alj", f"alct[alj] + {octave('pad')}")]), Call("al-cloudratios"),
         If("alrun", [If(f"alusr[{i}] == 0 && alin[{i}]", [Call(f"al-def-{L}")]) for i, L in enumerate(("drone", "sub", "pad"))]),
         Call("al-redraw")])
     proc(c, "al-def-drone", [V("aldtn", f"48 + {k} + {octave('drone')}"), V("aldtv", "0.85"), Call("al-mono-drone")])

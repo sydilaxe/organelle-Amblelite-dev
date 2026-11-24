@@ -88,7 +88,8 @@ LINES += TOASTS
 OFF["loopst"] = len(LINES)
 LINES += ["+", "R", "P", "O", "s"]          # a layer's loop: none, recording, playing, overdub, stopped
 OFF["lanes"] = len(LINES)
-LINES += ["".join(str(i + 1) if b & (1 << i) else "." for i in range(len(M.LANES))) for b in range(2 ** len(M.LANES))]
+LINES += ["".join(str(i + 1) if b & (1 << i) else "." for i in range(len(M.LANES))) + ("c" if b & 16 else "")
+          for b in range(2 ** (len(M.LANES) + 1))]
 
 
 def misc(w):
@@ -96,14 +97,16 @@ def misc(w):
 
 
 PAT_X, PAT_W = 16, 7         # the pattern view: cells from x 16, 7 pixels each (16 steps)
+MIX_X0, MIX_DX, MIX_W = 1, 13, 9    # the MIX view's columns (the 8 layers; the master volume at x 112)
+PAT_LAYERS = M.NOTE_LAYERS          # the pattern view's rows (the cloud has no pattern)
 
 
 def rows_tables(c):
     """per pattern-view row (the 7 layers): the slots of its pattern, so one loop draws them all"""
     import model as M
-    sl = lambda n: [S(L, None, n) for L in LAYERS]
+    sl = lambda n: [S(L, None, n) for L in PAT_LAYERS]
     tabs = dict(alrh=sl("Hits"), alrs=sl("Steps"), alro=sl("Rotate"), alrr=sl("Rate"),
-                alrg=[S(L, None, "Gate") if L in ("drone", "sub", "pad") else -1 for L in LAYERS])
+                alrg=[S(L, None, "Gate") if L in ("drone", "sub", "pad") else -1 for L in PAT_LAYERS])
     for name, vals in tabs.items():
         c.obj(f"array define {name} {len(vals)}")
         c.c(c.m(c.recv("al-init"), " ".join(str(v) for v in vals)), 0, c.obj(f"array set {name}"), 0)
@@ -137,7 +140,8 @@ def build(c):
             ("w", f"if(allayer == {li}, {misc('>')}, {misc('-')})"), ("w", f"{OFF['layer']} + {li}"),
             ("w", f"{OFF['eng-' + L]} + aleng[{li}]"), ("w", f"if(alin[{li}] == 0, {OFF['out']}, {OFF['loopst']} + allps[{li}])")])
     # the percussion row: the lane last shown, its engine, and which lanes play (their numbers; '.' silent)
-    lanes_on = " + ".join(f"{2 ** i}*alin[{fl + i}]" for i in range(nl))
+    ci = LAYERS.index("cloud")
+    lanes_on = " + ".join(f"{2 ** i}*alin[{fl + i}]" for i in range(nl)) + f" + {2 ** nl}*alin[{ci}]"
     row(c, "al-r-perc", 0, 52, [
         ("w", f"if(allayer >= {fl}, {misc('>')}, {misc('-')})"), ("w", f"{OFF['layer']} + alplane"),
         ("w", eng_word("alplane")), ("w", f"{OFF['lanes']} + {lanes_on}")])
@@ -187,20 +191,21 @@ def build(c):
     mixv = [Call("al-r-mixhead")]
     for li, L in enumerate(LAYERS):
         lvl = S(L, None, "Level")
-        x = 2 + 15 * li
+        x = MIX_X0 + MIX_DX * li
         # (a layer out: its column hollow)
         mixv += [If(f"alin[{li}]", [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(1, int(alp[{lvl}]*38))"],
-                                          "/oled/gFillArea 3 $1 $2 10 $3 1")],
+                                          f"/oled/gFillArea 3 $1 $2 {MIX_W} $3 1")],
                     [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(2, int(alp[{lvl}]*38))"],
-                           "/oled/gBox 3 $1 $2 10 $3 1")])]
+                           f"/oled/gBox 3 $1 $2 {MIX_W} $3 1")]),
+                 Send(OSC, f"/oled/gPrintln 3 {x} 55 8 1 {M.SHORT[L][1] if M.kind(L) == 'perc' else M.SHORT[L][0]}")]
     vol = S("g", None, "Volume")
     mixv += [SendL(OSC, [f"52 - int(alp[{vol}]*38)", f"max(1, int(alp[{vol}]*38))"], "/oled/gFillArea 3 112 $1 14 $2 1")]
-    mixv += [Send(OSC, "/oled/gPrintln 3 0 55 8 1 " + " ".join(M.SHORT[L] for L in LAYERS) + " V")]
+    mixv += [Send(OSC, "/oled/gPrintln 3 114 55 8 1 V")]
     # (the columns the knobs turn now: a line under them)
     for k in range(4):
         terms = " + ".join(f"(alsl{k} == {S(L, None, 'Level')})*{li}" for li, L in enumerate(LAYERS))
-        col = f"if(alsl{k} == {vol}, 112, 2 + 15*({terms}))"
-        mixv += [If(f"alsl{k} >= 0", [SendL(OSC, [col], "/oled/gFillArea 3 $1 54 12 1 1")])]
+        col = f"if(alsl{k} == {vol}, 112, {MIX_X0} + {MIX_DX}*({terms}))"
+        mixv += [If(f"alsl{k} >= 0", [SendL(OSC, [col], f"/oled/gFillArea 3 $1 54 {MIX_W + 2} 1 1")])]
     # ---- pattern view: a row per layer (its gate or lane pattern), hits as boxes, the length as a tick; a
     # playhead under each row, moved every 16th (al-patmark)
     def row_on(r):
@@ -208,17 +213,17 @@ def build(c):
     hits = "int(1 + alp[alrh[alpr]]*15 + 0.5)"
     steps = "int(2 + alp[alrs[alpr]]*14 + 0.5)"
     cell = f"(alpc2*{hits}) % {steps} < {hits}"
-    patv = [Loop(str(len(LAYERS)), "alpr", [
+    patv = [Loop(str(len(PAT_LAYERS)), "alpr", [
         If(row_on("alpr"), [
             Loop(steps, "alpc2", [If(cell, [SendL(OSC, [f"{PAT_X} + alpc2*{PAT_W}", "alpr*9 + 1"],
                                                     f"/oled/gFillArea 3 $1 $2 {PAT_W - 1} 6 1")])]),
             SendL(OSC, [f"{PAT_X} + {steps}*{PAT_W}", "alpr*9"], "/oled/gFillArea 3 $1 $2 1 8 1")])])]
-    for li, L in enumerate(LAYERS):
+    for li, L in enumerate(PAT_LAYERS):
         patv.append(Send(OSC, f"/oled/gPrintln 3 0 {li * 9} 8 1 {M.SHORT[L]}"))
     rate = f"{pick_clocks('alrr[alpr]')}"
     cur = (f"((int(max(0, alc24)/{rate}) + int(alp[alro[alpr]]*15 + 0.5) + if(alpr >= {fl}, allrot[alpr - {fl}], 0))"
            f" % {steps})")
-    mark = [Loop(str(len(LAYERS)), "alpr", [
+    mark = [Loop(str(len(PAT_LAYERS)), "alpr", [
         SendL(OSC, ["alpr*9 + 7"], f"/oled/gFillArea 3 {PAT_X} $1 {16 * PAT_W} 1 0"),
         If(row_on("alpr"), [SendL(OSC, [f"{PAT_X} + {cur}*{PAT_W}", "alpr*9 + 7"],
                                   f"/oled/gFillArea 3 $1 $2 {PAT_W - 1} 1 1")])]),

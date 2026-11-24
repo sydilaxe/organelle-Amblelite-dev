@@ -406,6 +406,29 @@ Bright
 Beat
 TremR
 TremD
+Engine
+Level
+Cutoff
+Reso
+Target
+Rate
+Depth
+Shape
+Target
+Rate
+Depth
+Shape
+Evolve
+Pace
+EvSync
+Size
+Densty
+Pitch
+Spread
+Scan
+Jitter
+Revrse
+Source
 C
 C#
 D
@@ -1205,6 +1228,65 @@ off
 1/4
 chord
 exact
+grains
+loop
+16bar
+8bar
+4bar
+2bar
+1bar
+1/2
+1/4
+0.02Hz
+0.05Hz
+0.1Hz
+0.2Hz
+0.5Hz
+1Hz
+2Hz
+4Hz
+sine
+tri
+saw\ up
+saw\ dn
+square
+steps
+rnd\ sm
+rnd\ st
+loop
+16bar
+8bar
+4bar
+2bar
+1bar
+1/2
+1/4
+0.02Hz
+0.05Hz
+0.1Hz
+0.2Hz
+0.5Hz
+1Hz
+2Hz
+4Hz
+sine
+tri
+saw\ up
+saw\ dn
+square
+steps
+rnd\ sm
+rnd\ st
+free
+bars
+unison
+octaves
+fifths
+chord
+shimmr
+layers
+input
+both
 FAV
 LAYER
 ANALOG\ 1
@@ -1695,6 +1777,76 @@ LOOP
 -
 -
 -
+FAV
+LAYER
+GRAINS\ 1
+GRAINS\ 2
+LFO\ 1
+LFO\ 2
+EVOLVE
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
 MAIN
 STORY
 SYNC
@@ -1767,7 +1919,7 @@ PERFRM
 -
 MIX\ 1
 MIX\ 2
--
+MIX\ 3
 -
 -
 -
@@ -1863,6 +2015,7 @@ PERC1
 PERC2
 PERC3
 PERC4
+CLOUD
 Dr
 Sb
 Pd
@@ -1870,6 +2023,7 @@ P1
 P2
 P3
 P4
+Cl
 -
 m
 dim
@@ -1923,6 +2077,7 @@ lpg
 bowl
 wood
 metal
+grains
 C
 Cm
 Cdim
@@ -2323,3 +2478,19 @@ s
 1.34
 .234
 1234
+....c
+1...c
+.2..c
+12..c
+..3.c
+1.3.c
+.23.c
+123.c
+...4c
+1..4c
+.2.4c
+12.4c
+..34c
+1.34c
+.234c
+1234c

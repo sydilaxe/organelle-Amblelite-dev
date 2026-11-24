@@ -205,7 +205,7 @@ def looper(c):
 
     def p(L, key):
         return S(L, None, key)
-    for li, L in enumerate(LAYERS):
+    for li, L in enumerate(M.NOTE_LAYERS):
         # the tap: store a note while recording or overdubbing (its time quantised, its chord root kept)
         r = c.ch(c.recv(f"al-user-{L}"), "t l l")
         c.c((r, 0), 0, c.obj(f"s al-in-{L}"), 0)
@@ -233,14 +233,14 @@ def looper(c):
             If(f"allk < allpi[{li}]", [T("allpi", str(li), f"allpi[{li}] + 1")])])])
     # the loop key on the shown layer: empty -> record -> play -> overdub -> play ...
     lb = f"{pick(M.LOOP_BARS, opt_layer('LpLen', nl))}"
-    proc(c, "al-loop", [
+    proc(c, "al-loop", [If(f"allayer < {len(M.NOTE_LAYERS)}", [
         V("allx", "allayer"),
         If("alrun == 0", [Call("al-start")]),
         If("allps[allx] == 0", [T("allps", "allx", "1"), T("allp0", "allx", "max(0, alc24)"), T("allpc", "allx", "0"),
                                 T("allpl", "allx", f"{lb}*{BAR}"), T("allpi", "allx", "0")] + toast("REC"),
            [If("allps[allx] == 1", [Call("al-loopclose")] + toast("PLAY"),
                [If("allps[allx] == 2", [T("allps", "allx", "3")] + toast("DUB"),
-                   [T("allps", "allx", "2")] + toast("PLAY"))])])])
+                   [T("allps", "allx", "2")] + toast("PLAY"))])])])])
     # closing the first recording: its length (auto: rounded to bars; free: as played)
     proc(c, "al-loopclose", [
         V("allsz", "max(1, alc24 - allp0[allx])"),
@@ -257,7 +257,7 @@ def looper(c):
     # playback, each clock: the events at this point of the cycle (up to 6 at one clock), transposed with the
     # chord (worked out at the cycle's start)
     steps = []
-    for li, L in enumerate(LAYERS):
+    for li, L in enumerate(M.NOTE_LAYERS):
         base = f"{li}*{MAXEV}"
         fol = opt(S(L, None, "Follow"))
         steps.append(If(f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0", [
@@ -278,7 +278,7 @@ def looper(c):
 
 def opt_layer(key, n):
     """an option of the shown layer's slot by key (the slot looked up by layer)"""
-    sl = pick([S(L, None, key) for L in LAYERS], "allx")
+    sl = pick([S(L, None, key) for L in M.NOTE_LAYERS], "allx")
     return f"min({n - 1}, int(alp[{sl}]*{n}))"
 
 

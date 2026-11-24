@@ -109,6 +109,9 @@ PITCHES = ["up", "down", "updown", "root", "fifth", "scl up", "scl dn", "stack"]
 PHASES = ["off", "16bar", "8bar", "4bar", "2bar", "1bar"]
 PHASE_BARS = [0, 16, 8, 4, 2, 1]
 COMPS = ["none", "drone", "sub", "pads"]
+CLOUD_PITCHES = ["unison", "octaves", "fifths", "chord", "shimmr"]
+# each grain stream's transposition, per pitch set (the 'chord' set is worked out from the chord: cloud.py)
+CLOUD_RATIOS = [[1, 1, 1, 1, 1, 1], [1, 0.5, 2, 1, 0.5, 2], [1, 1.5, 0.75, 2, 1, 1.5], None, [1, 2, 2, 4, 1, 2]]
 FEELS = ["swing", "lilt", "drag", "limp"]
 # a feel: each step's delay (x Swing x half a step), over 4 steps
 FEEL_OFFSETS = [[0, 1, 0, 1], [0, 0.5, 0.25, 0.75], [0, 0.25, 0.5, 0.75], [0, 0, 1, 0]]
@@ -136,6 +139,10 @@ def kind(layer):
     return "perc" if layer.startswith("perc") else layer
 
 
+# the layers with notes (a looper, a pattern or a gate); the cloud has none: it grains what the others play
+NOTE_LAYERS = ["drone", "sub", "pad", "perc1", "perc2", "perc3", "perc4"]
+
+
 def layer_controls(layer, engines=()):
     """the layer's own pages: (front, back) - the engine's pages go between them"""
     perc = kind(layer) == "perc"
@@ -151,6 +158,8 @@ def layer_controls(layer, engines=()):
     loop = ("LOOP", [Param("Len", 0, opts=LOOP_LENS, key="LpLen"), Param("Quant", 1, opts=QUANTS),
                      Param("Follow", 0, opts=["chord", "exact"]), Param("Vel", 0.8, key="LpVel")])
     front = [("LAYER", common)]
+    if layer == "cloud":
+        return front, lfos + [("EVOLVE", evolve[1][:3])]
     if perc:
         return front, [
             ("HIT", [Param("Decay", d[7]), Param("Velo", 0.5), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
@@ -176,7 +185,9 @@ def layer_controls(layer, engines=()):
 def targets(layer, engine):
     """what an LFO can move on this layer with this engine (after 'off'): the filter, level, place, the envelopes,
     the gate's length, then the engine's parameters"""
-    if kind(layer) == "perc":
+    if layer == "cloud":
+        own = ["Cutoff", "Level"]
+    elif kind(layer) == "perc":
         own = ["Cutoff", "Level", "Spread", "Decay", "Accent", "Velo", "Swing"]
     else:
         own = ["Cutoff", "Level", "Pan", "Attack", "Decay", "Sustn", "Releas", "GAtk", "GDec", "GSus", "GRel",
@@ -215,6 +226,11 @@ ENGINES = {
         ("wave", [Param("Table", 0, opts=WAVE_TABLES), Param("Pos", 0.3), Param("Mode", 1, opts=["8bit", "smooth"]),
                   Param("Shimr", 0.0), Param("Detune", 0.3)]),
     ],
+    "cloud": [
+        ("grains", [Param("Size", 0.45), Param("Densty", 0.6), Param("Pitch", 0, opts=CLOUD_PITCHES),
+                    Param("Spread", 0.6), Param("Scan", 0.3), Param("Jitter", 0.4), Param("Revrse", 0.2),
+                    Param("Source", 0, opts=["layers", "input", "both"])]),
+    ],
     "perc": [
         ("blip", [Param("Cutoff", 0.5), Param("Flick", 0.5), Param("FlTime", 0.3), Param("Reso", 0.4),
                   Param("Sub", 0.5), Param("FEnv", 0.5)]),
@@ -224,10 +240,11 @@ ENGINES = {
         ("metal", [Param("Bright", 0.5), Param("Beat", 0.5), Param("TremR", 0.5), Param("TremD", 0.4)]),
     ],
 }
-LAYERS = ["drone", "sub", "pad"] + LANES
-LAYER_LABEL = {"drone": "DRONE", "sub": "SUB", "pad": "PADS", "perc1": "PERC1", "perc2": "PERC2", "perc3": "PERC3",
+LAYERS = ["drone", "sub", "pad"] + LANES + ["cloud"]
+LAYER_LABEL = {"drone": "DRONE", "sub": "SUB", "pad": "PADS", "perc1": "PERC1", "perc2": "PERC2", "perc3": "PERC3", "cloud": "CLOUD",
                "perc4": "PERC4"}
-SHORT = {"drone": "Dr", "sub": "Sb", "pad": "Pd", "perc1": "P1", "perc2": "P2", "perc3": "P3", "perc4": "P4"}
+SHORT = {"drone": "Dr", "sub": "Sb", "pad": "Pd", "perc1": "P1", "perc2": "P2", "perc3": "P3", "perc4": "P4",
+         "cloud": "Cl"}
 VOICES = {"drone": 1, "sub": 1, "pad": 4, "perc1": 3, "perc2": 3, "perc3": 3, "perc4": 3}
 
 GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opts=NOTE_NAMES),
@@ -237,8 +254,8 @@ GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opt
                 ("SYNC", [Param("Sync", 0, opts=["int", "ext"]), Param("ClkOut", 1, opts=ONOFF)]),
                 ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Fade", 0.62)])]
 # the MIX view's pages: existing slots (layer, name)
-MIX_PAGES = [("MIX 1", [("drone", "Level"), ("sub", "Level"), ("pad", "Level"), ("g", "Volume")]),
-             ("MIX 2", [(L, "Level") for L in LANES])]
+MIX_PAGES = [("MIX 1", [("drone", "Level"), ("sub", "Level"), ("pad", "Level"), ("cloud", "Level")]),
+             ("MIX 2", [(L, "Level") for L in LANES]), ("MIX 3", [("g", "Volume")])]
 
 # ---- Evolve: what moves in each engine, and how far (a weight: the share of the knob's range at Evolve 100 %).
 # ("Cutoff", None) is the layer's filter. Each target moves on two slow sines of its own (control.evolve).
@@ -255,6 +272,7 @@ EVOLVE = {
     ("pad", "saws"): [("Detune", 0.3), ("Spread", 0.4), ("Centre", 0.4), (None, 0.4)],
     ("pad", "pwm"): [("Width", 0.5), ("Depth", 0.3), ("Rate", 0.2), (None, 0.4)],
     ("pad", "wave"): [("Pos", 0.8), ("Shimr", 0.3), ("Detune", 0.3), (None, 0.3)],
+    ("cloud", "grains"): [("Scan", 0.5), ("Size", 0.4), ("Spread", 0.3), ("Jitter", 0.3), (None, 0.25)],
     ("perc", "blip"): [("Cutoff", 0.5), ("Flick", 0.3), ("FEnv", 0.3)],
     ("perc", "lpg"): [("Fold", 0.5), ("Open", 0.5), ("Vactrl", 0.3)],
     ("perc", "bowl"): [("Hard", 0.5), ("Beat", 0.4), ("Strtch", 0.2)],

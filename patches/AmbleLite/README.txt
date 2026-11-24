@@ -12,6 +12,7 @@ Fade time; out, a loop keeps its place, silent). Held (400 ms): its parameter pa
   low G    PERC2
   low A    PERC3
   low B    PERC4
+  top G    CLOUD
 
 THE OTHER KEYS (one press each): the low black keys the views, the top octave playing
   low C#   the play view (back from MIX / pattern / pages)
@@ -26,7 +27,6 @@ THE OTHER KEYS (one press each): the low black keys the views, the top octave pl
   top E    next chord
   top F    page back
   top F#   the shown layer's loop: stop / play
-  top G    page forward
   top G#   clear the shown layer's loop
   top A    latch on / off for the shown layer (drone, sub, pads)
   top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
@@ -43,6 +43,7 @@ AUX held + key
   low A#   page back
   low B    show the PERC4 pages
   top C    start / stop
+  top G    show the CLOUD pages
   top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
   aux tap  page forward
   aux held + a knob: ASSIGN - that knob's place on the FAV page takes a
