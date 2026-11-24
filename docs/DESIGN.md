@@ -113,6 +113,13 @@ keeps changing and rarely repeats, yet a setting always behaves the same.
 - MIDI clock in and out; notes out optional (later).
 - PERFORM tone control: normal at the centre, low-pass to the right, high-pass to the left.
 
+## Using more than one core (later, if the device needs it)
+Pd computes all its audio on one thread, so one patch uses one of the Organelle M's four Cortex-A53 cores. Vanilla's
+[pd~] runs a second Pd as a subprocess, with its own audio thread (another core), its signals and messages passed
+through [pd~]. A cost: a little latency (a block or two) and the copying of its outputs. The layers talk only through
+named sends, so a group (the four percussion lanes, or the pads) can move into a [pd~] subprocess if the device's CPU
+measurements call for it. Measure first.
+
 ## Screens (128 x 64 OLED)
 - **Play** (home): a row per layer (name, engine, level, a dot while it sounds), the chord now and next, the bar
   and section position, key, mode and tempo.

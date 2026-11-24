@@ -9,6 +9,7 @@ import screen
 import voice
 import wavetables
 import filters
+import features
 from dsp import mul, add
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +30,7 @@ def mix():
     mL, mR = c.obj("+~"), c.obj("+~")
     for li, L in enumerate(M.LAYERS):
         lvl = M.S(L, None, "Level")
-        g = c.obj(f"expr {level('alp[%d]' % lvl)}*(1 - almute[{li}])*{TRIM[L]}")
+        g = c.obj(f"expr {level('alpe[%d]' % lvl)}*(1 - almute[{li}])*{TRIM[L]}")
         c.c(c.ch(c.recv(f"al-s{lvl}"), "t b"), 0, g, 0)
         c.c(c.ch(c.recv(f"al-mute{li}"), "t b"), 0, g, 0)
         gl = c.ch(g, "pack f 30", "line~")
@@ -37,7 +38,7 @@ def mix():
             bl, br = gl, gl
         else:
             pan = M.S(L, None, "Pan")
-            pb = c.obj(f"expr min(1, 2*(1 - alp[{pan}])); min(1, 2*alp[{pan}])")
+            pb = c.obj(f"expr min(1, 2*(1 - alpe[{pan}])); min(1, 2*alpe[{pan}])")
             c.c(c.ch(c.recv(f"al-s{pan}"), "t b"), 0, pb, 0)
             bl = mul(c, gl, c.ch(pb, "pack f 30", "line~"))
             br = mul(c, gl, c.ch((pb, 1), "pack f 30", "line~"))
@@ -76,6 +77,9 @@ def main_patch():
     flt = Canvas("filters", w=1600)
     filters.build(flt)
     m.sub(flt, 330, 250)
+    m3 = Canvas("features", w=1600)
+    features.build(m3)
+    m.sub(m3, 420, 250)
     m.comment("voices", 20, 300)
     x = 20
     for L in M.LAYERS:
@@ -99,6 +103,10 @@ def build(out=OUT):
     open(os.path.join(out, "al-words.txt"), "w").write("".join(w.replace(" ", "\\ ") + "\n" for w in screen.LINES))
     wavetables.write(os.path.join(out, "waves", "factory"))
     open(os.path.join(out, "pd-opts.txt"), "w").write("-audiobuf 25\n")
+    # the snapshots: kept across builds (an update keeps your saves); 18 empty lines the first time
+    sv = os.path.join(out, "saves.txt")
+    if not os.path.exists(sv):
+        open(sv, "w").write("-1;\n" * (features.SCRATCH + 2))
     import readme
     open(os.path.join(out, "README.txt"), "w").write(readme.text())
     return out

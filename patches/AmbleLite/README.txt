@@ -19,11 +19,16 @@ ORGANELLE KEYS (one press each)
   top C    start / stop
   top C#   clear the shown layer (back to its default)
   top D    previous chord
+  top D#   the shown layer's looper: record, then play, overdub, play ...
   top E    next chord
   top F    the play view (back from MIX / pattern)
+  top F#   the shown layer's loop: stop / play
   top G    the MIX view: knobs set levels (again: the next mix page)
+  top G#   clear the shown layer's loop
   top A    the pattern view on / off: every gate and lane as steps
   top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
+  top A#   held + a key from low C to top D#: recall snapshot 1 - 16 (with aux: save it);
+           tapped alone: COMPARE (back to the sound before the recall; again: forward)
 
 AUX held + key
   low C    show the DRONE
@@ -35,6 +40,8 @@ AUX held + key
   top C    start / stop
   top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
   aux tap  page forward
+  aux held + a knob: ASSIGN - that knob's place on the FAV page takes a
+           parameter of the layer (the knob chooses which)
 
 KNOBS: the 4 parameters of the page on screen. A knob takes over once it passes the stored value.
 
@@ -46,6 +53,15 @@ EVOLVE: each layer changes slowly by itself - its engine's character, the filter
 (pads: each voice its own) - on slow cycles that phase against each other: never static, never random.
 Evolve 0 = still; Pace: 5 minutes .. 25 s a cycle; EvSync: free or locked to the clock; Drift: a slight
 pitch wander (0 = exact). The master Evolve (PERFRM page) scales every layer's.
+
+LFO 1 / 2: Target (any of the layer's parameters: filter, level, place, envelopes, gate length,
+swing, the engine's), Rate (loop = one cycle per loop or pattern cycle; bars; Hz), Depth, Shape.
+
+LOOP: Len (auto: rounded to bars; free: as played; or 1 - 16 bars), Quant, Follow (chord: the loop
+moves with the chord story; exact), Vel. Records what you play into the layer.
+
+GATE: each gate has its own envelope (GATENV). FEEL: Swing and its feel (swing, lilt, drag, limp) on
+the gates and the lanes. MORPH (PERFRM page): how long a recalled snapshot glides (0 = at once).
 
 ARTICULATION: artic (every note restarts), legato (overlapping notes don't), porta (overlapping notes
 slide), slide (every note slides). Glide sets the slide time.

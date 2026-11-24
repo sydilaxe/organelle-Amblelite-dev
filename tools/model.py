@@ -79,9 +79,15 @@ def story_chords(chords):
 
 
 class Param:
-    def __init__(self, name, default=0.5, opts=None, lo=None, hi=None):
+    """name: shown on screen (6 letters at most); key: its name in the layer, when two pages show the same name
+    (the two LFOs' Rate, the gate envelope's Attack ...). target=True: an LFO's target - a choice among the
+    layer's parameters (model.targets)"""
+    def __init__(self, name, default=0.5, opts=None, lo=None, hi=None, key=None, target=False):
         assert len(name) <= 6, name
-        self.name, self.opts, self.lo, self.hi = name, opts, lo, hi
+        self.name, self.opts, self.lo, self.hi, self.key, self.target = name, opts, lo, hi, key or name, target
+        if target:
+            self.default = (default + 0.5) / MAXC
+            return
         if opts:
             self.default = (default + 0.5) / len(opts)       # the middle of the option's share of the knob
         elif lo is not None:
@@ -103,6 +109,20 @@ PITCHES = ["up", "down", "updown", "root", "fifth", "scl up", "scl dn", "stack"]
 PHASES = ["off", "16bar", "8bar", "4bar", "2bar", "1bar"]
 PHASE_BARS = [0, 16, 8, 4, 2, 1]
 COMPS = ["none", "drone", "sub", "pads"]
+FEELS = ["swing", "lilt", "drag", "limp"]
+# a feel: each step's delay (x Swing x half a step), over 4 steps
+FEEL_OFFSETS = [[0, 1, 0, 1], [0, 0.5, 0.25, 0.75], [0, 0.25, 0.5, 0.75], [0, 0, 1, 0]]
+LFO_RATES = ["loop", "16bar", "8bar", "4bar", "2bar", "1bar", "1/2", "1/4", "0.02Hz", "0.05Hz", "0.1Hz", "0.2Hz",
+             "0.5Hz", "1Hz", "2Hz", "4Hz"]
+LFO_BEATS = [None, 64, 32, 16, 8, 4, 2, 1]                         # the synced rates: a cycle, in beats
+LFO_SECS = [50, 20, 10, 5, 2, 1, 0.5, 0.25]                        # the free rates: a cycle, in seconds
+LFO_SHAPES = ["sine", "tri", "saw up", "saw dn", "square", "steps"]
+LFO_STEPS = [0, 0.75, -0.5, 1, -1, 0.25, -0.25, 0.5]               # the 'steps' shape: a fixed 8-step pattern
+LOOP_LENS = ["auto", "free", "1bar", "2bar", "4bar", "8bar", "16bar"]
+LOOP_BARS = [0, 0, 1, 2, 4, 8, 16]
+QUANTS = ["off", "1/16", "1/8", "1/8T", "1/4"]
+QUANT_CLOCKS = [1, 6, 12, 8, 24]
+MAXC = 24          # an LFO's targets: off + up to 23 of the layer's parameters
 
 LANES = ["perc1", "perc2", "perc3", "perc4"]
 OCT_DEFAULT = dict(drone=2, sub=1, pad=3, perc1=4, perc2=4, perc3=3, perc4=5)      # -1, -2, 0, +1 ...
@@ -117,27 +137,53 @@ def kind(layer):
 
 
 def layer_controls(layer, engines=()):
+    """the layer's own pages: (front, back) - the engine's pages go between them"""
     perc = kind(layer) == "perc"
     d = LANE_DEFAULT.get(layer)
     eng = Param("Engine", d[0] if d else 0, opts=list(engines))
     common = [eng, Param("Level", 0.5), Param("Cutoff", 1.0), Param("Reso", 0.1)]
     evolve = ("EVOLVE", [Param("Evolve", 0.4), Param("Pace", 0.4), Param("EvSync", 0, opts=["free", "bars"])]
                + ([] if perc else [Param("Drift", 0.0)]))
+    feel = ("FEEL", [Param("Swing", 0.0), Param("Feel", 0, opts=FEELS)])
+    lfos = [(f"LFO {n}", [Param("Target", 0, key=f"L{n}Tgt", target=True),
+                          Param("Rate", 10, opts=LFO_RATES, key=f"L{n}Rate"), Param("Depth", 0.5, key=f"L{n}Dep"),
+                          Param("Shape", 0, opts=LFO_SHAPES, key=f"L{n}Shp")]) for n in (1, 2)]
+    loop = ("LOOP", [Param("Len", 0, opts=LOOP_LENS, key="LpLen"), Param("Quant", 1, opts=QUANTS),
+                     Param("Follow", 0, opts=["chord", "exact"]), Param("Vel", 0.8, key="LpVel")])
+    front = [("LAYER", common)]
     if perc:
-        return [("LAYER", common),
-                ("HIT", [Param("Decay", d[7]), Param("Velo", 0.5), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
-                         Param("Pitch", d[5], opts=PITCHES)]),
-                ("RHYTHM", [Param("Hits", d[1], lo=1, hi=16), Param("Steps", d[2], lo=2, hi=16),
-                            Param("Rotate", d[3], lo=0, hi=15), Param("Rate", d[4], opts=RATES)]),
-                ("MOTION", [Param("Phase", d[6], opts=PHASES), Param("Spread", 0.6), Param("Accent", 0.3)]), evolve]
-    return [("LAYER", common),
-            ("ENV", [Param("Attack", 0.45), Param("Decay", 0.6), Param("Sustn", 0.85), Param("Releas", 0.55)]),
-            ("PLAY", [Param("Artic", 2, opts=ARTIC), Param("Glide", 0.45), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
-                      Param("Pan", 0.5)]), evolve,
-            ("GATE", [Param("Gate", 0, opts=ONOFF), Param("Hits", 3, lo=1, hi=16), Param("Steps", 8, lo=2, hi=16),
-                      Param("Rotate", 0, lo=0, hi=15)]),
-            ("GATE 2", [Param("Rate", 1, opts=RATES), Param("Length", 0.5), Param("Comp", 0, opts=COMPS),
-                        Param("Accent", 0.3)])]
+        return front, [
+            ("HIT", [Param("Decay", d[7]), Param("Velo", 0.5), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
+                     Param("Pitch", d[5], opts=PITCHES)]),
+            ("RHYTHM", [Param("Hits", d[1], lo=1, hi=16), Param("Steps", d[2], lo=2, hi=16),
+                        Param("Rotate", d[3], lo=0, hi=15), Param("Rate", d[4], opts=RATES)]),
+            ("MOTION", [Param("Phase", d[6], opts=PHASES), Param("Spread", 0.6), Param("Accent", 0.3)]),
+            feel] + lfos + [evolve, loop]
+    return front, [
+        ("ENV", [Param("Attack", 0.45), Param("Decay", 0.6), Param("Sustn", 0.85), Param("Releas", 0.55)]),
+        ("PLAY", [Param("Artic", 2, opts=ARTIC), Param("Glide", 0.45), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
+                  Param("Pan", 0.5)]),
+        ("GATE", [Param("Gate", 0, opts=ONOFF), Param("Hits", 3, lo=1, hi=16), Param("Steps", 8, lo=2, hi=16),
+                  Param("Rotate", 0, lo=0, hi=15)]),
+        ("GATE 2", [Param("Rate", 1, opts=RATES), Param("Length", 0.5), Param("Comp", 0, opts=COMPS),
+                    Param("Accent", 0.3)]),
+        # the gate's own envelope: its hits shaped apart from the notes you play
+        ("GATENV", [Param("Attack", 0.15, key="GAtk"), Param("Decay", 0.4, key="GDec"),
+                    Param("Sustn", 0.6, key="GSus"), Param("Releas", 0.35, key="GRel")]),
+        feel] + lfos + [evolve, loop]
+
+
+def targets(layer, engine):
+    """what an LFO can move on this layer with this engine (after 'off'): the filter, level, place, the envelopes,
+    the gate's length, then the engine's parameters"""
+    if kind(layer) == "perc":
+        own = ["Cutoff", "Level", "Spread", "Decay", "Accent", "Velo", "Swing"]
+    else:
+        own = ["Cutoff", "Level", "Pan", "Attack", "Decay", "Sustn", "Releas", "GAtk", "GDec", "GSus", "GRel",
+               "Length", "Swing"]
+    out = [S(layer, None, k) for k in own] + [S(layer, engine, p.key) for p in dict(engines(layer))[engine]]
+    assert len(out) < MAXC, (layer, engine, len(out))
+    return out
 
 
 # ---- engines: (name, [Param ...]); the DSP of each is in eng_<layer>.py under the same name
@@ -189,7 +235,7 @@ GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opt
                 ("STORY", [Param("Story", 0, opts=[n for n, _, _ in STORIES]), Param("Bars", 3, opts=BARS),
                            Param("SubTo", 1, opts=SUBMODES), Param("Voicng", 0.4)]),
                 ("SYNC", [Param("Sync", 0, opts=["int", "ext"]), Param("ClkOut", 1, opts=ONOFF)]),
-                ("PERFRM", [Param("Evolve", 1.0)])]
+                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3)])]
 # the MIX view's pages: existing slots (layer, name)
 MIX_PAGES = [("MIX 1", [("drone", "Level"), ("sub", "Level"), ("pad", "Level"), ("g", "Volume")]),
              ("MIX 2", [(L, "Level") for L in LANES])]
@@ -233,16 +279,16 @@ def _add(key, p):
 
 for _, ps in GLOBAL_PAGES:
     for p in ps:
-        _add(("g", None, p.name), p)
+        _add(("g", None, p.key), p)
 LAYER_PAGES = {}
 for L in LAYERS:
     LAYER_PAGES[L] = layer_controls(L, [e for e, _ in engines(L)])
-    for _, ps in LAYER_PAGES[L]:
+    for _, ps in LAYER_PAGES[L][0] + LAYER_PAGES[L][1]:
         for p in ps:
-            _add((L, None, p.name), p)
+            _add((L, None, p.key), p)
     for e, ps in engines(L):
         for p in ps:
-            _add((L, e, p.name), p)
+            _add((L, e, p.key), p)
 NSLOTS = len(SLOTS)
 
 
@@ -252,12 +298,18 @@ def S(layer, engine, name):
 
 
 def pages(layer, engine):
-    """the knob pages of a layer with an engine: its layer pages, then the engine's parameters 4 a page"""
-    out = [(n, [S(layer, None, p.name) for p in ps]) for n, ps in LAYER_PAGES[layer]]
+    """the knob pages of a layer with an engine: FAV (your four: assign mode; at first the engine's first four),
+    LAYER, the engine's parameters 4 a page, then the layer's other pages"""
+    front, back = LAYER_PAGES[layer]
     eps = dict(engines(layer))[engine]
+    ep = []
     for k in range(0, len(eps), 4):
-        chunk = [S(layer, engine, p.name) for p in eps[k:k + 4]]
-        out.append((f"{engine.upper()} {k // 4 + 1}", chunk + [-1] * (4 - len(chunk))))
+        chunk = [S(layer, engine, p.key) for p in eps[k:k + 4]]
+        ep.append((f"{engine.upper()} {k // 4 + 1}", chunk + [-1] * (4 - len(chunk))))
+    out = [("FAV", list(ep[0][1]))]
+    out += [(n, [S(layer, None, p.key) for p in ps] + [-1] * (4 - len(ps))) for n, ps in front]
+    out += ep
+    out += [(n, [S(layer, None, p.key) for p in ps] + [-1] * (4 - len(ps))) for n, ps in back]
     return out
 
 
@@ -284,7 +336,7 @@ def knob_table():
     for pi, (pn, ps) in enumerate(GLOBAL_PAGES):
         pnames[(GLOBAL_LAYER * MAXENG) * MAXPAGES + pi] = pn
         for k, p in enumerate(ps):
-            ks[((GLOBAL_LAYER * MAXENG) * MAXPAGES + pi) * 4 + k] = S("g", None, p.name)
+            ks[((GLOBAL_LAYER * MAXENG) * MAXPAGES + pi) * 4 + k] = S("g", None, p.key)
     np_[(GLOBAL_LAYER + 1) * MAXENG] = len(MIX_PAGES)
     for pi, (pn, refs) in enumerate(MIX_PAGES):
         pnames[((GLOBAL_LAYER + 1) * MAXENG) * MAXPAGES + pi] = pn
@@ -298,7 +350,10 @@ def slot_meta():
     n, lo, hi, ob, opts, names = [], [], [], [], [], []
     for key, p in SLOTS:
         names.append(p.name)
-        if p.opts:
+        if p.target:
+            n.append(-2)
+            ob.append(0)
+        elif p.opts:
             n.append(len(p.opts))
             ob.append(len(opts))
             opts.extend(p.opts)

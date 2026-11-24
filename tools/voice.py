@@ -35,6 +35,7 @@ def voice(L):
     swo = v.obj(f"s $0-sw")
     v.c(v.m(on, "0"), 0, swo, 0)
     A, D, Sus, R = (S(L, None, n) for n in ("Attack", "Decay", "Sustn", "Releas")) if not perc else (0, 0, 0, 0)
+    GA, GD, GS, GR = (S(L, None, n) for n in ("GAtk", "GDec", "GSus", "GRel")) if not perc else (0, 0, 0, 0)
     if perc:
         hit = v.ch(v.recv(f"al-{L}-hit"), "route $1", "t l b")
         v.c(v.m((hit, 1), "stop"), 0, on, 0)
@@ -52,11 +53,15 @@ def voice(L):
         v.c(v.m(n, "$1 $2"), 0, v.obj("s $0-pitch"), 0)
         lastn = v.obj("f")
         v.c(v.ch(n, "unpack f f", "mtof"), 0, lastn, 1)
-        g = v.ch(v.recv(f"al-{L}-g"), "route $1", "t f f")
+        # 'vel set': set 1 = a gate's hit (the GATENV envelope), 0 = a note you play (ENV). Times read with
+        # their LFO and Evolve movement (alpe)
+        gu = v.ch(v.recv(f"al-{L}-g"), "route $1", "unpack f f")
+        g = v.to(gu, "t f f")
         sel = v.to((g, 0), "sel 0")
         # release: to 0 over R, the DSP off after it
         rel = v.to(sel, "t b b")
-        rx = v.obj(f"expr {env_ms()['R'].format(f'alp[{R}]')}")
+        rx = v.obj(f"expr if($f2, {env_ms()['R'].format(f'alpe[{GR}]')}, {env_ms()['R'].format(f'alpe[{R}]')})")
+        v.c((gu, 1), 0, rx, 1)
         v.c((rel, 0), 0, rx, 0)
         v.c(v.m(rx, "0 $1"), 0, v.obj("s $0-env"), 0)
         v.c(v.to(rx, "+ 150"), 0, on, 0)
@@ -64,8 +69,10 @@ def voice(L):
         att = v.to((sel, 1), "t f b b")
         v.c(v.m((att, 2), "stop"), 0, on, 0)
         v.c(v.m((att, 1), "1"), 0, swo, 0)
-        ax = v.obj(f"expr sqrt($f1); {env_ms()['A'].format(f'alp[{A}]')}; sqrt($f1*alp[{Sus}]); "
-                   f"{env_ms()['D'].format(f'alp[{D}]')}")
+        ax = v.obj(f"expr sqrt($f1); if($f2, {env_ms()['A'].format(f'alpe[{GA}]')}, {env_ms()['A'].format(f'alpe[{A}]')}); "
+                   f"sqrt($f1*if($f2, alpe[{GS}], alpe[{Sus}])); "
+                   f"if($f2, {env_ms()['D'].format(f'alpe[{GD}]')}, {env_ms()['D'].format(f'alpe[{D}]')})")
+        v.c((gu, 1), 0, ax, 1)
         v.c((att, 0), 0, ax, 0)
         pk = v.obj("pack f f f f")
         for i in (3, 2, 1, 0):

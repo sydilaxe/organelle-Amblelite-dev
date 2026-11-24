@@ -28,6 +28,12 @@ def peak_hz(x, lo=20, hi=5000):
     return f[k][np.argmax(sp[k])]
 
 
+def env(x, w=0.02):
+    m = np.abs(x.mean(axis=1))
+    n = int(w * SR)
+    return m[: len(m) // n * n].reshape(-1, n).mean(axis=1)
+
+
 def check(name, ok, info):
     print(("PASS " if ok else "FAIL ") + name + ": " + info, flush=True)
     if not ok:
@@ -144,10 +150,6 @@ def main():
 
     # the gate sequencer on the pads: their level pulses in 8ths; then the sub gated where the pads' pattern is
     # silent (Comp): the two alternate
-    def env(x, w=0.02):
-        m = np.abs(x.mean(axis=1))
-        n = int(w * SR)
-        return m[: len(m) // n * n].reshape(-1, n).mean(axis=1)
     gp = [(30, f"al-set {M.S('pad', None, 'Gate')} 0.75"), (31, f"al-set {M.S('pad', None, 'Attack')} 0.1"),
           (32, f"al-set {M.S('pad', None, 'Releas')} 0.2")]
     _, a = run(solo("pad") + gp + [START], 4)
@@ -170,6 +172,75 @@ def main():
     want = [261.6, 349.2, 233.1, 622.3]
     found = all(any(abs(t - w) < 4 for t in tops) for w in want)
     check("library chord (quartal)", found, f"peaks {sorted(round(t) for t in tops)[:10]}")
+
+    # ---- milestone 3
+    def opt_v(i, n):
+        return (i + 0.5) / n
+    mc = M.MAXC
+    lev = 2          # (the targets: off, Cutoff, Level ...)
+    lt, lr, ld = (M.S("pad", None, k) for k in ("L1Tgt", "L1Rate", "L1Dep"))
+    lfo = [(40, f"al-set {lt} {opt_v(lev, mc)}"), (41, f"al-set {lr} {opt_v(13, 16)}"), (42, f"al-set {ld} 1"),
+           (43, f"al-set {M.S('pad', None, 'Evolve')} 0")]
+    _, a = run(solo("pad") + lfo + [START], 5)
+    e = env(seg(a, 2, 5), 0.05)
+    _, b = run(solo("pad") + lfo[1:] + [START], 5)
+    e0 = env(seg(b, 2, 5), 0.05)
+    v1, v0 = np.std(e) / np.mean(e), np.std(e0) / np.mean(e0)
+    check("LFO moves the pads' level (1 Hz)", v1 > 3 * v0 and v1 > 0.2, f"variation {v1:.2f} (off: {v0:.2f})")
+
+    # assign: aux held, knob 1 - the FAV page's first place takes another parameter
+    log, _ = H.run([(100, "al-sel-pad bang"), (300, "aux 1"), (400, "knob1 0.95"), (500, "aux 0")], 1, d=d,
+                   keep=True)
+    lines = [l for l in log.splitlines() if "gPrintln 3 0 22" in l]
+    check("assign mode puts a parameter on FAV", len(lines) >= 2 and lines[-1] != lines[0], lines[-1][-30:] if lines else "-")
+
+    # snapshots: save 1, change the pads' engine and level, recall 1 (morph 0): back as it was; COMPARE: the change
+    eng, lv = M.S("pad", None, "Engine"), M.S("pad", None, "Level")
+    ev = [(50, f"al-set {M.S('g', None, 'Morph')} 0"), START, (500, "notesRaw 82 100"), (510, "aux 1"),
+          (520, "notesRaw 60 100"), (530, "aux 0"), (540, "notesRaw 82 0"),
+          (800, f"al-set {eng} 0.3"), (810, f"al-set {lv} 0.1"),
+          (1500, "notesRaw 82 100"), (1510, "notesRaw 60 100"), (1520, "notesRaw 82 0"),
+          (2500, "notesRaw 82 100"), (2510, "notesRaw 82 0")]
+    log, a = H.run(solo("pad") + ev, 3.5, d=d, keep=True, prints=("oscOut",))
+    heads = [l for l in log.splitlines() if "gPrintln 3 0 0 " in l]
+    rows = [l for l in log.splitlines() if "gPrintln 3 0 42" in l]
+    r1, r2, r3 = H.rms_db(seg(a, 1.2, 1.5)), H.rms_db(seg(a, 2.0, 2.4)), H.rms_db(seg(a, 3.0, 3.4))
+    check("save, change, recall", r2 - r1 > 6 and any("SAVED" in l for l in heads) and any("LOADED" in l for l in heads),
+          f"level {r1:.1f} -> recalled {r2:.1f} dB")
+    check("compare goes back to the change", r2 - r3 > 6 and any("COMPARE" in l for l in heads), f"{r3:.1f} dB")
+
+    # morph: a slow morph (Morph 70 %: about 4 s) - the level glides
+    ev2 = [(50, f"al-set {M.S('g', None, 'Morph')} 0.7"), START, (300, f"al-set {lv} 0.1"), (500, "notesRaw 82 100"),
+           (510, "aux 1"), (520, "notesRaw 61 100"), (530, "aux 0"), (540, "notesRaw 82 0"), (800, f"al-set {lv} 0.8"),
+           (1500, "notesRaw 82 100"), (1510, "notesRaw 61 100"), (1520, "notesRaw 82 0")]
+    _, a = run(solo("pad") + ev2, 7)
+    steps_ = [H.rms_db(seg(a, t, t + 0.3)) for t in (1.3, 2.5, 3.5, 4.5, 6.5)]
+    mono_ = all(steps_[i] >= steps_[i + 1] - 0.5 for i in range(4))
+    check("morph glides", mono_ and steps_[0] - steps_[-1] > 10 and steps_[1] - steps_[-1] > 2,
+          " > ".join(f"{x:.1f}" for x in steps_) + " dB")
+
+    # the looper: on the sub, A then E recorded in one bar; the next cycles play them again
+    q = [(30, f"al-set {M.S('g', None, 'Bars')} 0.05"), (31, "al-sel-sub bang")]
+    ev3 = solo("sub") + q + [START, (1000, "notesRaw 75 100"), (1001, "al-midi 69 100 1"), (1500, "al-midi 69 0 1"),
+                             (2400, "al-midi 76 100 1"), (2900, "al-midi 76 0 1"), (3700, "notesRaw 75 100")]
+    _, a = run(ev3, 9.5)
+    # (a bar is 2.86 s: the 2nd cycle starts at 3.86 s - A, then E 1.4 s later; the 3rd at 6.71 s)
+    h1, h2, h3 = peak_hz(seg(a, 4.2, 5.0), 30, 400), peak_hz(seg(a, 5.6, 6.4), 30, 400), peak_hz(seg(a, 7.0, 7.8), 30, 400)
+    check("looper replays the phrase", abs(h1 - 110) < 3 and abs(h2 - 164.8) < 3 and abs(h3 - 110) < 3,
+          f"{h1:.0f}, {h2:.0f}, {h3:.0f} Hz (A 110, E 165, A 110)")
+
+    # swing: perc1 in 16ths with full swing - the gaps between strikes alternate long and short
+    sw = [(30, f"al-set {M.S('perc1', None, 'Swing')} 1"), (31, f"al-set {M.S('perc1', None, 'Hits')} 1"),
+          (32, f"al-set {M.S('perc1', None, 'Steps')} 0"), (33, f"al-set {M.S('perc1', None, 'Decay')} 0.05"),
+          (34, f"al-set {M.S('perc1', None, 'Evolve')} 0")]
+    _, a = run(solo("perc1") + sw + [START], 4)
+    m_ = np.abs(seg(a, 1, 4).mean(axis=1))
+    hop = 220
+    blk = m_[: len(m_) // hop * hop].reshape(-1, hop).max(axis=1)
+    on_ = [i for i in range(1, len(blk)) if blk[i] > 0.02 and blk[i] > 3 * blk[i - 1]]
+    gaps = np.diff(on_) * hop / SR
+    alt = np.mean(np.abs(np.diff(gaps))) if len(gaps) > 3 else 0
+    check("swing alternates the steps", alt > 0.04, f"gaps {[round(g, 3) for g in gaps[:6]]} s")
 
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()

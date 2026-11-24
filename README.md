@@ -3,7 +3,7 @@
 A stripped-back, performance-focused patch for the Critter & Guitari **Organelle M**, built from
 [Amble](https://github.com/sydilaxe/organelle-Amble-dev): drone, sub, pads and percussion, played in real time.
 
-**Status: milestone 1 (playable core).** It builds and passes its offline checks in Pure Data. It has not been run on
+**Status: milestone 3 (playable core; lanes, gates, chord library, Evolve; LFOs, looper, snapshots).** It builds and passes its offline checks in Pure Data. It has not been run on
 an Organelle yet.
 
 - Install: copy `patches/AmbleLite` into the Organelle's `Patches` folder. How to play: `patches/AmbleLite/README.txt`.
@@ -18,7 +18,8 @@ The patch is generated: edit the generator, not the `.pd` files.
 | `engines.py` | the engines' DSP |
 | `voice.py` | the voice abstractions `al-<layer>.pd` (pitch and glide, envelope, engines, filter, place) |
 | `filters.py` | each layer's low-pass coefficients |
-| `control.py` | parameters, knobs (pickup), pages, the Organelle keys, MIDI, notes to voices, clock, chord story |
+| `control.py` | parameters, knobs (pickup), pages, the Organelle keys, MIDI, notes to voices, clock, lanes, gates, chord story, Evolve |
+| `features.py` | LFOs, assign mode, snapshots (save, recall, morph, compare), the looper, toasts |
 | `screen.py` | the OLED |
 | `wavetables.py` | the factory wavetables (WAV files) |
 | `gen.py` | the patch: `python3 gen.py` |

@@ -45,8 +45,12 @@ def row(c, name, x, y, parts):
         else:
             k = p[1]
             sl = f"alsl{k}"
-            wl = sc.to(src, f"expr if({sl} < 0, {OFF['misc']}, if(aln[{sl}] > 0, {OFF['opt']} + alob[{sl}] + "
-                            f"min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1))")
+            # (an LFO's target: the name of the parameter it moves, or 'off')
+            tgi = f"min({M.MAXC - 1}, int(alp[{sl}]*{M.MAXC}))"
+            tg = f"alcand[(allayer*{M.MAXENG} + aleng[allayer])*{M.MAXC} + {tgi} - 1]"
+            wl = sc.to(src, f"expr if({sl} < 0, {OFF['misc']}, if(aln[{sl}] == -2, if({tgi} == 0, {OFF['off']}, "
+                            f"if({tg} < 0, {OFF['misc']}, {OFF['name']} + {tg})), if(aln[{sl}] > 0, {OFF['opt']} + "
+                            f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1)))")
             mo = sc.to(wl, "moses 0")
             _sym(sc, sc.ch((mo, 1), "text get al-words"), (pk, i))
             nv = sc.to(sc.to((mo, 0), "t b"),
@@ -74,6 +78,13 @@ LINES.append("+")
 OFF["plus"] = len(LINES) - 1
 LINES.append("GLOBAL")
 OFF["global"] = len(LINES) - 1
+LINES.append("off")
+OFF["off"] = len(LINES) - 1
+from features import TOASTS
+OFF["toast"] = len(LINES)
+LINES += TOASTS
+OFF["loopst"] = len(LINES)
+LINES += ["+", "R", "P", "O", "s"]          # a layer's loop: none, recording, playing, overdub, stopped
 OFF["lanes"] = len(LINES)
 LINES += ["".join(str(i + 1) if b & (1 << i) else "." for i in range(len(M.LANES))) for b in range(2 ** len(M.LANES))]
 
@@ -122,13 +133,16 @@ def build(c):
         L = LAYERS[li]
         row(c, f"al-r-l{li}", 0, 22 + 10 * li, [
             ("w", f"if(allayer == {li}, {misc('>')}, {misc('-')})"), ("w", f"{OFF['layer']} + {li}"),
-            ("w", f"{OFF['eng-' + L]} + aleng[{li}]"), ("w", f"if(almute[{li}], {misc('M')}, {OFF['plus']})")])
+            ("w", f"{OFF['eng-' + L]} + aleng[{li}]"), ("w", f"if(almute[{li}], {misc('M')}, {OFF['loopst']} + allps[{li}])")])
     # the percussion row: the lane last shown, its engine, and which lanes play (their numbers; '.' silent)
     lanes_on = " + ".join(f"{2 ** i}*(allatch[{fl + i}] && almute[{fl + i}] == 0)" for i in range(nl))
     row(c, "al-r-perc", 0, 52, [
         ("w", f"if(allayer >= {fl}, {misc('>')}, {misc('-')})"), ("w", f"{OFF['layer']} + alplane"),
         ("w", eng_word("alplane")), ("w", f"{OFF['lanes']} + {lanes_on}")])
-    play = [Call("al-r-head"), Call("al-r-chord")]
+    row(c, "al-r-toast", 0, 0, [("w", f"{OFF['toast']} + altw"), ("n", "altn", "%d")])
+    row(c, "al-r-toast0", 0, 0, [("w", f"{OFF['toast']} + altw")])
+    play = [If("altw >= 0", [If("altn >= 0", [Call("al-r-toast")], [Call("al-r-toast0")])], [Call("al-r-head")]),
+            Call("al-r-chord")]
     for li in range(3):
         lvl = S(LAYERS[li], None, "Level")
         play += [Call(f"al-r-l{li}"),
