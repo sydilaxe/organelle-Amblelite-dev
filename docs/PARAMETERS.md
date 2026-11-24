@@ -92,7 +92,7 @@ Each engine gets **4 engine knobs**. Pick 4 per engine, by letter: for example `
 The four sub engines share one set of controls.
 - A ★ Character: sine harmonics / warm octave / pulse width / fm growl
 - B ★ Body (low-pass)
-- C Saturation (now fixed: off makes sine a pure sine)
+- C Saturation (default 0 on sine: a pure sine; up, the soft harmonics small speakers hear)
 - D Bar pulse depth
 - E FM growl rate (fm only)
 - F Pulse filter (pulse only, now fixed at 220 Hz × 2)
@@ -168,12 +168,13 @@ The four sub engines share one set of controls.
 - E Low-pass (now fixed at 4500 Hz)
 - F Sync envelope (the sweep on each note, new)
 
-**sine**: the fundamental plus harmonics 2 to 6
-- A ★ Bright (upper harmonics)
-- B ★ Chorus (stereo detune)
-- C Odd / even balance
-- D Tilt (b)
-- E Number of harmonics
+**sine** (redesigned): a pure sine, with harmonics added only when you ask
+- Harmonics: 0 = a pure sine (the default), up = harmonics 2 to 8 fade in
+- Slope: how fast the upper harmonics fall off (gentle 1/n, like a saw, ↔ steep, close to the sine)
+- Odd / even: odd only (hollow, clarinet-like) ↔ both ↔ even only (octave-bright)
+- Count: the highest harmonic, 2 to 8
+- Chorus: 0 = none (the default); up = a second, detuned sine on the right
+- Drawbar mode (alternative): the 4 knobs set the levels of harmonics 2, 3, 4 and 5 directly
 
 **glass**: morph between two wavetables
 - A ★ Morph
