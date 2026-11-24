@@ -73,6 +73,15 @@ Reverb, atmospheres, character effects, Freeze, JOURNEY, PUMP/DUCK, MOSAIC (in i
 - Keep: the PERFORM page (reworked: a continuous tone control with normal at the centre, low-pass to the
   right, something else to the left; Sink's silence near 0 fixed).
 
+## Decided (UI)
+- Knob pickup: a knob takes over once it passes the stored value (for now).
+- Start-up: loads silent and waits for Start.
+- The drone holds the root (a pedal) through the chord story, with optional interest: **colour** (it adds a tone
+  that complements each chord: the 5th, or the chord's characteristic tone), **pulse** (its level gated by the
+  percussion pattern or the bar), **swell** (it breathes with chord changes).
+- Main controller: the Korg nanoKEY Studio (keys, 8 pads, 8 knobs, XY pad); the nanoKONTROL Studio sometimes; the
+  DM48X for MPE and breath. Controller profiles in the patch folder.
+
 ## Screens (128 x 64 OLED)
 - **Play** (home): a row per layer (name, engine, level, a dot while it sounds), the chord now and next, the bar
   and section position, key, mode and tempo.
