@@ -51,18 +51,22 @@ BAR_N = [0, 1, 2, 4, 8, 16]
 SUBMODES = ["pedal", "root"]
 
 
-def layer_controls(perc=False, engines=()):
+OCT_DEFAULT = dict(drone=2, sub=1, pad=3, perc=4)      # -1, -2, 0, +1 octaves
+
+
+def layer_controls(layer, engines=()):
+    perc = layer == "perc"
     eng = Param("Engine", 0, opts=list(engines))
     common = [eng, Param("Level", 0.5), Param("Cutoff", 1.0), Param("Reso", 0.1)]
     if perc:
         return [("LAYER", common),
-                ("HIT", [Param("Decay", 0.45), Param("Velo", 0.5), Param("Octave", 4, opts=OCTAVES),
+                ("HIT", [Param("Decay", 0.45), Param("Velo", 0.5), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
                          Param("Spread", 0.6)]),
                 ("RHYTHM", [Param("Hits", 5, lo=1, hi=16), Param("Steps", 8, lo=2, hi=16),
                             Param("Rotate", 0, lo=0, hi=15), Param("Rate", 2, opts=RATES)])]
     return [("LAYER", common),
             ("ENV", [Param("Attack", 0.45), Param("Decay", 0.6), Param("Sustn", 0.85), Param("Releas", 0.55)]),
-            ("PLAY", [Param("Artic", 2, opts=ARTIC), Param("Glide", 0.45), Param("Octave", 3, opts=OCTAVES),
+            ("PLAY", [Param("Artic", 2, opts=ARTIC), Param("Glide", 0.45), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
                       Param("Pan", 0.5)])]
 
 
@@ -109,9 +113,10 @@ LAYER_LABEL = {"drone": "DRONE", "sub": "SUB", "pad": "PADS", "perc": "PERC"}
 VOICES = {"drone": 1, "sub": 1, "pad": 4, "perc": 6}
 
 GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opts=NOTE_NAMES),
-                          Param("Mode", 1, opts=[m for m, _ in MODES]), Param("Volume", 0.7)]),
+                          Param("Mode", 1, opts=[m for m, _ in MODES]), Param("Volume", 0.55)]),
                 ("STORY", [Param("Story", 0, opts=[n for n, _ in STORIES]), Param("Bars", 3, opts=BARS),
-                           Param("SubTo", 1, opts=SUBMODES), Param("Voicng", 0.4)])]
+                           Param("SubTo", 1, opts=SUBMODES), Param("Voicng", 0.4)]),
+                ("SYNC", [Param("Sync", 0, opts=["int", "ext"]), Param("ClkOut", 1, opts=ONOFF)])]
 
 # ---- slots
 SLOTS = []              # [(key, Param)]
@@ -128,7 +133,7 @@ for _, ps in GLOBAL_PAGES:
         _add(("g", None, p.name), p)
 LAYER_PAGES = {}
 for L in LAYERS:
-    LAYER_PAGES[L] = layer_controls(L == "perc", [e for e, _ in ENGINES[L]])
+    LAYER_PAGES[L] = layer_controls(L, [e for e, _ in ENGINES[L]])
     for _, ps in LAYER_PAGES[L]:
         for p in ps:
             _add((L, None, p.name), p)
