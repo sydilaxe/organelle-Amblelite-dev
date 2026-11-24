@@ -34,18 +34,12 @@ Each engine gets **4 engine knobs**. Pick 4 per engine, by letter: for example `
 - G Cutoff (b), H Resonance
 - I ★ Sweep depth, J Sweep rate (the filter's slow movement)
 
-**fm** (redesigned): a 4-operator FM engine (operators A B C D, A always a carrier), shared by the drone and the pads
-- Algorithm (how the operators connect; 2 to 4 operators sound):
-  1. 2-op: B → A
-  2. 3-op stack: C → B → A
-  3. 4-op stack: D → C → B → A
-  4. three into one: B + C + D → A
-  5. two pairs: B → A and D → C (two carriers, one per side, or blended)
-  6. stack and sine: C → B → A, with D as a pure carrier underneath
-- Ratio B, Ratio C, Ratio D (each snapping to useful ratios: 0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7, plus fine detune)
-- Index B, Index C, Index D (how much each modulator modulates)
-- Feedback on the top operator (sine → saw-like → noisy)
-- Index motion: a slow cycle on all the indexes (depth, rate) - the drone's growl
+**fm**: classic 2-operator FM (a modulator into a sine carrier), shared by the drone, pads and sub
+- Ratio (modulator to carrier, snapping to 0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7)
+- Fine (detunes the ratio off its snap: slow beating, or inharmonic bell tones)
+- Index (how much the modulator modulates: 0 = a pure sine)
+- Feedback (on the modulator: sine → saw-like)
+- Index motion: a slow cycle on the index (depth, rate) - the drone's growl
 
 **frost**: three detuned saws through a tracking low-pass, plus noise through glassy resonators
 - A ★ Detune
@@ -94,23 +88,17 @@ The four sub engines share one set of controls.
 - B ★ Body (low-pass)
 - C Saturation (default 0 on sine: a pure sine; up, the soft harmonics small speakers hear)
 - D Bar pulse depth
-- E FM growl rate (fm only)
+- E FM: the same 2-op controls (ratio, index, feedback), with a slow growl cycle
 - F Pulse filter (pulse only, now fixed at 220 Hz × 2)
 
 ## Pads (15)
 
-**fm** (redesigned): a 4-operator FM engine (operators A B C D, A always a carrier), shared by the drone and the pads
-- Algorithm (how the operators connect; 2 to 4 operators sound):
-  1. 2-op: B → A
-  2. 3-op stack: C → B → A
-  3. 4-op stack: D → C → B → A
-  4. three into one: B + C + D → A
-  5. two pairs: B → A and D → C (two carriers, one per side, or blended)
-  6. stack and sine: C → B → A, with D as a pure carrier underneath
-- Ratio B, Ratio C, Ratio D (each snapping to useful ratios: 0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7, plus fine detune)
-- Index B, Index C, Index D (how much each modulator modulates)
-- Feedback on the top operator (sine → saw-like → noisy)
-- Index envelope: the indexes brighter at each note's start and settling (attack depth, decay time)
+**fm**: classic 2-operator FM (a modulator into a sine carrier), shared by the drone, pads and sub
+- Ratio (modulator to carrier, snapping to 0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7)
+- Fine (detunes the ratio off its snap: slow beating, or inharmonic bell tones)
+- Index (how much the modulator modulates: 0 = a pure sine)
+- Feedback (on the modulator: sine → saw-like)
+- Index envelope: brighter at each note's start, settling (depth, decay time)
 
 **vox**: a saw through two vowel formants
 - A ★ Vowel
