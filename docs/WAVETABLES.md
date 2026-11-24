@@ -1,6 +1,6 @@
 # Wavetables
 
-One shared bank, used by the **wave** pad (formerly glass) and the **wave** percussive engine. Each engine picks
+One shared bank, used by the **wave** and **vector** pads and the **wave** percussive engine. Each engine picks
 its own table from the bank, so the pads and the percussion can play different tables at the same time.
 
 ## The bank

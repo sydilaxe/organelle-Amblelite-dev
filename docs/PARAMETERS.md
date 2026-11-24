@@ -168,6 +168,13 @@ The four sub engines share one set of controls.
 - Table, Position, Mode (8-bit or smooth)
 - Shimmer (the table an octave up), Detune (stereo)
 
+**vector** (new): vector synthesis, four sources at the corners of a square, mixed by an X/Y point
+- Corners A, B, C, D: each a wave from the shared bank (its own Table, Position and Mode), with its own tuning
+  (octave, fifth, fine detune)
+- X, Y: the point in the square (X = A ↔ B and C ↔ D, Y = the top pair ↔ the bottom pair)
+- Vector envelope: X and Y moving through a path on each note (start → mid → end, with times; loop optional)
+- X and Y can also follow the layer's LFOs, breath, or MPE per note (pressure → X, slide → Y by default)
+
 **cz**: Casio CZ-style phase distortion
 - A ★ Bend
 - B ★ Resonance
