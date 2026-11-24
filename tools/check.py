@@ -188,6 +188,22 @@ def main():
     v1, v0 = np.std(e) / np.mean(e), np.std(e0) / np.mean(e0)
     check("LFO moves the pads' level (1 Hz)", v1 > 3 * v0 and v1 > 0.2, f"variation {v1:.2f} (off: {v0:.2f})")
 
+    # random LFOs: smooth glides between new values each cycle, stepped holds them; both repeat with the same
+    # settings
+    ls = M.S("pad", None, "L1Shp")
+    res = {}
+    for shp in (6, 7):
+        ev_ = lfo + [(44, f"al-set {ls} {opt_v(shp, len(M.LFO_SHAPES))}"), (45, f"al-set {lr} {opt_v(12, 16)}")]
+        _, a = run(solo("pad") + ev_ + [START], 8)
+        e = env(seg(a, 2, 8), 0.05)
+        res[shp] = (e, np.std(e) / np.mean(e), np.mean(np.abs(np.diff(e))) / np.mean(e))
+    _, a2 = run(solo("pad") + lfo + [(44, f"al-set {ls} {opt_v(7, len(M.LFO_SHAPES))}"),
+                                     (45, f"al-set {lr} {opt_v(12, 16)}"), START], 8)
+    e2 = env(seg(a2, 2, 8), 0.05)
+    same = np.allclose(res[7][0][:len(e2)], e2[:len(res[7][0])], atol=1e-4)
+    check("random LFOs (smooth, stepped)", res[6][1] > 0.15 and res[7][1] > 0.15 and res[7][2] > res[6][2] and same,
+          f"variation {res[6][1]:.2f} / {res[7][1]:.2f}, jumps {res[6][2]:.3f} / {res[7][2]:.3f}, repeatable {same}")
+
     # assign: aux held, knob 1 - the FAV page's first place takes another parameter
     log, _ = H.run([(100, "al-sel-pad bang"), (300, "aux 1"), (400, "knob1 0.95"), (500, "aux 0")], 1, d=d,
                    keep=True)

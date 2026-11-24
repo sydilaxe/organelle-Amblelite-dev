@@ -55,7 +55,8 @@ Evolve 0 = still; Pace: 5 minutes .. 25 s a cycle; EvSync: free or locked to the
 pitch wander (0 = exact). The master Evolve (PERFRM page) scales every layer's.
 
 LFO 1 / 2: Target (any of the layer's parameters: filter, level, place, envelopes, gate length,
-swing, the engine's), Rate (loop = one cycle per loop or pattern cycle; bars; Hz), Depth, Shape.
+swing, the engine's), Rate (loop = one cycle per loop or pattern cycle; bars; Hz), Depth, Shape (sine,
+tri, saw up / down, square, steps, random smooth, random stepped: a new value each cycle).
 
 LOOP: Len (auto: rounded to bars; free: as played; or 1 - 16 bars), Quant, Follow (chord: the loop
 moves with the chord story; exact), Vel. Records what you play into the layer.

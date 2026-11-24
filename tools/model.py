@@ -116,7 +116,7 @@ LFO_RATES = ["loop", "16bar", "8bar", "4bar", "2bar", "1bar", "1/2", "1/4", "0.0
              "0.5Hz", "1Hz", "2Hz", "4Hz"]
 LFO_BEATS = [None, 64, 32, 16, 8, 4, 2, 1]                         # the synced rates: a cycle, in beats
 LFO_SECS = [50, 20, 10, 5, 2, 1, 0.5, 0.25]                        # the free rates: a cycle, in seconds
-LFO_SHAPES = ["sine", "tri", "saw up", "saw dn", "square", "steps"]
+LFO_SHAPES = ["sine", "tri", "saw up", "saw dn", "square", "steps", "rnd sm", "rnd st"]   # random: smooth, stepped
 LFO_STEPS = [0, 0.75, -0.5, 1, -1, 0.25, -0.25, 0.5]               # the 'steps' shape: a fixed 8-step pattern
 LOOP_LENS = ["auto", "free", "1bar", "2bar", "4bar", "8bar", "16bar"]
 LOOP_BARS = [0, 0, 1, 2, 4, 8, 16]

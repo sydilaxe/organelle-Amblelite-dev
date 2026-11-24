@@ -65,12 +65,19 @@ def lfo(c):
     pat = (f"max(1, int(2 + alp[alrs[{li}]]*14 + 0.5)*"
            f"{pick(M.RATE_CLOCKS, f'min({len(M.RATE_CLOCKS) - 1}, int(alp[alrr[{li}]]*{len(M.RATE_CLOCKS)}))')})")
     cyc = f"if(allpl[{li}] > 0, allpl[{li}], {pat})"
-    ph = (f"if({r} == 0, (max(0, alc24) % {cyc})/{cyc}, if({r} < 8, max(0, alc24)/(24*allfbeats[{r}]), "
+    ph = (f"if({r} == 0, max(0, alc24)/{cyc}, if({r} < 8, max(0, alc24)/(24*allfbeats[{r}]), "
           f"altime/allfsecs[{r} - 8] + 0.13*allq))")
     sh = f"min({len(M.LFO_SHAPES) - 1}, int(alp[allfS[allq]]*{len(M.LFO_SHAPES)}))"
     p1 = "(alfph - int(alfph))"
+    # random: a new value each cycle (a hash of the cycle's number and the LFO's: the same settings give the same
+    # 'random' line every time); stepped holds it, smooth glides to the next (smoothstep)
+    def rnd(n):
+        return f"(2*fmod(abs(sin(({n})*12.9898 + allq*78.233)*43758.5453), 1) - 1)"
+    cy = "int(alfph)"
+    sm = f"({p1}*{p1}*(3 - 2*{p1}))"
     val = (f"if({sh} == 0, sin(6.28319*{p1}), if({sh} == 1, 4*abs({p1} - 0.5) - 1, if({sh} == 2, 2*{p1} - 1, "
-           f"if({sh} == 3, 1 - 2*{p1}, if({sh} == 4, if({p1} < 0.5, 1, -1), alstp[int({p1}*8) % 8])))))")
+           f"if({sh} == 3, 1 - 2*{p1}, if({sh} == 4, if({p1} < 0.5, 1, -1), if({sh} == 5, alstp[int({p1}*8) % 8], "
+           f"if({sh} == 6, {rnd(cy)} + ({rnd(cy + ' + 1')} - {rnd(cy)})*{sm}, {rnd(cy)})))))))")
     eff = "max(0, min(1, alp[alftg] + alem[alftg] + alfm[alftg] + alfn[alftg]))"
 
     def refresh(slot):
