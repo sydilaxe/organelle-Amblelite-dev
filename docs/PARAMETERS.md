@@ -24,13 +24,15 @@ Each engine gets **4 engine knobs**. Pick 4 per engine, by letter: for example `
 
 ## Drone (7)
 
-**analog**: two saws and a square an octave down, through a resonant low-pass
-- A ★ Detune
-- B ★ Sweep depth
-- C Sweep rate (now fixed at 0.02 Hz)
-- D Resonance (now fixed at Q 3)
-- E Square / sub-octave level
-- F Cutoff base (now 1.5 × the note) (b)
+**analog** (redesigned): two oscillators with cross modulation, a sub-octave square, a resonant low-pass
+- A Wave A: a continuous morph, sine → triangle → saw → square
+- B Wave B: the same morph, for oscillator B
+- C ★ Detune (B against A; B can also be set to an interval, such as a fifth or an octave)
+- D Cross-mod: B frequency-modulates A (linear FM, a growl that grows as it opens)
+- E Ring: A × B mixed in (metallic and sideband tones)
+- F Sub: level of the square an octave down
+- G Cutoff (b), H Resonance
+- I ★ Sweep depth, J Sweep rate (the filter's slow movement)
 
 **fm**: an electric growl
 - A ★ Index
