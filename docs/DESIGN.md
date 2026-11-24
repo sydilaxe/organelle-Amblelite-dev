@@ -7,6 +7,9 @@ Source of engines: `sydilaxe/organelle-Amble-dev`.
 - **Principle:** keep it simple, keep the audio quality; live interactivity is added step by step.
 - A fresh, small Python generator in this repo, reusing Amble's `pdlib.py` and the DSP of the engines kept.
   None of the composer, form or SETUP machinery comes across unless it is asked for.
+- The generator is the source; the patch it writes is laid out and commented to be readable in Pd. Hand edits are
+  rare: when one is made, it is folded back into the generator, and the build's check flags a committed patch that
+  differs from what the generator writes, so an edit is never silently lost.
 
 ## Layers
 | Layer | Engines kept |
