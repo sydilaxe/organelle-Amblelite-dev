@@ -4,6 +4,7 @@ A stripped-back, performance-focused fork of Amble for the Organelle M, built fo
 Source of engines: `sydilaxe/organelle-Amble-dev`.
 
 ## Build approach
+- **Principle:** keep it simple, keep the audio quality; live interactivity is added step by step.
 - A fresh, small Python generator in this repo, reusing Amble's `pdlib.py` and the DSP of the engines kept.
   None of the composer, form or SETUP machinery comes across unless it is asked for.
 
