@@ -82,6 +82,24 @@ Reverb, atmospheres, character effects, Freeze, JOURNEY, PUMP/DUCK, MOSAIC (in i
 - Main controller: the Korg nanoKEY Studio (keys, 8 pads, 8 knobs, XY pad); the nanoKONTROL Studio sometimes; the
   DM48X for MPE and breath. Controller profiles in the patch folder.
 
+- Organelle keys: functions by default (one press each, a longer hold opens a secondary page), a second set behind
+  aux, and a toggle that turns them into notes for the active layer.
+- Planner: a web page (a URL) to build and edit the roadmap on a computer, writing a file for the patch folder;
+  a simple roadmap editor on the Organelle too.
+
+## Decided (playing)
+- Looper: one per layer; loops are a whole number of bars, quantised to the clock, with a free-length option.
+  A recorded motif moves with the chord changes (option: exact notes).
+- Percussion layer: hypnotic, cascading, liminal (Reich, Riley, gamelan as a texture, not a sound): 4 interlocking
+  lanes, each with its own engine and pattern (hits, steps, rotation, rate to 1/32, phase). Each lane plays lines,
+  chords (arpeggiated), motifs or a fixed note.
+- Gate sequencer on the drone, sub and pads: 16 steps with its own envelope shape, complementary rhythms between
+  layers as an option, and rhythms tapped or played in. Rhythm is optional: off, the layers sustain.
+- Breath zones on the DM48X: 2 to 4 key ranges, each range's breath shaping a different layer.
+- Saves, two kinds: sound snapshots (instant, 16 slots) and pieces (settings and roadmap).
+- MIDI clock in and out; notes out optional (later).
+- PERFORM tone control: normal at the centre, low-pass to the right, high-pass to the left.
+
 ## Screens (128 x 64 OLED)
 - **Play** (home): a row per layer (name, engine, level, a dot while it sounds), the chord now and next, the bar
   and section position, key, mode and tempo.
