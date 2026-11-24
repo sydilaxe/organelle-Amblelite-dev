@@ -45,7 +45,14 @@ Reverb, atmospheres, character effects, Freeze, JOURNEY, PUMP/DUCK, MOSAIC (in i
   Korg nanoKEY Studio / nanoKONTROL Studio and the DM48X (MPE and breath).
 - Breath: flexible routing to parameters inside each layer, not to the whole volume. Possible "breath zones" mode:
   different notes' breath on the DM48X controls different layers.
-- Keep: saves, the PERFORM page (reworked: a continuous tone control with normal at the centre, low-pass to the
+- Saves: instant save and recall (used in performance) kept. COMPARE becomes an A/B **morph**: going to the other
+  sound crossfades over a time you set, never abruptly.
+- CPU: no effects for now (the reverbs loaded the processor hard and made the MIX levels laggy and choppy). Every
+  level and parameter change is smoothed at audio rate (line~), and the screen redraws are throttled while knobs
+  turn, so mixing stays smooth. Effects may come later, with headroom kept for them.
+- Parameter pages: every engine exposes its full parameter list as pages of 4, with an assign mode to put your
+  favourites on the first page. All defined in one table per engine, so controls are easy to add or remove.
+- Keep: the PERFORM page (reworked: a continuous tone control with normal at the centre, low-pass to the
   right, something else to the left; Sink's silence near 0 fixed).
 
 ## Open
