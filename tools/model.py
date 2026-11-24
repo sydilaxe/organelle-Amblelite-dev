@@ -58,16 +58,18 @@ def layer_controls(layer, engines=()):
     perc = layer == "perc"
     eng = Param("Engine", 0, opts=list(engines))
     common = [eng, Param("Level", 0.5), Param("Cutoff", 1.0), Param("Reso", 0.1)]
+    evolve = ("EVOLVE", [Param("Evolve", 0.4), Param("Pace", 0.4), Param("EvSync", 0, opts=["free", "bars"])]
+               + ([] if perc else [Param("Drift", 0.0)]))
     if perc:
         return [("LAYER", common),
                 ("HIT", [Param("Decay", 0.45), Param("Velo", 0.5), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
                          Param("Spread", 0.6)]),
                 ("RHYTHM", [Param("Hits", 5, lo=1, hi=16), Param("Steps", 8, lo=2, hi=16),
-                            Param("Rotate", 0, lo=0, hi=15), Param("Rate", 2, opts=RATES)])]
+                            Param("Rotate", 0, lo=0, hi=15), Param("Rate", 2, opts=RATES)]), evolve]
     return [("LAYER", common),
             ("ENV", [Param("Attack", 0.45), Param("Decay", 0.6), Param("Sustn", 0.85), Param("Releas", 0.55)]),
             ("PLAY", [Param("Artic", 2, opts=ARTIC), Param("Glide", 0.45), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
-                      Param("Pan", 0.5)])]
+                      Param("Pan", 0.5)]), evolve]
 
 
 # ---- engines: (name, [Param ...]); the DSP of each is in eng_<layer>.py under the same name
@@ -116,7 +118,31 @@ GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opt
                           Param("Mode", 1, opts=[m for m, _ in MODES]), Param("Volume", 0.55)]),
                 ("STORY", [Param("Story", 0, opts=[n for n, _ in STORIES]), Param("Bars", 3, opts=BARS),
                            Param("SubTo", 1, opts=SUBMODES), Param("Voicng", 0.4)]),
-                ("SYNC", [Param("Sync", 0, opts=["int", "ext"]), Param("ClkOut", 1, opts=ONOFF)])]
+                ("SYNC", [Param("Sync", 0, opts=["int", "ext"]), Param("ClkOut", 1, opts=ONOFF)]),
+                ("PERFRM", [Param("Evolve", 1.0)])]
+
+# ---- Evolve: what moves in each engine, and how far (a weight: the share of the knob's range at Evolve 100 %).
+# ("Cutoff", None) is the layer's filter. Each target moves on two slow sines of its own (control.evolve).
+EVOLVE = {
+    ("drone", "analog"): [("WaveA", 0.6), ("WaveB", 0.6), ("XMod", 0.3), ("Mix", 0.5), (None, 0.25)],
+    ("drone", "fm"): [("Index", 0.5), ("Fdbk", 0.3), ("Fine", 0.08), (None, 0.25)],
+    ("drone", "spectr"): [("Upper", 0.5), ("Tilt", 0.4), ("OddEv", 0.5), (None, 0.2)],
+    ("sub", "sine"): [("Harm", 0.3), ("Body", 0.3)],
+    ("sub", "warm"): [("Octave", 0.4), ("Body", 0.3)],
+    ("sub", "pulse"): [("Width", 0.5), ("Body", 0.3)],
+    ("sub", "fm"): [("Index", 0.4), ("Growl", 0.3)],
+    ("pad", "sine"): [("Harm", 0.5), ("Slope", 0.4), ("OddEv", 0.5), (None, 0.3)],
+    ("pad", "fm"): [("Index", 0.5), ("Fdbk", 0.3), ("EnvAmt", 0.3), (None, 0.3)],
+    ("pad", "saws"): [("Detune", 0.3), ("Spread", 0.4), ("Centre", 0.4), (None, 0.4)],
+    ("pad", "pwm"): [("Width", 0.5), ("Depth", 0.3), ("Rate", 0.2), (None, 0.4)],
+    ("pad", "wave"): [("Pos", 0.8), ("Shimr", 0.3), ("Detune", 0.3), (None, 0.3)],
+    ("perc", "blip"): [("Cutoff", 0.5), ("Flick", 0.3), ("FEnv", 0.3)],
+    ("perc", "lpg"): [("Fold", 0.5), ("Open", 0.5), ("Vactrl", 0.3)],
+    ("perc", "bowl"): [("Hard", 0.5), ("Beat", 0.4), ("Strtch", 0.2)],
+    ("perc", "wood"): [("Mallet", 0.5), ("Matrl", 0.4), ("Knock", 0.3)],
+    ("perc", "metal"): [("Bright", 0.5), ("Beat", 0.4), ("TremD", 0.3)],
+}
+EVOLVE_MAX = max(len(v) for v in EVOLVE.values())
 
 # ---- slots
 SLOTS = []              # [(key, Param)]

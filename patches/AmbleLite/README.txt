@@ -11,7 +11,7 @@ ORGANELLE KEYS (one press each)
   low E    show the PADS
   low F    show the PERC
   low F#   mute the pads
-  low G    the MAIN / STORY / SYNC pages (again: the next one)
+  low G    the MAIN / STORY / SYNC / PERFRM pages (again: the next one)
   low G#   mute the percussion
   low A    page back
   low A#   latch on / off for the shown layer (PERC: its pattern)
@@ -38,7 +38,12 @@ KNOBS: the 4 parameters of the page on screen. A knob takes over once it passes 
 
 PAGES of each layer: LAYER (engine, level, cutoff, reso), ENV (attack, decay, sustain, release) or HIT
 (decay, velocity, octave, spread), PLAY (articulation, glide, octave, pan) or RHYTHM (hits, steps,
-rotate, rate), then the engine's parameters, 4 a page.
+rotate, rate), EVOLVE (evolve, pace, sync, drift), then the engine's parameters, 4 a page.
+
+EVOLVE: each layer changes slowly by itself - its engine's character, the filter, a breathing in level
+(pads: each voice its own) - on slow cycles that phase against each other: never static, never random.
+Evolve 0 = still; Pace: 5 minutes .. 25 s a cycle; EvSync: free or locked to the clock; Drift: a slight
+pitch wander (0 = exact). The master Evolve (PERFRM page) scales every layer's.
 
 ARTICULATION: artic (every note restarts), legato (overlapping notes don't), porta (overlapping notes
 slide), slide (every note slides). Glide sets the slide time.

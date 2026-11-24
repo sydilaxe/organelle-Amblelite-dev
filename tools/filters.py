@@ -11,9 +11,9 @@ def build(c):
         cut, res = M.S(L, None, "Cutoff"), M.S(L, None, "Reso")
         ln = c.ch(c.recv(f"al-s{cut}"), "pack f 25", "line 0 5")
         e = c.obj("expr if($f1 >= 0.985, 0, 6.28319*20*pow(1000, $f1)/max(alsr, 1)); "
-                  f"0.7071 + 15*alp[{res}]*alp[{res}]; $f1 >= 0.985")
+                  f"0.7071 + 15*alpe[{res}]*alpe[{res}]; $f1 >= 0.985")
         c.c(ln, 0, e, 0)
-        c.c(c.ch(c.recv(f"al-s{res}"), "t b", f"expr alp[{cut}]"), 0, e, 0)
+        c.c(c.ch(c.recv(f"al-s{res}"), "t b", f"expr alpe[{cut}]"), 0, e, 0)
         pk = c.obj("pack f f f")
         for i in (2, 1, 0):
             c.c(e, i, pk, i)

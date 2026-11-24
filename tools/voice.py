@@ -8,6 +8,7 @@ Signal path: the selected engine -> the layer's filter (Cutoff, Reso; fully open
 on percussion: its engines shape their own strikes) -> a place in the stereo field -> throw~ al-<L>-L / -R."""
 from pdlib import Canvas
 from dsp import mul, add, sub, engine_canvas, out, span
+import model as M
 from model import S, ENGINES, VOICES
 from engines import BUILD
 
@@ -89,7 +90,17 @@ def voice(L):
         strike = d.recv("$0-strike")
         env = None
     else:
-        f = d.ch(d.recv("$0-pitch"), "vline~", "mtof~")
+        # pitch drift (the layer's Drift, 0 = exact): two slow sines per voice, up to about 1/3 semitone
+        dr = d.ch(d.recv(f"al-s{S(L, None, 'Drift')}"), "expr $f1*$f1*0.35", "pack f 60", "line~")
+        lb = d.ch(d.obj("loadbang"), "f $1", "t f f")
+        o1 = d.obj("osc~ 0.137")
+        o2 = d.obj("osc~ 0.084")
+        d.c(d.to((lb, 1), "expr 0.137 + $f1*0.011"), 0, o1, 0)
+        d.c(d.to((lb, 0), "expr 0.084 + $f1*0.017"), 0, o2, 0)
+        d.c(d.to((lb, 1), "expr $f1*0.25"), 0, o1, 1)
+        d.c(d.to((lb, 0), "expr $f1*0.4"), 0, o2, 1)
+        drift = mul(d, dr, add(d, d.to(o1, "*~ 0.6"), d.to(o2, "*~ 0.4")))
+        f = d.to(add(d, d.to(d.recv("$0-pitch"), "vline~"), drift), "mtof~")
         ev = d.ch(d.recv("$0-env"), "vline~")
         env = mul(d, ev, ev)
         note = d.recv("$0-note")
@@ -121,11 +132,34 @@ def voice(L):
         d.c(d.recv(f"al-{L}-bq"), 0, bq, 0)
         d.c(x, 0, bq, 0)
         outs.append(mul(d, bq, env) if env is not None else bq)
+    # Evolve inside the voice: a slow breathing in level (pads: each voice on its own cycle; drone and sub gently)
+    ev = d.ch(d.recv(f"al-evd{M.LAYERS.index(L)}"), "unpack f f")
+    edep = d.ch(ev, "pack f 60", "line~")
+    if not perc:
+        depth, k = (0.3, None) if L == "pad" else (0.15, 0.15)
+        bf = d.obj("osc~ 0.01")
+        kk = d.ch(d.obj("loadbang"), "f $1", f"expr if($f1 == 0, 0.11, if($f1 == 1, 0.14, if($f1 == 2, 0.17, 0.2)))") \
+            if L == "pad" else None
+        per = d.to((ev, 1), "t f")
+        fx = d.obj("expr 1/max(1, $f1*$f2)")
+        if kk is not None:
+            d.c(kk, 0, fx, 1)
+        else:
+            d.c(d.m(d.obj("loadbang"), str(k)), 0, fx, 1)
+        d.c(per, 0, fx, 0)
+        d.c(fx, 0, bf, 0)
+        d.c(d.ch(d.obj("loadbang"), "f $1", "expr $f1*0.23"), 0, bf, 1)
+        breath = d.ch(mul(d, d.ch(bf, "*~ 0.5", "+~ 0.5"), edep), f"*~ -{depth}", "+~ 1")
+        outs = [mul(d, x, breath) for x in outs]
+        if L == "pad":
+            orbit = d.obj("osc~ 0.01")
+            d.c(d.to(fx, "* 0.61"), 0, orbit, 0)
+            orb = d.to(mul(d, orbit, edep), "*~ 0.15")
     # ---- its place in the stereo field
     if L == "pad":
         pos = d.ch(d.obj("loadbang"), f"f $1", f"expr if($f1 == 0, {PAD_PAN[0]}, if($f1 == 1, {PAD_PAN[1]}, "
                                            f"if($f1 == 2, {PAD_PAN[2]}, {PAD_PAN[3]})))", "sig~")
-        oL, oR = _place(d, outs, pos)
+        oL, oR = _place(d, outs, d.to(add(d, d.to(pos, "+~ 0"), orb), "clip~ 0 1"))
     elif perc:
         sp = d.ch(d.recv(f"al-s{S('perc', None, 'Spread')}"), "pack f 25", "line~")
         k = d.ch(d.obj("loadbang"), "f $1", "expr " + " ".join(

@@ -12,13 +12,14 @@ GLOBALS = dict(allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alaux
                alstep=0, alclock=0, alrr=0, alpc=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
                alss=0, alsv=0, alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
-               alstv=0, alcn=0, alcv=0, alpn=0, alpv2=0, alext=0, alcur0=-1, alcur1=-1, ali=0, alci=0, alcd=0)
+               alstv=0, alcn=0, alcv=0, alpn=0, alpv2=0, alext=0, alcur0=-1, alcur1=-1, ali=0, alci=0, alcd=0,
+               altime=0, alel=0, alek=0, aled=0, alep=100, alet2=0, alesl=0, alenew=0)
 for k in range(4):
     GLOBALS.update({f"alsl{k}": -1, f"allat{k}": 0, f"alpv{k}": -1})
 ARRAYS = dict(alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alks=0, alnp=0, aleng=4, alusr=4,
               allatch=4, almute=4, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
               alscn=len(M.MODES), alsd=len(M.STORIES) * 8, alsdl=len(M.STORIES), alsm=len(M.MODES) * 8,
-              alsml=len(M.MODES))
+              alsml=len(M.MODES), alpe=NSLOTS, alem=NSLOTS, alet=0, alew=0, alevs=4, alevp=4, alevy=4)
 
 
 def opt(slot, n=None):
@@ -49,7 +50,7 @@ def npages():
 def tables(c):
     ks, np_, pnames = M.knob_table()
     n, lo, hi, ob, opts, names = M.slot_meta()
-    rows = dict(alp=[p.default for _, p in M.SLOTS], aln=n, allo=lo, alhi=hi, alob=ob, alks=ks, alnp=np_)
+    rows = dict(alp=[p.default for _, p in M.SLOTS], alpe=[p.default for _, p in M.SLOTS], aln=n, allo=lo, alhi=hi, alob=ob, alks=ks, alnp=np_)
     sc, scn, sm, sml = [], [], [], []
     for name, iv in M.MODES:
         sc += (iv + iv)[:7]
@@ -63,6 +64,14 @@ def tables(c):
         sd += deg
         sdl.append(ln)
     rows.update(alsc=sc, alscn=scn, alsm=sm, alsml=sml, alsd=sd, alsdl=sdl, allatch=[1, 1, 1, 1])
+    et, ew = [-1] * ((len(LAYERS) + 1) * MAXENG * M.EVOLVE_MAX), [0] * ((len(LAYERS) + 1) * MAXENG * M.EVOLVE_MAX)
+    for li, L in enumerate(LAYERS):
+        for ei, (e, _) in enumerate(M.ENGINES[L]):
+            for k, (pn, w) in enumerate(M.EVOLVE[(L, e)]):
+                et[(li * MAXENG + ei) * M.EVOLVE_MAX + k] = S(L, None, "Cutoff") if pn is None else S(L, e, pn)
+                ew[(li * MAXENG + ei) * M.EVOLVE_MAX + k] = w
+    rows.update(alet=et, alew=ew, alevs=[S(L, None, "Evolve") for L in LAYERS],
+                alevp=[S(L, None, "Pace") for L in LAYERS], alevy=[S(L, None, "EvSync") for L in LAYERS])
     c.comment("the tables: parameters (alp) and their kinds, the knob pages, scales and chord stories (tools/model.py)")
     for name, size in ARRAYS.items():
         size = size or len(rows[name])
@@ -103,20 +112,17 @@ QUALS = ["", "m", "dim", "+", "sus"]
 
 # ---------------------------------------------------------------------------------------------- parameters
 def params(c):
-    c.comment("al-set 'slot value': store it, send it to [r al-s<slot>], redraw")
-    r = c.ch(c.recv("al-set"), "unpack f f")
-    val = c.obj("f")
-    c.c((r, 1), 0, val, 1)
-    t = c.to((r, 0), "t b b f f")
-    tw = c.obj("tabwrite alp")
-    snd = c.obj("s")
-    c.c((t, 3), 0, tw, 1)
-    c.c(c.to((t, 2), "makefilename al-s%d"), 0, snd, 1)
-    c.c((t, 1), 0, val, 0)
-    vt = c.to(val, "t f f")
-    c.c((vt, 1), 0, tw, 0)
-    c.c((vt, 0), 0, snd, 0)
+    c.comment("al-set 'slot value': store it (alp), add Evolve's movement (alem) for the value the sound hears "
+              "(alpe), send that to [r al-s<slot>], redraw. al-out 'slot': send alpe[slot] again.")
+    t = c.to(c.recv("al-set"), "t b l l l")
+    c.c((t, 3), 0, c.obj("expr alp[$f1] = $f2"), 0)
+    c.c((t, 2), 0, c.obj("expr alpe[$f1] = max(0, min(1, $f2 + alem[$f1]))"), 0)
+    c.c(c.to((t, 1), "list split 1"), 0, c.obj("s al-out"), 0)
     c.c((t, 0), 0, c.obj("s al-redraw"), 0)
+    o = c.to(c.recv("al-out"), "t f f")
+    snd = c.obj("s")
+    c.c(c.to((o, 1), "makefilename al-s%d"), 0, snd, 1)
+    c.c(c.to((o, 0), "expr alpe[$f1]"), 0, snd, 0)
     # every parameter out once at load
     proc(c, "al-sendall", [Loop(str(NSLOTS), "ali", [SendL("al-set", ["ali", "alp[ali]"])])])
     # an engine change: the layer's pages change - keep the page in range, pick up the knobs again
@@ -396,8 +402,44 @@ def story(c):
     c.c(c.ch(c.recv("al-chord-later"), "delay 5"), 0, c.obj("s al-chord"), 0)
 
 
+def evolve(c):
+    """Evolve: every 60 ms, each layer's targets (model.EVOLVE, for its engine) move on two slow sines of their own -
+    periods unrelated (x1, x1.37, x1.71 ... and x1.618 of those), so they phase against each other and the sound
+    rarely repeats, yet the same settings always move the same way. Time runs free (since the patch loaded) or locked
+    to the clock (from Start). The base period: Pace 0 = 5 minutes .. 1 = 25 s. Depth: the layer's Evolve x the
+    master Evolve (PERFRM page) x each target's weight. Each layer's depth and period also go to its voices
+    (al-evd<n> 'depth period': the pads' breathing and orbit, the drone's and sub's breathing)."""
+    c.comment(evolve.__doc__.split(" - ")[0])
+    met = c.obj("metro 60")
+    c.c(c.recv("al-init"), 0, met, 0)
+    tm = c.obj("timer")
+    c.c(c.recv("al-init"), 0, tm, 0)
+    tb = c.to(met, "t b b")
+    c.c((tb, 1), 0, tm, 1)
+    c.c(c.to(tm, "/ 1000"), 0, c.obj("v altime"), 0)
+    c.c(tb, 0, c.obj("s al-evolve"), 0)
+    master = S("g", None, "Evolve")
+    tempo = S("g", None, "Tempo")
+    em = M.EVOLVE_MAX
+    sl = f"alet[(alel*{MAXENG} + aleng[alel])*{em} + alek]"
+    w = f"alew[(alel*{MAXENG} + aleng[alel])*{em} + alek]"
+    per = "25*pow(12, 1 - alp[alevp[alel]])"
+    tt = f"if(alp[alevy[alel]] >= 0.5, max(0, altick)*60/({num(tempo)}*8), altime)"
+    mod = (f"aled*{w}*0.5*(0.65*sin(6.28319*(alet2/(alep*(1 + 0.37*alek + 0.11*alel)) + 0.31*alek + 0.17*alel)) + "
+           f"0.35*sin(6.28319*(alet2/(alep*1.618*(1 + 0.37*alek + 0.11*alel)) + 0.7*alek)))")
+    proc(c, "al-evolve", [Loop(str(len(LAYERS)), "alel", [
+        V("aled", f"alp[alevs[alel]]*alp[{master}]"), V("alep", per), V("alet2", tt),
+        SendL("al-evd", ["alel", "aled", "alep"]),
+        Loop(str(em), "alek", [If(f"{sl} >= 0", [
+            V("alesl", sl), T("alem", "alesl", mod), V("alenew", "max(0, min(1, alp[alesl] + alem[alesl]))"),
+            If("abs(alenew - alpe[alesl]) > 0.0004", [T("alpe", "alesl", "alenew"), SendL("al-out", ["alesl"])])])])])])
+    rt = c.ch(c.recv("al-evd"), "route " + " ".join(str(i) for i in range(len(LAYERS))))
+    for i in range(len(LAYERS)):
+        c.c(rt, i, c.obj(f"s al-evd{i}"), 0)
+
+
 def build(c):
-    for fn in (tables, params, knobs, pages, organelle, midi_in, transport, story):
+    for fn in (tables, params, knobs, pages, organelle, midi_in, transport, story, evolve):
         sc = Canvas(fn.__name__, w=2600)
         c.sub(sc)
         fn(sc)

@@ -91,6 +91,43 @@ def main():
     h1, h2 = peak_hz(seg(a, 1.5, 2)), peak_hz(seg(a, 3.5, 4))
     check("next chord moves the pads", abs(h1 - h2) > 5, f"{h1:.0f} -> {h2:.0f} Hz")
 
+    # Evolve: the pads' wave engine at full Evolve, fast pace - its brightness moves; at 0 (or the master at 0) it
+    # holds still; and the same settings move the same way every time
+    pe, pp = M.S("pad", None, "Evolve"), M.S("pad", None, "Pace")
+    base = solo("pad") + [(50, f"al-set {M.S('pad', None, 'Engine')} 0.9"), (51, f"al-set {pp} 1"),
+                          (52, f"al-set {M.S('pad', 'wave', 'Table')} 0.35"),
+                          (53, f"al-set {M.S('g', None, 'Bars')} 0.05"), START]      # (Bars: manual - one chord)
+
+    def centroids(a):
+        out = []
+        for t in range(2, 20, 2):
+            x = seg(a, t, t + 1).mean(axis=1)
+            sp = np.abs(np.fft.rfft(x * np.hanning(len(x))))
+            f = np.fft.rfftfreq(len(x), 1 / SR)
+            out.append(float((sp * f).sum() / (sp.sum() + 1e-9)))
+        return np.array(out)
+    _, a1 = run(base + [(55, f"al-set {pe} 1")], 20)
+    _, a1b = run(base + [(55, f"al-set {pe} 1")], 20)
+    _, a0 = run(base + [(55, f"al-set {pe} 0")], 20)
+    _, am = run(base + [(55, f"al-set {pe} 1"), (56, f"al-set {M.S('g', None, 'Evolve')} 0")], 20)
+    c1, c0, cm = centroids(a1), centroids(a0), centroids(am)
+    check("Evolve moves the sound", np.std(c1) > 60, f"brightness spread {np.std(c1):.0f} Hz")
+    # (what is left at 0 is the wave's own stereo detune beating, not Evolve)
+    check("Evolve 0 holds still", np.std(c0) < np.std(c1) / 8, f"brightness spread {np.std(c0):.1f} Hz")
+    check("master Evolve 0 calms the layer", np.std(cm) < np.std(c1) / 8, f"brightness spread {np.std(cm):.1f} Hz")
+    n = min(len(a1), len(a1b)) - SR      # (the file writer stops at a slightly different point: compare the overlap)
+    same = np.allclose(a1[:n], a1b[:n])
+    check("Evolve is repeatable", same, "two renders identical" if same else "renders differ")
+
+    # Drift: the drone's pitch wanders a little
+    dd = M.S("drone", None, "Drift")
+    ev = solo("drone") + [(50, f"al-set {M.S('drone', 'analog', 'WaveA')} 0"), (51, f"al-set {M.S('drone', 'analog', 'WaveB')} 0"),
+                          (52, f"al-set {M.S('drone', 'analog', 'Sub')} 0"), (53, f"al-set {dd} 1"),
+                          (54, f"al-set {M.S('drone', None, 'Evolve')} 0"), START]
+    _, a = run(ev, 12)
+    hz = [peak_hz(seg(a, t, t + 1.5), 40, 200) for t in (2, 4, 6, 8, 10)]
+    check("Drift bends the pitch", max(hz) - min(hz) > 0.4, f"{[round(h, 1) for h in hz]} Hz")
+
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()
     run([START], 30)

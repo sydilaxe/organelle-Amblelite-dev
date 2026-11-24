@@ -8,8 +8,9 @@ FM_RATIOS = [0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7]
 SUB_FM_RATIOS = [0.5, 1, 1.5, 2, 3]
 
 
-def cx(c, slots, expr, ms=25):
-    """a control expression over slots (alp[slot] inside expr), recomputed when any of them changes, smoothed"""
+def cx(c, slots, expr, ms=60):
+    """a control expression over slots (alpe[slot]: the value with Evolve's movement), recomputed when any of them
+    changes, smoothed"""
     e = c.obj("expr " + expr)
     for sl in slots:
         c.c(c.ch(c.recv(f"al-s{sl}"), "t b"), 0, e, 0)
@@ -17,7 +18,7 @@ def cx(c, slots, expr, ms=25):
 
 
 def a(slot):
-    return f"alp[{slot}]"
+    return f"alpe[{slot}]"
 
 
 def pick(values, idx):

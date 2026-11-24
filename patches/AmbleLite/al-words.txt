@@ -8,6 +8,7 @@ SubTo
 Voicng
 Sync
 ClkOut
+Evolve
 Engine
 Level
 Cutoff
@@ -20,6 +21,10 @@ Artic
 Glide
 Octave
 Pan
+Evolve
+Pace
+EvSync
+Drift
 WaveA
 WaveB
 Intvl
@@ -52,6 +57,10 @@ Artic
 Glide
 Octave
 Pan
+Evolve
+Pace
+EvSync
+Drift
 Harm
 Body
 Octave
@@ -74,6 +83,10 @@ Artic
 Glide
 Octave
 Pan
+Evolve
+Pace
+EvSync
+Drift
 Harm
 Slope
 OddEv
@@ -109,6 +122,9 @@ Hits
 Steps
 Rotate
 Rate
+Evolve
+Pace
+EvSync
 Cutoff
 Flick
 FlTime
@@ -185,6 +201,8 @@ slide
 +1
 +2
 +3
+free
+bars
 unison
 5th
 oct
@@ -214,6 +232,8 @@ slide
 +1
 +2
 +3
+free
+bars
 0.5
 1
 1.5
@@ -235,6 +255,8 @@ slide
 +1
 +2
 +3
+free
+bars
 2
 3
 4
@@ -276,19 +298,24 @@ metal
 1/8
 1/16
 1/32
+free
+bars
 LAYER
 ENV
 PLAY
+EVOLVE
 ANALOG 1
 ANALOG 2
 LAYER
 ENV
 PLAY
+EVOLVE
 FM 1
 FM 2
 LAYER
 ENV
 PLAY
+EVOLVE
 SPECTR 1
 SPECTR 2
 -
@@ -301,25 +328,32 @@ SPECTR 2
 -
 -
 -
+-
+-
 LAYER
 ENV
 PLAY
+EVOLVE
 SINE 1
 -
 LAYER
 ENV
 PLAY
+EVOLVE
 WARM 1
 -
 LAYER
 ENV
 PLAY
+EVOLVE
 PULSE 1
 -
 LAYER
 ENV
 PLAY
+EVOLVE
 FM 1
+-
 -
 -
 -
@@ -329,56 +363,71 @@ FM 1
 LAYER
 ENV
 PLAY
+EVOLVE
 SINE 1
 SINE 2
 LAYER
 ENV
 PLAY
+EVOLVE
 FM 1
 FM 2
 LAYER
 ENV
 PLAY
+EVOLVE
 SAWS 1
 -
 LAYER
 ENV
 PLAY
+EVOLVE
 PWM 1
 -
 LAYER
 ENV
 PLAY
+EVOLVE
 WAVE 1
 WAVE 2
 LAYER
 HIT
 RHYTHM
+EVOLVE
 BLIP 1
 BLIP 2
 LAYER
 HIT
 RHYTHM
+EVOLVE
 LPG 1
 LPG 2
 LAYER
 HIT
 RHYTHM
+EVOLVE
 BOWL 1
 -
 LAYER
 HIT
 RHYTHM
+EVOLVE
 WOOD 1
 -
 LAYER
 HIT
 RHYTHM
+EVOLVE
 METAL 1
 -
 MAIN
 STORY
 SYNC
+PERFRM
+-
+-
+-
+-
 -
 -
 -
@@ -520,25 +569,36 @@ Bsus
 3/1
 4/1
 5/1
+6/1
 1/2
 2/2
 3/2
 4/2
 5/2
+6/2
 1/3
 2/3
 3/3
 4/3
 5/3
+6/3
 1/4
 2/4
 3/4
 4/4
 5/4
+6/4
 1/5
 2/5
 3/5
 4/5
 5/5
+6/5
+1/6
+2/6
+3/6
+4/6
+5/6
+6/6
 +
 GLOBAL

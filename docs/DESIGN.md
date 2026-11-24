@@ -63,7 +63,9 @@ Reverb, atmospheres, character effects, Freeze, JOURNEY, PUMP/DUCK, MOSAIC (in i
   Korg nanoKEY Studio / nanoKONTROL Studio and the DM48X (MPE and breath).
 - Breath: flexible routing to parameters inside each layer, not to the whole volume. Possible "breath zones" mode:
   different notes' breath on the DM48X controls different layers.
-- Saves: instant save and recall (used in performance) kept. COMPARE becomes an A/B **morph**: going to the other
+- Saves: instant save and recall (used in performance) kept. A snapshot holds everything, key and root included, so
+  switching snapshots in performance can change key; switching can morph (parameters glide, the chords move to the
+  new key by voice leading). COMPARE becomes an A/B **morph**: going to the other
   sound crossfades over a time you set, never abruptly.
 - CPU: no effects for now (the reverbs loaded the processor hard and made the MIX levels laggy and choppy). Every
   level and parameter change is smoothed at audio rate (line~), and the screen redraws are throttled while knobs
@@ -91,7 +93,8 @@ Reverb, atmospheres, character effects, Freeze, JOURNEY, PUMP/DUCK, MOSAIC (in i
 Each layer moves slowly on its own so nothing sounds static, as in Amble, but without dice: slow cycles of different,
 unrelated lengths (as Amble's pad breathing: 7, 9, 11, 13 half-bars) that phase against each other, so the sound
 keeps changing and rarely repeats, yet a setting always behaves the same.
-- Per layer: **Evolve** amount (0 = still) and **Pace** (free, minutes per cycle, or locked to bars).
+- Per layer: **Evolve** amount (on by default, 0 = still), **Pace** (5 min .. 25 s a cycle), **EvSync** (free or
+  locked to the clock) and **Drift** (pitch wander, 0 = exact by default). A master Evolve (PERFRM page) scales all.
 - What moves, per engine: its character parameters (a wavetable's position, FM index, fold, the analog's wave
   shapes and cross-mod, a pad's harmonics ...), the filter, a gentle level breathing, the stereo place; pads: each
   voice on its own cycle.
