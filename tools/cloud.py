@@ -12,7 +12,7 @@ from dsp import mul, add, sub, prm
 import model as M
 from model import S
 
-STREAMS = 6
+STREAMS = 4
 BUF_MS = 8000
 
 

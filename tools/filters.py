@@ -9,7 +9,7 @@ def build(c):
     sr = c.ch(c.recv("al-init"), "t b", "samplerate~", "v alsr")
     for L in M.LAYERS:
         cut, res = M.S(L, None, "Cutoff"), M.S(L, None, "Reso")
-        ln = c.ch(c.recv(f"al-s{cut}"), "pack f 25", "line 0 5")
+        ln = c.ch(c.recv(f"al-s{cut}"), "pack f 150", "line 0 20")
         e = c.obj("expr if($f1 >= 0.985, 0, 6.28319*20*pow(1000, $f1)/max(alsr, 1)); "
                   f"0.7071 + 15*alpe[{res}]*alpe[{res}]; $f1 >= 0.985")
         c.c(ln, 0, e, 0)

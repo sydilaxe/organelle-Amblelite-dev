@@ -8,6 +8,7 @@ import model as M
 from model import S, LAYERS, LANES, MAXENG, MAXPAGES, GLOBAL_LAYER, NSLOTS
 
 NL = len(LAYERS)
+EVOLVE_MS = 150             # Evolve's step (the parameters' ramps are as long: dsp.prm)
 LX = {"drone": "d", "sub": "s"}
 FIRST_LANE = LAYERS.index(LANES[0])
 VIEW_LAYER, VIEW_GLOBAL, VIEW_MIX = 0, 1, 2
@@ -31,7 +32,7 @@ ARRAYS = dict(alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alk
               allatch=NL, alin=NL, alprm=4, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
               alscn=len(M.MODES), alsk=0, alsd=0, alsr=0, alsy=0, alsdl=0, alsm=len(M.MODES) * 8,
               alsml=len(M.MODES), alty=0, altq=0, alpe=NSLOTS, alem=NSLOTS, alet=0, alew=0, alevs=0, alevp=0,
-              alevy=0, allane=4, allrot=4, allrr=4, alfo=0, alfm=NSLOTS, alfn=NSLOTS)
+              alevy=0, aleo=NL, alepo=NL, allane=4, allrot=4, allrr=4, alfo=0, alfm=NSLOTS, alfn=NSLOTS)
 
 
 def opt(slot, n=None):
@@ -623,14 +624,14 @@ def story(c):
 
 
 def evolve(c):
-    """Evolve: every 60 ms, each layer's targets (model.EVOLVE, for its engine) move on two slow sines of their own -
+    """Evolve: every 150 ms, each layer's targets (model.EVOLVE, for its engine) move on two slow sines of their own -
     periods unrelated (x1, x1.37, x1.71 ... and x1.618 of those), so they phase against each other and the sound
     rarely repeats, yet the same settings always move the same way. Time runs free (since the patch loaded) or locked
     to the clock (from Start). The base period: Pace 0 = 5 minutes .. 1 = 25 s. Depth: the layer's Evolve x the
     master Evolve (PERFRM page) x each target's weight. Each layer's depth and period also go to its voices
     (al-evd<n> 'depth period': the pads' breathing and orbit, the drone's and sub's breathing)."""
     c.comment(" ".join(evolve.__doc__.split(" - ")[0].split()))    # (one line: the same on every Python)
-    met = c.obj("metro 60")
+    met = c.obj(f"metro {EVOLVE_MS}")
     c.c(c.recv("al-init"), 0, met, 0)
     tm = c.obj("timer")
     c.c(c.recv("al-init"), 0, tm, 0)
@@ -649,10 +650,12 @@ def evolve(c):
            f"0.35*sin(6.28319*(alet2/(alep*1.618*(1 + 0.37*alek + 0.11*alel)) + 0.7*alek)))")
     proc(c, "al-evolve", [Loop(str(NL), "alel", [
         V("aled", f"alp[alevs[alel]]*alp[{master}]"), V("alep", per), V("alet2", tt),
-        SendL("al-evd", ["alel", "aled", "alep"]),
+        # (to the voices only when it changed)
+        If("abs(aled - aleo[alel]) > 0.002 || abs(alep - alepo[alel]) > 0.5",
+           [T("aleo", "alel", "aled"), T("alepo", "alel", "alep"), SendL("al-evd", ["alel", "aled", "alep"])]),
         Loop(str(em), "alek", [If(f"{sl} >= 0", [
             V("alesl", sl), T("alem", "alesl", mod), V("alenew", "max(0, min(1, alp[alesl] + alem[alesl] + alfm[alesl] + alfn[alesl] + alfb[alesl]))"),
-            If("abs(alenew - alpe[alesl]) > 0.0004", [T("alpe", "alesl", "alenew"), SendL("al-out", ["alesl"])])])])])])
+            If("abs(alenew - alpe[alesl]) > 0.002", [T("alpe", "alesl", "alenew"), SendL("al-out", ["alesl"])])])])])])
     rt = c.ch(c.recv("al-evd"), "route " + " ".join(str(i) for i in range(NL)))
     for i in range(NL):
         c.c(rt, i, c.obj(f"s al-evd{i}"), 0)
