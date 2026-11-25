@@ -360,7 +360,9 @@ def _env(s, up, amp, att, dec, sq=True):
     pk = s.obj("pack f f")
     s.c(ex, 1, pk, 1)
     s.c(ex, 0, pk, 0)
-    e = s.ch(s.m(pk, f"$1 {att}, 0 $2 {att}"), "vline~")
+    # (from 0 at each strike: a voice struck again while it rings has just been faded out - voice.py - so its new
+    # envelope starts clean)
+    e = s.ch(s.m(pk, f"0, $1 {att}, 0 $2 {att}"), "vline~")
     return mul(s, e, e) if sq else e
 
 

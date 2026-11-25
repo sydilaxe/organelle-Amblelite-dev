@@ -47,7 +47,17 @@ def voice(L):
         v.c((up, 2), 0, pk, 2)
         v.c((up, 1), 0, pk, 1)
         v.c(v.to((up, 0), "mtof"), 0, pk, 0)
-        v.c(pk, 0, v.obj("s $0-strike"), 0)
+        # a voice struck again while it still rings (a long Decay): faded out over 2 ms first, then struck - its
+        # oscillators and envelopes restart from silence, not under a loud tail (that was a click). Every strike
+        # waits the same 5 ms, so the timing stays even
+        dk = v.obj("s $0-dk")
+        v.c(v.m((hit, 1), "0 2"), 0, dk, 0)
+        held = v.obj("list")
+        v.c(pk, 0, held, 1)
+        v.c(v.ch(pk, "t b", "delay 5"), 0, held, 0)
+        st = v.to(held, "t b l")
+        v.c((st, 1), 0, v.obj("s $0-strike"), 0)
+        v.c(v.m((st, 0), "1"), 0, dk, 0)
     else:
         n = v.ch(v.recv(f"al-{L}-n"), "route $1")
         v.c(v.m(n, "$1 $2"), 0, v.obj("s $0-pitch"), 0)
@@ -135,6 +145,12 @@ def voice(L):
         outs.append(mul(d, mul(d, x, env), expr_) if env is not None else x)
     if not perc:
         outs = [mul(d, x, (sl, 1)) for x in outs]
+    else:
+        # ([vline~]: exact to the sample, as the envelopes it restarts with - [line~] would turn back up at the
+        # block's start, before them)
+        dk = d.ch(d.recv("$0-dk"), "vline~")
+        d.c(d.m(d.obj("loadbang"), "1"), 0, dk, 0)
+        outs = [mul(d, x, dk) for x in outs]
     # ---- its place in the stereo field
     if L == "pad":
         oL, oR = mul(d, outs[0], (sl, 2)), mul(d, outs[1], (sl, 3))
