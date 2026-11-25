@@ -52,8 +52,8 @@ def tables(c):
 
 # ---------------------------------------------------------------------------------------------- LFOs
 def lfo(c):
-    c.comment("the LFOs: every 20 ms, each active one moves its target (alfm / alfn)")
-    met = c.obj("metro 20")
+    c.comment("the LFOs: every 40 ms, each active one moves its target (alfm / alfn)")
+    met = c.obj("metro 40")
     c.c(c.recv("al-init"), 0, met, 0)
     c.c(met, 0, c.obj("s al-lfo"), 0)
     mc = MAXC

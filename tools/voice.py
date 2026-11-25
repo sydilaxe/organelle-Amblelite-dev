@@ -13,9 +13,9 @@ from model import S, ENGINES, VOICES
 from engines import BUILD
 
 # per-voice stereo place (0..1); pads spread, percussion by the Spread knob
-PAD_PAN = [0.32, 0.44, 0.56, 0.68]
+PAD_PAN = [0.12, 0.38, 0.62, 0.88]
 PERC_PAN = [-0.35, 0.0, 0.35]                               # around the lane's own place, x Spread
-LANE_PAN = dict(perc1=0.42, perc2=0.62, perc3=0.5, perc4=0.32)
+LANE_PAN = dict(perc1=0.3, perc2=0.7, perc3=0.5, perc4=0.15)
 
 
 def env_ms():
@@ -94,25 +94,17 @@ def voice(L):
     sw = d.obj("switch~")
     d.c(d.recv("$0-sw"), 0, sw, 0)
     d.c(d.m(d.obj("loadbang"), "0"), 0, sw, 0)
+    slow = None if perc else _slow(L)
     if perc:
         strike = d.recv("$0-strike")
         env = None
     else:
-        # pitch drift (the layer's Drift, 0 = exact): two slow sines per voice, up to about 1/3 semitone
-        dr = d.ch(d.recv(f"al-s{S(L, None, 'Drift')}"), "expr $f1*$f1*0.35", "pack f 60", "line~")
-        lb = d.ch(d.obj("loadbang"), "f $1", "t f f")
-        o1 = d.obj("osc~ 0.137")
-        o2 = d.obj("osc~ 0.084")
-        d.c(d.to((lb, 1), "expr 0.137 + $f1*0.011"), 0, o1, 0)
-        d.c(d.to((lb, 0), "expr 0.084 + $f1*0.017"), 0, o2, 0)
-        d.c(d.to((lb, 1), "expr $f1*0.25"), 0, o1, 1)
-        d.c(d.to((lb, 0), "expr $f1*0.4"), 0, o2, 1)
-        drift = mul(d, dr, add(d, d.to(o1, "*~ 0.6"), d.to(o2, "*~ 0.4")))
+        sl = d.sub(slow)
         # MPE: the note's own pitch bend (semitones) and pressure (its level), from midi.py
         bend = d.ch(d.recv(f"al-{L}-b"), "route $1", "pack f 12", "line~")
         expr_ = d.ch(d.recv(f"al-{L}-x"), "route $1", "pack f 20", "line~")
         d.c(d.m(d.obj("loadbang"), "1"), 0, expr_, 0)
-        f = d.to(add(d, add(d, d.to(d.recv("$0-pitch"), "vline~"), drift), bend), "mtof~")
+        f = d.to(add(d, add(d, d.to(d.recv("$0-pitch"), "vline~"), (sl, 0)), bend), "mtof~")
         ev = d.ch(d.recv("$0-env"), "vline~")
         env = mul(d, ev, ev)
         note = d.recv("$0-note")
@@ -137,47 +129,25 @@ def voice(L):
         d.c(node, 0, sL, 0)
         d.c(node, 1, sR, 0)
     d.col(260)
-    # ---- the layer's filter: a 2-pole low-pass (biquad~), its coefficients from the layer (filters.py)
+    # (the layer's filter is on its bus: gen.mix)
     outs = []
     for x in (sL, sR):
-        bq = d.obj("biquad~ 0 0 1 0 0")
-        d.c(d.recv(f"al-{L}-bq"), 0, bq, 0)
-        d.c(x, 0, bq, 0)
-        outs.append(mul(d, mul(d, bq, env), expr_) if env is not None else bq)
-    # Evolve inside the voice: a slow breathing in level (pads: each voice on its own cycle; drone and sub gently)
-    ev = d.ch(d.recv(f"al-evd{M.LAYERS.index(L)}"), "unpack f f")
-    edep = d.ch(ev, "pack f 60", "line~")
+        outs.append(mul(d, mul(d, x, env), expr_) if env is not None else x)
     if not perc:
-        depth, k = (0.3, None) if L == "pad" else (0.15, 0.15)
-        bf = d.obj("osc~ 0.01")
-        kk = d.ch(d.obj("loadbang"), "f $1", f"expr if($f1 == 0, 0.11, if($f1 == 1, 0.14, if($f1 == 2, 0.17, 0.2)))") \
-            if L == "pad" else None
-        per = d.to((ev, 1), "t f")
-        fx = d.obj("expr 1/max(1, $f1*$f2)")
-        if kk is not None:
-            d.c(kk, 0, fx, 1)
-        else:
-            d.c(d.m(d.obj("loadbang"), str(k)), 0, fx, 1)
-        d.c(per, 0, fx, 0)
-        d.c(fx, 0, bf, 0)
-        d.c(d.ch(d.obj("loadbang"), "f $1", "expr $f1*0.23"), 0, bf, 1)
-        breath = d.ch(mul(d, d.ch(bf, "*~ 0.5", "+~ 0.5"), edep), f"*~ -{depth}", "+~ 1")
-        outs = [mul(d, x, breath) for x in outs]
-        if L == "pad":
-            orbit = d.obj("osc~ 0.01")
-            d.c(d.to(fx, "* 0.61"), 0, orbit, 0)
-            orb = d.to(mul(d, orbit, edep), "*~ 0.15")
+        outs = [mul(d, x, (sl, 1)) for x in outs]
     # ---- its place in the stereo field
     if L == "pad":
-        pos = d.ch(d.obj("loadbang"), f"f $1", f"expr if($f1 == 0, {PAD_PAN[0]}, if($f1 == 1, {PAD_PAN[1]}, "
-                                           f"if($f1 == 2, {PAD_PAN[2]}, {PAD_PAN[3]})))", "sig~")
-        oL, oR = _place(d, outs, d.to(add(d, d.to(pos, "+~ 0"), orb), "clip~ 0 1"))
+        oL, oR = mul(d, outs[0], (sl, 2)), mul(d, outs[1], (sl, 3))
     elif perc:
-        sp = d.ch(d.recv(f"al-s{S(L, None, 'Spread')}"), "pack f 25", "line~")
+        # (the lane's Spread places its voices: gains worked out at control rate, ramped)
         k = d.ch(d.obj("loadbang"), "f $1", "expr " + " ".join(
             f"if($f1 == {i}, {p}," for i, p in enumerate(PERC_PAN[:-1])) + f" {PERC_PAN[-1]}" + ")" * (len(PERC_PAN) - 1))
-        pos = d.to(d.to(mul(d, sp, d.to(k, "sig~")), f"+~ {LANE_PAN[L]}"), "clip~ 0 1")
-        oL, oR = _place(d, outs, pos)
+        g = d.obj(f"expr 1.414*cos(1.5708*max(0, min(1, $f1*$f2 + {LANE_PAN[L]}))); "
+                  f"1.414*sin(1.5708*max(0, min(1, $f1*$f2 + {LANE_PAN[L]})))")
+        d.c(k, 0, g, 1)
+        d.c(d.recv(f"al-s{S(L, None, 'Spread')}"), 0, g, 0)
+        oL = mul(d, outs[0], d.ch((g, 0), "pack f 25", "line~"))
+        oR = mul(d, outs[1], d.ch((g, 1), "pack f 25", "line~"))
     else:
         oL, oR = outs
     d.c(oL, 0, d.obj(f"throw~ al-{L}-L"), 0)
@@ -185,9 +155,47 @@ def voice(L):
     return v
 
 
-def _place(d, outs, pos):
-    """a stereo signal placed at pos (0..1): each side kept, panned by the balance (mono-safe)"""
-    q = d.to(pos, "*~ 0.25")
-    gl = d.ch(q, "cos~", "*~ 1.414")
-    gr = d.ch(q, "-~ 0.25", "cos~", "*~ 1.414")
-    return mul(d, outs[0], gl), mul(d, outs[1], gr)
+def _slow(L):
+    """the voice's slow movement, at 1/16 of the audio rate (as Amble: block 4 = one parent block, held back up):
+    pitch drift (the layer's Drift: two slow sines, up to about 1/3 semitone), Evolve's breathing in level (pads:
+    each voice on its own cycle; drone and sub gently) and, pads, the orbit around the voice's place.
+    Outlets: drift (semitones), the breath gain, and (pads) the left and right gains."""
+    v = Canvas("slow", w=1400)
+    v.obj("block~ 4 1 0.0625")
+    dr = v.ch(v.recv(f"al-s{S(L, None, 'Drift')}"), "expr $f1*$f1*0.35", "pack f 60", "line~")
+    lb = v.ch(v.obj("loadbang"), "f $1", "t f f")
+    o1, o2 = v.obj("osc~ 0.137"), v.obj("osc~ 0.084")
+    v.c(v.to((lb, 1), "expr 0.137 + $f1*0.011"), 0, o1, 0)
+    v.c(v.to((lb, 0), "expr 0.084 + $f1*0.017"), 0, o2, 0)
+    v.c(v.to((lb, 1), "expr $f1*0.25"), 0, o1, 1)
+    v.c(v.to((lb, 0), "expr $f1*0.4"), 0, o2, 1)
+    drift = mul(v, dr, add(v, v.to(o1, "*~ 0.6"), v.to(o2, "*~ 0.4")))
+    v.c(drift, 0, v.obj("outlet~ hold", 20, 1100), 0)
+    ev = v.ch(v.recv(f"al-evd{M.LAYERS.index(L)}"), "unpack f f")
+    edep = v.ch(ev, "pack f 60", "line~")
+    pad = L == "pad"
+    depth = 0.3 if pad else 0.15
+    bf = v.obj("osc~ 0.01")
+    fx = v.obj("expr 1/max(1, $f1*$f2)")
+    if pad:
+        v.c(v.ch(v.obj("loadbang"), "f $1", "expr if($f1 == 0, 0.11, if($f1 == 1, 0.14, if($f1 == 2, 0.17, 0.2)))"),
+            0, fx, 1)
+    else:
+        v.c(v.m(v.obj("loadbang"), "0.15"), 0, fx, 1)
+    v.c((ev, 1), 0, fx, 0)
+    v.c(fx, 0, bf, 0)
+    v.c(v.ch(v.obj("loadbang"), "f $1", "expr $f1*0.23"), 0, bf, 1)
+    breath = v.ch(mul(v, v.ch(bf, "*~ 0.5", "+~ 0.5"), edep), f"*~ -{depth}", "+~ 1")
+    v.c(breath, 0, v.obj("outlet~ hold", 220, 1100), 0)
+    if pad:
+        orbit = v.obj("osc~ 0.01")
+        v.c(v.to(fx, "* 0.61"), 0, orbit, 0)
+        orb = v.to(mul(v, orbit, edep), "*~ 0.25")
+        home = v.ch(v.obj("loadbang"), "f $1", "expr " + " ".join(
+            f"if($f1 == {i}, {p}," for i, p in enumerate(PAD_PAN[:-1])) + f" {PAD_PAN[-1]}" + ")" * (len(PAD_PAN) - 1))
+        hp = v.to(orb, "+~ 0")
+        v.c(home, 0, hp, 1)
+        q = v.ch(hp, "clip~ 0 1", "*~ 0.25")
+        v.c(v.ch(q, "cos~", "*~ 1.414"), 0, v.obj("outlet~ hold", 420, 1100), 0)
+        v.c(v.ch(q, "-~ 0.25", "cos~", "*~ 1.414"), 0, v.obj("outlet~ hold", 620, 1100), 0)
+    return v
