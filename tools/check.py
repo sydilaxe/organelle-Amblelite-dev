@@ -225,20 +225,31 @@ def main():
           nav[:2] == ["10", "10"] and nav[2:3] == ["0"] and nav[3:4] != ["0"] and nav[4:5] == ["0"]
           and nav[5:6] == ["10"] and nav[6:7] == ["0"], " ".join(nav))
 
-    # snapshots: save 1, change the pads' engine and level, recall 1 (morph 0): back as it was; COMPARE: the change
+    # snapshots: save 1, change the pads' engine and level, recall 1 (morph 0): back as it was
     eng, lv = M.S("pad", None, "Engine"), M.S("pad", None, "Level")
     ev = [(50, f"al-set {M.S('g', None, 'Morph')} 0"), START, (500, "notesRaw 82 100"), (510, "aux 1"),
           (520, "notesRaw 60 100"), (530, "aux 0"), (540, "notesRaw 82 0"),
           (800, f"al-set {eng} 0.3"), (810, f"al-set {lv} 0.1"),
-          (1500, "notesRaw 82 100"), (1510, "notesRaw 60 100"), (1520, "notesRaw 82 0"),
-          (2500, "notesRaw 82 100"), (2510, "notesRaw 82 0")]
-    log, a = H.run(solo("pad") + ev, 3.5, d=d, keep=True, prints=("oscOut",))
+          (1500, "notesRaw 82 100"), (1510, "notesRaw 60 100"), (1520, "notesRaw 82 0")]
+    log, a = H.run(solo("pad") + ev, 2.5, d=d, keep=True, prints=("oscOut",))
     heads = [l for l in log.splitlines() if "gPrintln 3 0 0 " in l]
-    rows = [l for l in log.splitlines() if "gPrintln 3 0 42" in l]
-    r1, r2, r3 = H.rms_db(seg(a, 1.2, 1.5)), H.rms_db(seg(a, 2.0, 2.4)), H.rms_db(seg(a, 3.0, 3.4))
+    r1, r2 = H.rms_db(seg(a, 1.2, 1.5)), H.rms_db(seg(a, 2.0, 2.4))
     check("save, change, recall", r2 - r1 > 6 and any("SAVED" in l for l in heads) and any("LOADED" in l for l in heads),
           f"level {r1:.1f} -> recalled {r2:.1f} dB")
-    check("compare goes back to the change", r2 - r3 > 6 and any("COMPARE" in l for l in heads), f"{r3:.1f} dB")
+
+    # COMPARE (as Amble): save, turn the level down (the header: RUN*); top A# tapped: the saved sound (loud), tapped
+    # again: yours (quiet); held: the saved one while held, yours again when let go
+    ev = [START, (500, "notesRaw 82 100"), (510, "aux 1"), (520, "notesRaw 60 100"), (530, "aux 0"),
+          (540, "notesRaw 82 0"), (800, f"al-set {lv} 0.1"),
+          (1500, "notesRaw 82 100"), (1550, "notesRaw 82 0"), (2500, "notesRaw 82 100"), (2550, "notesRaw 82 0"),
+          (3200, "notesRaw 82 100"), (4300, "notesRaw 82 0")]
+    log, a = H.run(solo("pad") + ev, 6.8, d=d, keep=True, prints=("oscOut",))
+    heads = [l for l in log.splitlines() if "gPrintln 3 0 0 " in l]
+    lv_ = [H.rms_db(seg(a, t0, t1)) for t0, t1 in ((1.1, 1.45), (2.0, 2.45), (2.95, 3.15), (3.8, 4.25), (4.75, 5.1))]
+    ok = lv_[1] - lv_[0] > 6 and lv_[1] - lv_[2] > 6 and lv_[3] - lv_[2] > 6 and lv_[3] - lv_[4] > 6
+    check("compare: a tap flips saved / yours, a hold hears the saved one", ok and any("RUN*" in l for l in heads),
+          " > ".join(f"{x:.0f}" for x in lv_) + " dB (yours, saved, yours, held, yours)"
+          + ("" if any("RUN*" in l for l in heads) else "; no RUN* mark"))
 
     # morph: a slow morph (Morph 70 %: about 4 s) - the level glides
     ev2 = [(50, f"al-set {M.S('g', None, 'Morph')} 0.7"), START, (300, f"al-set {lv} 0.1"), (500, "notesRaw 82 100"),

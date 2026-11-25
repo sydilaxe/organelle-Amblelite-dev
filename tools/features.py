@@ -24,7 +24,7 @@ BAR = 96                    # clocks in a 4/4 bar
 MAXCLK = 16 * BAR           # the longest breath line a loop keeps (16 bars)
 MAXEV = 256                 # events a loop holds
 SAVE_SLOTS = 16
-SCRATCH = SAVE_SLOTS        # (line 16 of saves.txt: the sound before the last recall, for COMPARE)
+SCRATCH = SAVE_SLOTS        # (saves.txt keeps 2 lines after the 16 slots: unused since COMPARE works in memory)
 FAVN = NL * MAXENG * 4
 TAPN = len(M.NOTE_LAYERS) * 16          # the tapped patterns (control.taps)
 SNAP = NSLOTS + 2 * NL + FAVN + TAPN
@@ -114,7 +114,7 @@ def assign(c):
 
 
 # ---------------------------------------------------------------------------------------------- toasts
-TOASTS = ["SAVED", "LOADED", "EMPTY", "COMPARE", "BACK", "REC", "PLAY", "DUB", "STOPPED", "CLEARED", "ASSIGN", "TAP",
+TOASTS = ["SAVED", "LOADED", "EMPTY", "COMPARE", "YOURS", "REC", "PLAY", "DUB", "STOPPED", "CLEARED", "ASSIGN", "TAP",
           "ARMED", "ERASE",
           "ROAD", "NEXT", "SECTION", "HOLD"]
 
@@ -165,19 +165,33 @@ def saves(c):
     c.c((ln, 0), 0, sp, 0)
     c.c(sp, 0, c.obj("array set alsnap"), 0)
 
-    morph = S("g", None, "Morph")
+    morph, cmpgl = S("g", None, "Morph"), S("g", None, "CmpGl")
     mms = f"if(alp[{morph}] < 0.02, 0, 100*pow(200, alp[{morph}]))"
-    proc(c, "al-save", [Call("al-gather"), SendL("al-snapwrite", ["alslot"])] + toast("SAVED", "alslot + 1"))
+    cms = f"if(alp[{cmpgl}] < 0.02, 0, 4000*alp[{cmpgl}]*alp[{cmpgl}])"       # (CmpGl: 0 .. 4 s, 250 ms at 25 %)
+    # COMPARE (as in Amble): the snapshot as saved or recalled (alsbase) against your sound since (alsyou). Top A#
+    # alone: a tap flips between them (latched), a hold hears the saved one until it is let go. Both glide over
+    # CmpGl (PERFRM page). alchg: the sound has been changed since (the play view's RUN* / STOP*)
+    for name in ("alsbase", "alsyou"):
+        c.obj(f"array define {name} {SNAP}")
+    proc(c, "al-save", [Call("al-gather"), SendL("al-snapwrite", ["alslot"]), ACopy("alsnap", 0, SNAP, "alsbase", 0),
+                        V("alhasbase", "1"), V("alchg", "0"), V("alcmp", "0"), Call("al-redraw")]
+         + toast("SAVED", "alslot + 1"))
     proc(c, "al-recall", [
-        # the sound now kept for COMPARE, then the slot read
-        Call("al-gather"), SendL("al-snapwrite", [str(SCRATCH)]), V("alcmp", "0"),
         SendL("al-snapread", ["alslot"]),
-        If("alsnv", [V("allast", "alslot"), Call("al-apply")] + toast("LOADED", "alslot + 1"), toast("EMPTY"))])
-    proc(c, "al-compare", [If("allast >= 0", [
-        If("alcmp == 0", [Call("al-gather"), SendL("al-snapwrite", [str(SCRATCH + 1)]),
-                          SendL("al-snapread", [str(SCRATCH)]), V("alcmp", "1")] + toast("COMPARE"),
-           [SendL("al-snapread", [str(SCRATCH + 1)]), V("alcmp", "0")] + toast("BACK")),
-        If("alsnv", [Call("al-apply")])])])
+        If("alsnv", [V("allast", "alslot"), ACopy("alsnap", 0, SNAP, "alsbase", 0), V("alhasbase", "1"),
+                     V("alcmp", "0"), Call("al-apply"), V("alchg", "0"), Call("al-redraw")]
+           + toast("LOADED", "alslot + 1"), toast("EMPTY"))])
+    proc(c, "al-cmpon", [If("alhasbase && alcmp == 0", [
+        Call("al-gather"), ACopy("alsnap", 0, SNAP, "alsyou", 0), ACopy("alsbase", 0, SNAP, "alsnap", 0),
+        V("alcmpg", "1"), Call("al-apply"), V("alcmpg", "0"), V("alcmp", "1")] + toast("COMPARE"),
+        [If("alhasbase == 0", toast("EMPTY"))])])
+    proc(c, "al-cmpoff", [If("alcmp", [
+        ACopy("alsyou", 0, SNAP, "alsnap", 0), V("alcmpg", "1"), Call("al-apply"), V("alcmpg", "0"),
+        V("alcmp", "0")] + toast("YOURS"))])
+    proc(c, "al-compare", [If("alcmp", [Call("al-cmpoff")], [Call("al-cmpon")])])
+    # (changed: an al-set that isn't a recall, a compare or a morph)
+    proc(c, "al-setseen", [If("alapl == 0 && alcmp == 0 && alhasbase && alchg == 0", [V("alchg", "1"), Call("al-redraw")])])
+    c.c(c.ch(c.recv("al-set"), "t b"), 0, c.obj("s al-setseen"), 0)
     # apply alsnap: latches, mutes, FAV pages at once; the choices at once; the rest glides (or all at once)
     proc(c, "al-apply", [
         Loop(str(NL), "alsi", [T("allatch", "alsi", f"alsnap[{NSLOTS} + alsi]"),
@@ -186,12 +200,13 @@ def saves(c):
                                    SendL("al-inset", ["alsi", f"alsnap[{NSLOTS + NL} + alsi]"])])]),
         Loop(str(FAVN), "alsi", [T("alks", "alfavix[alsi]", f"alsnap[{NSLOTS + 2 * NL} + alsi]")]),
         ACopy("alsnap", NSLOTS + 2 * NL + FAVN, TAPN, "altap", 0),
-        V("almcnt", "0"), V("almdur", f"if(alpinst, 0, {mms})"),
+        V("alapl", "1"),
+        V("almcnt", "0"), V("almdur", f"if(alpinst, 0, if(alcmpg, {cms}, {mms}))"),
         Loop(str(NSLOTS), "alsi", [If("abs(alsnap[alsi] - alp[alsi]) > 0.0005", [
             If("aln[alsi] != 0 || almdur == 0", [SendL("al-set", ["alsi", "alsnap[alsi]"])],
                [T("almi", "almcnt", "alsi"), T("almf", "almcnt", "alp[alsi]"), T("almt", "almcnt", "alsnap[alsi]"),
                 V("almcnt", "almcnt + 1")])])]),
-        Call("al-pickreset"),
+        Call("al-pickreset"), V("alapl", "0"),
         If("almcnt > 0", [V("almt0", "altime"), Send("al-morphclock", "1")])])
     met = c.obj("metro 50")
     c.c(c.recv("al-morphclock"), 0, met, 0)
@@ -199,7 +214,9 @@ def saves(c):
     sm = "(almp*almp*(3 - 2*almp))"
     proc(c, "al-morph", [
         V("almp", "min(1, (altime - almt0)*1000/max(1, almdur))"),
+        V("alapl", "1"),
         Loop("almcnt", "alsi", [SendL("al-set", ["almi[alsi]", f"almf[alsi] + (almt[alsi] - almf[alsi])*{sm}"])]),
+        V("alapl", "0"),
         If("almp >= 1", [Send("al-morphclock", "0"), V("almcnt", "0")])])
 
 
@@ -377,7 +394,7 @@ def opt_layer(key, n):
     return f"min({n - 1}, int(alp[{sl}]*{n}))"
 
 
-GLOBALS = dict(alpinst=0, alpcv=0, allj=0, allq=0, alftg=-1, alfold=0, alfnew=0, alfph=0, alfv=0, altw=-1, altn=-1, alslot=0, allast=-1,
+GLOBALS = dict(alhasbase=0, alchg=0, alapl=0, alcmpg=0, alpinst=0, alpcv=0, allj=0, allq=0, alftg=-1, alfold=0, alfnew=0, alfph=0, alfv=0, altw=-1, altn=-1, alslot=0, allast=-1,
                alcmp=0, alsnv=0, alsi=0, almdur=0, almt0=0, almp=0, almcnt=0, alslh=0, alslu=0, alasv=0,
                allx=0, allrt=0, allk=0, alli=0, allsz=0, allpos=0, alzl=0, allbp=0, albdirty=0)
 for _li in range(NL):

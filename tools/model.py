@@ -337,7 +337,7 @@ GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, l
                 ("MIDI", [Param("Profil", 0, opts=PROFILES), Param("Chans", 0, opts=["layers", "mpe"]),
                           Param("Zones", 0, opts=ONOFF), Param("LastCC", 0, lo=0, hi=127)]),
                 ("MIDI 2", [Param("Bend", 3, opts=["2", "12", "24", "48"]), Param("Press", 1, opts=["off", "expr", "breath"])]),
-                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Volume", 0.55)]),
+                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Volume", 0.55), Param("CmpGl", 0.25)]),
                 # the harmony assistant: the next chords ranked (Sugg shows one by name: aux + top E plays it and
                 # adds it to your own story), which kind, and listening (held notes pull the next chord)
                 ("HARMNY", [Param("Sugg", 0, opts=["1", "2", "3", "4"], key="Sugg"),

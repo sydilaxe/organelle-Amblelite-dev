@@ -17,7 +17,7 @@ PIECE_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("PIECE")
 MODE_SLOT, SCALE_SLOT = S("g", None, "Mode"), S("g", None, "Scale")
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
-GLOBALS = dict(alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
+GLOBALS = dict(alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
                alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
                alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0, alcb=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
@@ -166,7 +166,7 @@ def words():
     for key, items in (("name", names), ("opt", opts), ("page", pnames), ("note", M.NOTE_NAMES),
                        ("mode", [m for m, _ in M.MODES]), ("layer", [M.LAYER_LABEL[L] for L in LAYERS]),
                        ("short", [M.SHORT[L] for L in LAYERS]), ("qual", M.QUALS),
-                       ("misc", ["-", "RUN", "STOP", "M", ">", "NOTES", "LAT"])):
+                       ("misc", ["-", "RUN", "STOP", "M", ">", "NOTES", "LAT", "RUN*", "STOP*"])):
         off[key] = len(lines)
         lines += [w if w else "-" for w in items]
     for L in LAYERS:
@@ -394,12 +394,15 @@ def organelle(c):
                 [V("alslot", "alkn - 60"), V("alslu", "1"), V("alauxu", "if(alaux, 1, alauxu)"),
                  If("alaux", [Call("al-save")], [Call("al-recall")])], normal)]
     # (top A# tapped: COMPARE - or, on the PIECE page, load the Piece knob's piece; with aux: save to it)
+    # (alone: a tap flips COMPARE, a hold hears the saved snapshot until it is let go)
     piece = f"alview == {VIEW_GLOBAL} && alpage == {PIECE_PAGE}"
     run_steps(c, (r, 0), [If(f"alkn == {SLOT_KEY}",
-                             [If("alkvel > 0", [V("alslh", "1"), V("alslu", "0")],
-                                 [V("alslh", "0"), If("alslu == 0", [
+                             [If("alkvel > 0", [V("alslh", "1"), V("alslu", "0"), V("alcmph", "0"),
+                                                If(f"({piece}) == 0", [Arm("al-cmphold", "400", stop="al-cmphstop")])],
+                                 [V("alslh", "0"), Send("al-cmphstop"), If("alslu == 0", [
                                      If(piece, [If("alaux", [V("alauxu", "1"), Call("al-psave")], [Call("al-pload")])],
-                                        [Call("al-compare")])])])], slots)])
+                                        [If("alcmph", [Call("al-cmpoff")], [Call("al-compare")])])])])], slots)])
+    proc(c, "al-cmphold", [If("alslh && alslu == 0", [V("alcmph", "1"), Call("al-cmpon")])])
     tg = c.ch(c.recv("al-togk"), "route " + " ".join(str(k) for k in LAYER_KEYS))
     hx = c.ch(c.recv("al-khold"), "t b", "expr alhd = 1; alhk")
     hl = c.to((hx, 1), "route " + " ".join(str(k) for k in LAYER_KEYS))

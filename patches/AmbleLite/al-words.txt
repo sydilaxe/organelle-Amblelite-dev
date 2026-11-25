@@ -20,6 +20,7 @@ Press
 Evolve
 Morph
 Volume
+CmpGl
 Sugg
 Group
 Listen
@@ -4310,6 +4311,8 @@ M
 >
 NOTES
 LAT
+RUN*
+STOP*
 analog
 fm
 spectr
@@ -4794,7 +4797,7 @@ SAVED
 LOADED
 EMPTY
 COMPARE
-BACK
+YOURS
 REC
 PLAY
 DUB

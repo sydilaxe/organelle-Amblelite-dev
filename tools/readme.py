@@ -36,7 +36,9 @@ def text():
     out += ["", "THE OTHER KEYS (one press each): the low black keys the views, the top octave playing"]
     out += [f"  {key(k):8} {WHAT[v]}" for k, v in sorted(KEYS.items())]
     out += ["  top A#   held + a key from low C to top D#: recall snapshot 1 - 16 (with aux: save it);",
-            "           tapped alone: COMPARE (back to the sound before the recall; again: forward)"]
+            "           alone: COMPARE - the snapshot as saved against your sound since: a tap flips between them,",
+            "           a hold hears the saved one until you let go; both glide over CmpGl (PERFRM page).",
+            "           RUN* / STOP* on the play view: changed since the snapshot. On the PIECE page: pieces"]
     out += ["", "AUX held + key"]
     out += [f"  {key(k):8} {WHAT[v]}" for k, v in sorted(AUX_KEYS.items())]
     out += ["  aux tap  home: the play view", "  aux held + a knob: ASSIGN - that knob's place on the FAV page takes a",

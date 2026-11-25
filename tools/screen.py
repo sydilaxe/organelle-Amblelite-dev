@@ -77,7 +77,7 @@ OFF["chord"] = len(LINES)
 LINES += chord_words()
 OFF["frac"] = len(LINES)
 LINES += [f"{p}/{n}" for n in range(1, M.MAXPAGES + 1) for p in range(1, M.MAXPAGES + 1)]
-MISC = {"-": 0, "RUN": 1, "STOP": 2, "M": 3, ">": 4, "NOTES": 5, "LAT": 6}
+MISC = {"-": 0, "RUN": 1, "STOP": 2, "M": 3, ">": 4, "NOTES": 5, "LAT": 6, "RUN*": 7, "STOP*": 8}
 LINES.append("+")
 OFF["plus"] = len(LINES) - 1
 LINES.append("GLOBAL")
@@ -140,7 +140,7 @@ def build(c):
     fl = LAYERS.index(M.LANES[0])
     # ---- play view
     row(c, "al-r-head", 0, 0, [("w", f"{OFF['note']} + {opt(key)}"), ("w", f"{OFF['mode']} + {opt(mode)}"),
-                               ("n", num(tempo), "%dbpm"), ("w", f"if(alrun, {misc('RUN')}, {misc('STOP')})"),
+                               ("n", num(tempo), "%dbpm"), ("w", f"if(alrun, {misc('RUN')}, {misc('STOP')}) + 6*alchg"),      # (*: changed since the snapshot)
                                ("w", f"if(alnotes, {misc('NOTES')}, {OFF['plus']})")])
     row(c, "al-r-chord", 0, 11, [("w", f"{OFF['chord']} + alcr*{len(QUALS)} + alcq"), ("w", misc(">")),
                                  ("w", f"{OFF['chord']} + alnxr*{len(QUALS)} + alnxq")])
