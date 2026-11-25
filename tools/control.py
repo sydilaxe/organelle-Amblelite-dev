@@ -307,7 +307,7 @@ KEYS = {61: "al-layerview", 63: "al-mix", 66: "al-patview", 68: "al-global", 70:
 SLOT_KEY = 82          # held: the keys from low C to top D# recall a snapshot (with aux: save); tapped: COMPARE
 # aux held + a layer key: its pages at once (in notes mode too); aux + a few others
 AUX_KEYS = {**{k: f"al-sel-{L}" for k, L in LAYER_KEYS.items()}, 70: "al-pgprev", 72: "al-startstop",
-            83: "al-notesmode"}
+            74: "al-ownclear", 76: "al-sugaccept", 83: "al-notesmode"}
 
 
 def organelle(c):
@@ -569,7 +569,10 @@ def story(c):
     # a library chord: its root (semitones from the key) and type
     lroot = f"alsr[{s_}*8 + alcs % {ln}]"
     ltype = f"alsy[{s_}*8 + alcs % {ln}]"
-    proc(c, "al-chordcalc", [
+    proc(c, "al-chordcalc", [If("alov && alcs == alstep", [
+        # (listening chose the chord: the best suggestion holding the notes you hold)
+        V("alcst", "alovT"), V("alcr", "alovR"), V("alcq", "altq[alcst]"), V("alcb", "60 + alovR"),
+        Loop("4", "alj", [T("alct", "alj", "alty[alcst*4 + alj]")])], [
         If(f"alsk[{s_}] == 0", [
             # in the mode: thirds stacked on the degree
             V("alcd", deg),
@@ -581,7 +584,7 @@ def story(c):
             T("alct", "3", f"{pc(3)} - {pc(0)}")],
             [V("alcst", ltype), V("alcr", f"({k} + {lroot}) % 12"), V("alcq", "altq[alcst]"),
              V("alcb", f"60 + ({k} + {lroot}) % 12"),
-             Loop("4", "alj", [T("alct", "alj", "alty[alcst*4 + alj]")])]),
+             Loop("4", "alj", [T("alct", "alj", "alty[alcst*4 + alj]")])])]),
         # keep the chord near middle C; the voicing: close; drop-2 (the third voice down); open (the second up)
         V("alcb", "alcb - 12*(alcb >= 67)"),
         T("alct", "0", "alcb + alct[0]"), T("alct", "1", f"alcb + alct[1] + 12*({vo} >= 0.66)"),
@@ -591,6 +594,7 @@ def story(c):
         V("alcs", "alstep + 1"), Call("al-chordcalc"), V("alnxr", "alcr"), V("alnxq", "alcq"),
         V("alcs", "alstep"), Call("al-chordcalc"),
         Loop("4", "alj", [T("alch", "alj", f"alct[alj] + {octave('pad')}")]), Call("al-cloudratios"),
+        Call("al-suggest"),
         If("alrun", [If(f"alusr[{i}] == 0 && alin[{i}]", [Call(f"al-def-{L}")]) for i, L in enumerate(("drone", "sub", "pad"))]),
         Call("al-redraw")])
     proc(c, "al-def-drone", [V("aldtn", f"48 + {k} + {octave('drone')}"), V("aldtv", "0.85"), Call("al-mono-drone")])
@@ -599,7 +603,11 @@ def story(c):
                            Loop("4", "alci", [V("alptn", "alch[alci]"), V("alptv", "0.7"), V("alpkey", "-1"),
                                               Call("al-pnote")]),
                            Call("al-pend")])
-    proc(c, "al-chordnext", [V("alstep", f"(alstep + 1) % ({ln})"), Call("al-chord")])
+    # the next chord: the story's - or, listening while you hold notes, the best suggestion holding them
+    lis = S("g", None, "Listen")
+    proc(c, "al-chordnext", [If(f"{opt(lis)} == 1 && alhcnt > 0", [
+        Call("al-suggest"), V("alov", "1"), V("alovR", "alsuR[0]"), V("alovT", "alsuT[0]"), Call("al-chord")],
+        [V("alov", "0"), V("alstep", f"(alstep + 1) % ({ln})"), Call("al-chord")])])
     proc(c, "al-chordprev", [V("alstep", f"(alstep + {ln} - 1) % ({ln})"), Call("al-chord")])
     for sl in (key, mode, st, sub_to, voic):
         c.c(c.ch(c.recv(f"al-s{sl}"), "t b"), 0, c.obj("s al-chord-later"), 0)
@@ -659,7 +667,8 @@ def build(c):
     c.sub(vals)
     import features
     import midi
-    for g in (features.GLOBALS, midi.GLOBALS):
+    import harmony
+    for g in (features.GLOBALS, midi.GLOBALS, harmony.GLOBALS):
         for k, v in g.items():
             assert k not in GLOBALS, k
         GLOBALS.update(g)

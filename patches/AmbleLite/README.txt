@@ -43,6 +43,8 @@ AUX held + key
   low A#   page back
   low B    show the PERC4 pages
   top C    start / stop
+  top D    clear your own story
+  top E    the HARMNY page's suggestion: played now, added to your own story
   top G    show the CLOUD pages
   top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
   aux tap  page forward

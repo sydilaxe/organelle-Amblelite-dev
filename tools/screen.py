@@ -48,9 +48,12 @@ def row(c, name, x, y, parts):
             # (an LFO's target: the name of the parameter it moves, or 'off')
             tgi = f"min({M.MAXC - 1}, int(alp[{sl}]*{M.MAXC}))"
             tg = f"alcand[(allayer*{M.MAXENG} + aleng[allayer])*{M.MAXC} + {tgi} - 1]"
-            wl = sc.to(src, f"expr if({sl} < 0, {OFF['misc']}, if(aln[{sl}] == -2, if({tgi} == 0, {OFF['off']}, "
+            sug = S("g", None, "Sugg")
+            so = f"min(3, int(alp[{sug}]*4))"
+            wl = sc.to(src, f"expr if({sl} == {sug}, {OFF['chord']} + alsuR[{so}]*{len(QUALS)} + altq[alsuT[{so}]], "
+                            f"if({sl} < 0, {OFF['misc']}, if(aln[{sl}] == -2, if({tgi} == 0, {OFF['off']}, "
                             f"if({tg} < 0, {OFF['misc']}, {OFF['name']} + {tg})), if(aln[{sl}] > 0, {OFF['opt']} + "
-                            f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1)))")
+                            f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1))))")
             mo = sc.to(wl, "moses 0")
             _sym(sc, sc.ch((mo, 1), "text get al-words"), (pk, i))
             nv = sc.to(sc.to((mo, 0), "t b"),

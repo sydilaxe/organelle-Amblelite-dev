@@ -17,6 +17,9 @@ Press
 Evolve
 Morph
 Fade
+Sugg
+Group
+Listen
 Engine
 Level
 Cutoff
@@ -525,6 +528,7 @@ octaton
 tritone
 quartal
 wholetn
+own
 manual
 1
 2
@@ -553,6 +557,16 @@ on
 off
 expr
 breath
+1
+2
+3
+4
+mode
+borrow
+moves
+all
+off
+on
 analog
 fm
 spectr
@@ -1947,7 +1961,7 @@ SYNC
 MIDI
 MIDI\ 2
 PERFRM
--
+HARMNY
 -
 -
 -

@@ -327,6 +327,31 @@ def main():
     hi_, lo_ = H.rms_db(seg(a, 4.0, 4.7)), H.rms_db(seg(a, 5.2, 6.4))
     check("a zone's breath loops", hi_ - lo_ > 8, f"replayed: {hi_:.1f} dB where it blew, {lo_:.1f} after")
 
+    # ---- milestone 6: the harmony assistant
+    sg, lis = M.S("g", None, "Sugg"), M.S("g", None, "Listen")
+
+    def peaks(x, n=16):
+        m = x.mean(axis=1)
+        sp = np.abs(np.fft.rfft(m * np.hanning(len(m))))
+        f = np.fft.rfftfreq(len(m), 1 / SR)
+        return f[np.argsort(sp)[-n:]]
+
+    def has(tops, hz):
+        return any(abs(t - hz) < 3 for t in tops)
+    # accept: from Cm in C dorian the 2nd suggestion is F7 (dorian's IV) - played at once on the pads
+    acc = solo("pad") + [(50, f"al-set {sg} {(1 + 0.5) / 4}"), (55, f"al-set {M.S('g', None, 'Bars')} 0.05"), START,
+                         (1500, "aux 1"), (1600, "notesRaw 76 100"), (1700, "aux 0")]
+    _, a = run(acc, 3.5)
+    t = peaks(seg(a, 2.5, 3.5))
+    check("a suggestion accepted plays at once (F7)", has(t, 349.2) and has(t, 440.0), f"peaks {sorted(round(x) for x in t)[:10]}")
+    # listening: an E held (on the sub) - the next chord holds E
+    li = solo("pad") + [(50, f"al-set {lis} 0.75"), (55, f"al-set {M.S('g', None, 'Bars')} 0.05"), START,
+                        (1200, "al-midi 64 100 3"), (1500, "notesRaw 76 100")]
+    _, a = run(li, 3.5)
+    t = peaks(seg(a, 2.5, 3.5), 20)
+    e = any(has(t, 329.63 * r) for r in (0.5, 1, 2))
+    check("listening: the next chord holds the note held", e, f"peaks {sorted(round(x) for x in t)[:12]}")
+
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()
     run(on + [(25, f"al-inset {M.LAYERS.index('cloud')} 1"), START], 30)        # (all four lanes and the cloud in)

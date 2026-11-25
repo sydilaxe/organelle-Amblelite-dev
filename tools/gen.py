@@ -86,6 +86,10 @@ def main_patch():
     m.sub(flt, 330, 250)
     import cloud
     m.sub(cloud.build(), 510, 250)
+    import harmony
+    hm = Canvas("harmony", w=2600)
+    harmony.build(hm)
+    m.sub(hm, 690, 250)
     import midi
     mi = Canvas("midi", w=1600)
     midi.build(mi)

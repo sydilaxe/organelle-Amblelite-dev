@@ -63,7 +63,10 @@ STORIES = [("modal", "deg", None), ("home", "deg", [0, 3, 0, 4]), ("descend", "d
            ("octaton", "chr", [(0, "maj"), (3, "maj"), (6, "maj"), (9, "maj")]),  # minor-third cycle
            ("tritone", "chr", [(0, "maj"), (6, "maj")]),
            ("quartal", "chr", [(0, "q4"), (2, "q4"), (5, "q4"), (7, "q4")]),
-           ("wholetn", "chr", [(0, "aug"), (2, "aug"), (4, "aug"), (6, "aug")])]
+           ("wholetn", "chr", [(0, "aug"), (2, "aug"), (4, "aug"), (6, "aug")]),
+           # ---- your own: the suggestions you accept (aux + top E), up to 8 (harmony.py)
+           ("own", "chr", [(0, "maj")])]
+OWN_STORY = len(STORIES) - 1
 STORY_LEN = 8          # a story is stored as 8 chords (repeated to fill)
 
 
@@ -265,7 +268,12 @@ GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opt
                 ("MIDI", [Param("Profil", 0, opts=PROFILES), Param("Chans", 0, opts=["layers", "mpe"]),
                           Param("Zones", 0, opts=ONOFF), Param("LastCC", 0, lo=0, hi=127)]),
                 ("MIDI 2", [Param("Bend", 3, opts=["2", "12", "24", "48"]), Param("Press", 1, opts=["off", "expr", "breath"])]),
-                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Fade", 0.62)])]
+                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Fade", 0.62)]),
+                # the harmony assistant: the next chords ranked (Sugg shows one by name: aux + top E plays it and
+                # adds it to your own story), which kind, and listening (held notes pull the next chord)
+                ("HARMNY", [Param("Sugg", 0, opts=["1", "2", "3", "4"], key="Sugg"),
+                            Param("Group", 3, opts=["mode", "borrow", "moves", "all"]),
+                            Param("Listen", 0, opts=ONOFF)])]
 # the MIX view's pages: existing slots (layer, name)
 MIX_PAGES = [("MIX 1", [("drone", "Level"), ("sub", "Level"), ("pad", "Level"), ("cloud", "Level")]),
              ("MIX 2", [(L, "Level") for L in LANES]), ("MIX 3", [("g", "Volume")])]
