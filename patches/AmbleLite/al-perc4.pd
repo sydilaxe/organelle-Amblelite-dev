@@ -53,7 +53,7 @@
 #X obj 220 260 *~ 0.5;
 #X obj 220 284 osc~;
 #X obj 220 308 r al-s449;
-#X obj 220 332 pack f 60;
+#X obj 220 332 pack f 150;
 #X obj 220 356 line~;
 #X obj 220 380 *~ 0.7;
 #X obj 220 404 *~;
@@ -694,12 +694,12 @@
 #X obj 220 1004 expr 2 + 7*\$f1;
 #X obj 220 1028 osc~;
 #X obj 220 1052 r al-s466;
-#X obj 220 1076 pack f 60;
+#X obj 220 1076 pack f 150;
 #X obj 220 1100 line~;
 #X obj 220 1124 *~ 0.5;
 #X obj 220 1148 *~;
 #X obj 220 1172 r al-s466;
-#X obj 220 1196 pack f 60;
+#X obj 220 1196 pack f 150;
 #X obj 220 1220 line~;
 #X obj 220 1244 *~ -0.5;
 #X obj 220 1268 +~ 1;

@@ -8,13 +8,15 @@ FM_RATIOS = [0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7]
 SUB_FM_RATIOS = [0.5, 1, 1.5, 2, 3]
 
 
-def cx(c, slots, expr, ms=60):
+def cx(c, slots, expr, ms=150, outs=1):
     """a control expression over slots (alpe[slot]: the value with Evolve's movement), recomputed when any of them
-    changes, smoothed"""
+    changes, smoothed (outs > 1: an expr of that many expressions -> a list of smoothed signals)"""
     e = c.obj("expr " + expr)
     for sl in slots:
         c.c(c.ch(c.recv(f"al-s{sl}"), "t b"), 0, e, 0)
-    return c.ch(e, f"pack f {ms}", "line~")
+    if outs == 1:
+        return c.ch(e, f"pack f {ms}", "line~")
+    return [c.ch((e, i), f"pack f {ms}", "line~") for i in range(outs)]
 
 
 def a(slot):
@@ -65,6 +67,22 @@ def morph_from(c, ph, dt, w):
     return e
 
 
+def morph_cheap(c, ph, slot):
+    """sine -> triangle -> saw -> square from a phase (0..1) with Pd's own objects: the shapes' weights worked out
+    in control (only when the knob or Evolve moves it), the shapes themselves plain (a drone is low: the naive saw and
+    square alias some 50 dB down) - a tenth of the per-sample work of the band-limited morph (expr~)"""
+    sine = c.to(ph, "cos~")
+    tri = c.ch(ph, "-~ 0.5", "abs~", "*~ 4", "-~ 1")
+    saw = c.ch(ph, "*~ 2", "-~ 1")
+    sq = c.ch(ph, "-~ 0.5", "*~ -1e+06", "clip~ -1 1")
+    w = cx(c, [slot], f"max(0, 1 - abs({a(slot)}*3)); max(0, 1 - abs({a(slot)}*3 - 1)); "
+                      f"max(0, 1 - abs({a(slot)}*3 - 2)); max(0, 1 - abs({a(slot)}*3 - 3))", outs=4)
+    out = c.obj("+~")
+    for shape, wk in zip((sine, tri, saw, sq), w):
+        c.c(mul(c, shape, wk), 0, out, 0)
+    return out
+
+
 def drone_analog(s, ins, L):
     f, env, note = ins
     P = lambda n: S("drone", "analog", n)
@@ -73,20 +91,17 @@ def drone_analog(s, ins, L):
     rb = cx(s, [P("Intvl"), P("Detune")], f"{pick([1, 1.5, 2, 0.5, 1.33484], f'min({ni - 1}, int({a(P('Intvl'))}*{ni}))')}"
                                            f"*pow(2, {a(P('Detune'))}*{a(P('Detune'))}*30/1200)")
     fb = mul(s, f, rb)
-    B = morph_osc(s, fb, prm(s, P("WaveB")))
+    B = morph_cheap(s, s.to(fb, "phasor~"), P("WaveB"))
     # A, phase-modulated by B (cross modulation): up to 1.5 cycles
     pa = s.to(f, "phasor~")
-    xm = s.ch(prm(s, P("XMod")), "expr~ $v1*$v1*1.5")
+    xm = s.ch(s.recv(f"al-s{P('XMod')}"), "expr $f1*$f1*1.5", "pack f 150", "line~")
     pa2 = s.to(add(s, pa, mul(s, B, xm)), "wrap~")
-    A = morph_from(s, pa2, dt_of(s, f), prm(s, P("WaveA")))
+    A = morph_cheap(s, pa2, P("WaveA"))
     mix = prm(s, P("Mix"))
     ga = s.ch(mix, "*~ -1", "+~ 1")
     av, bv = mul(s, A, ga), mul(s, B, mix)
     ring = mul(s, mul(s, A, B), prm(s, P("Ring")))
-    fs = s.to(f, "*~ 0.5")
-    subo = s.obj("expr~ " + pulse_expr(w="0.5"))
-    s.c(s.to(fs, "phasor~"), 0, subo, 0)
-    s.c(dt_of(s, fs), 0, subo, 1)
+    subo = s.ch(s.to(f, "*~ 0.5"), "phasor~", "-~ 0.5", "*~ -1e+06", "clip~ -1 1", "lop~ 2000")
     subv = mul(s, subo, s.ch(prm(s, P("Sub")), "*~ 0.8"))
     core = add(s, ring, subv)
     L = s.to(add(s, add(s, av, s.to(bv, "*~ 0.75")), core), "*~ 0.5")

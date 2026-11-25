@@ -30,7 +30,7 @@ def sub(c, a, b):
     return m
 
 
-def prm(c, slot, ms=60):
+def prm(c, slot, ms=150):
     """slot as a smoothed signal 0..1 (every change ramps over ms: no zipper noise, no steps)"""
     return c.ch(c.recv(f"al-s{slot}"), f"pack f {ms}", "line~")
 
@@ -39,7 +39,7 @@ def prmc(c, slot):
     return c.recv(f"al-s{slot}")
 
 
-def prmx(c, slot, expr, ms=60):
+def prmx(c, slot, expr, ms=150):
     """slot through a control expression ($f1 = the value 0..1), as a smoothed signal"""
     return c.ch(c.recv(f"al-s{slot}"), "expr " + expr, f"pack f {ms}", "line~")
 
