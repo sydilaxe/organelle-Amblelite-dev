@@ -180,7 +180,9 @@ DESC = {
     "FEEL:Feel": "The swing's shape: swing, lilt, drag, limp.",
     "LFO 1:Target": "What the LFO moves: the loaded engine's own parameters first (Table, Bright, Vowel ...), "
                     "then the layer's filter, level, place, envelopes, gate length and swing. The knob's whole "
-                    "turn covers just this engine's list.",
+                    "turn covers just this engine's list. On the percussion lanes most parameters are taken at "
+                    "each hit; these also move a hit while it rings: blip Cutoff and Reso, lpg Open and Reso, "
+                    "bowl Beat and Strtch, wood Matrl, metal Beat, TremR and TremD, wave Pos and Bright.",
     "LFO 1:Rate": "Its speed: loop (one cycle per loop or pattern), bars, or Hz.",
     "LFO 1:Depth": "How far it moves.",
     "LFO 1:Shape": "sine, tri, saw up / down, square, steps, random smooth, random stepped (the same 'random' "

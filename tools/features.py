@@ -57,7 +57,13 @@ def lfo(c):
     c.comment("the LFOs: every 40 ms, each active one moves its target (alfm / alfn)")
     met = c.obj("metro 40")
     c.c(c.recv("al-init"), 0, met, 0)
-    c.c(met, 0, c.obj("s al-lfo"), 0)
+    # (their own clock, read at every tick: the free rates move smoothly - Evolve's altime only steps every 150 ms)
+    tm = c.obj("timer")
+    c.c(c.recv("al-init"), 0, tm, 0)
+    tb = c.to(met, "t b b")
+    c.c((tb, 1), 0, tm, 1)
+    c.c(c.to(tm, "/ 1000"), 0, c.obj("v allftime"), 0)
+    c.c((tb, 0), 0, c.obj("s al-lfo"), 0)
     mc = MAXC
     li = "int(allq/2)"
     tgt = M.target_slot("alp[allfT[allq]]", f"{li}*{MAXENG} + aleng[{li}]")
@@ -70,7 +76,7 @@ def lfo(c):
            f"{pick(M.RATE_CLOCKS, f'min({len(M.RATE_CLOCKS) - 1}, int(alp[alrr[{lr}]]*{len(M.RATE_CLOCKS)}))')})")
     cyc = f"if(allpl[{li}] > 0, allpl[{li}], {pat})"
     ph = (f"if({r} == 0, max(0, alc24)/{cyc}, if({r} < 8, max(0, alc24)/(24*allfbeats[{r}]), "
-          f"altime/allfsecs[{r} - 8] + 0.13*allq))")
+          f"allftime/allfsecs[{r} - 8] + 0.13*allq))")
     sh = f"min({len(M.LFO_SHAPES) - 1}, int(alp[allfS[allq]]*{len(M.LFO_SHAPES)}))"
     p1 = "(alfph - int(alfph))"
     # random: a new value each cycle (a hash of the cycle's number and the LFO's: the same settings give the same
@@ -393,7 +399,7 @@ def opt_layer(key, n):
     return f"min({n - 1}, int(alp[{sl}]*{n}))"
 
 
-GLOBALS = dict(alhasbase=0, alchg=0, alapl=0, alcmpg=0, alpinst=0, alpcv=0, allj=0, allq=0, alftg=-1, alfold=0, alfnew=0, alfph=0, alfv=0, altw=-1, altn=-1, alslot=0, allast=-1,
+GLOBALS = dict(alhasbase=0, alchg=0, alapl=0, alcmpg=0, alpinst=0, alpcv=0, allj=0, allq=0, alftg=-1, alfold=0, alfnew=0, alfph=0, alfv=0, allftime=0, altw=-1, altn=-1, alslot=0, allast=-1,
                alcmp=0, alsnv=0, alsi=0, almdur=0, almt0=0, almp=0, almcnt=0, alslh=0, alslu=0, alasv=0,
                allx=0, allrt=0, allk=0, alli=0, allsz=0, allpos=0, alzl=0, allbp=0, albdirty=0)
 for _li in range(NL):

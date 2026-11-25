@@ -211,6 +211,26 @@ def main():
     vals = {l.split(":")[-1].strip() for l in log.splitlines() if l.startswith(f"al-s{fl}:")}
     check("an LFO moves a percussion engine's own parameter", len(vals) > 10, f"{len(vals)} values of Flick")
 
+    # ... and it moves a hit while it rings: one long bowl hit, its upper partial swept by an LFO on Strtch (1 Hz)
+    def upper(lfo_on):
+        ev = [(10, "al-sel-perc1 bang"), (20, f"al-set {M.S('perc1', None, 'Engine')} {M.engine_value('perc1', 'bowl')}"),
+              (21, f"al-set {M.S('perc1', None, 'Decay')} 1"), (22, f"al-set {M.S('perc1', None, 'Evolve')} 0")]
+        if lfo_on:
+            ev += [(30, f"al-set {M.S('perc1', None, 'L1Tgt')} {M.target_value('perc1', 'bowl', 'Strtch')}"),
+                   (31, f"al-set {M.S('perc1', None, 'L1Rate')} {opt_v(13, 16)}"), (32, f"al-set {M.S('perc1', None, 'L1Dep')} 1")]
+        _, a = run(ev + [(500, "al-midi 69 100 1")], 2.8)
+        out = []
+        for t in np.arange(0.7, 2.5, 0.2):
+            m = seg(a, t, t + 4096 / SR).mean(axis=1)
+            sp = np.abs(np.fft.rfft(m * np.hanning(len(m))))
+            f = np.fft.rfftfreq(len(m), 1 / SR)
+            band = (f > 1800) & (f < 5500)
+            out.append(round(float(f[band][np.argmax(sp[band])])))
+        return out
+    still, moved = upper(False), upper(True)
+    check("an LFO moves a ringing hit (bowl Strtch)", len(set(still)) == 1 and max(moved) - min(moved) > 150,
+          f"upper partial {min(moved)} .. {max(moved)} Hz (off: {sorted(set(still))})")
+
     # assign: aux held, knob 1 - the FAV page's first place takes another parameter
     log, _ = H.run([(100, "al-sel-pad bang"), (300, "aux 1"), (400, "knob1 0.95"), (500, "aux 0")], 1, d=d,
                    keep=True)
