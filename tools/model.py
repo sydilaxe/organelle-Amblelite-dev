@@ -364,7 +364,7 @@ def S(layer, engine, name):
 
 
 def pages(layer, engine):
-    """the knob pages of a layer with an engine: FAV (your four: assign mode; at first the engine's first four),
+    """the knob pages of a layer with an engine: FAV (your four: assign mode; at first Engine and the engine's first three),
     LAYER, the engine's parameters 4 a page, then the layer's other pages"""
     front, back = LAYER_PAGES[layer]
     eps = dict(engines(layer))[engine]
@@ -372,7 +372,9 @@ def pages(layer, engine):
     for k in range(0, len(eps), 4):
         chunk = [S(layer, engine, p.key) for p in eps[k:k + 4]]
         ep.append((f"{engine.upper()} {k // 4 + 1}", chunk + [-1] * (4 - len(chunk))))
-    out = [("FAV", list(ep[0][1]))]
+    # FAV: the engine choice on knob 1 (when the layer has more than one), then the engine's first parameters
+    fav = ([S(layer, None, "Engine")] + ep[0][1][:3]) if len(engines(layer)) > 1 else list(ep[0][1])
+    out = [("FAV", fav)]
     out += [(n, [S(layer, None, p.key) for p in ps] + [-1] * (4 - len(ps))) for n, ps in front]
     out += ep
     out += [(n, [S(layer, None, p.key) for p in ps] + [-1] * (4 - len(ps))) for n, ps in back]

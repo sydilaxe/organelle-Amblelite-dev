@@ -15,7 +15,7 @@ VIEW_LAYER, VIEW_GLOBAL, VIEW_MIX = 0, 1, 2
 SECTN_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("SECTN")
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
-GLOBALS = dict(allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
+GLOBALS = dict(alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
                alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
                alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0, alcb=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
@@ -215,9 +215,11 @@ def knobs(c):
         sc.c((tt, 1), 0, sc.obj("s al-popup"), 0)
         sc.c((tt, 0), 0, lp, 0)
         sc.c(lp, 0, sc.obj("s al-set"), 0)
-    proc(c, "al-popup", [If(f"alview != {VIEW_MIX}", [V("alpop", "1"), Later("al-popoff", 5000)],
+    # pages opened on purpose (a held layer key, the global key, paging) stay until an aux tap (alstick); the
+    # pop-up a knob gives in the play view closes 3 s after the last turn
+    proc(c, "al-popup", [If(f"alview != {VIEW_MIX}", [V("alpop", "1"), Later("al-popoff", 3000)],
                             [Call("al-redraw")])])
-    proc(c, "al-popoff", [V("alpop", "0"), Call("al-redraw")])
+    proc(c, "al-popoff", [If("alstick == 0", [V("alpop", "0"), Call("al-redraw")])])
 
 
 # ---------------------------------------------------------------------------------------------- in / out
@@ -269,18 +271,19 @@ def layer_switches(c):
 
 # ---------------------------------------------------------------------------------------------- pages, layers
 def pages(c):
-    proc(c, "al-pgnext", [V("alpage", f"(alpage + 1) % {npages()}"), Call("al-pickreset"), Call("al-popup")])
-    proc(c, "al-pgprev", [V("alpage", f"(alpage + {npages()} - 1) % {npages()}"), Call("al-pickreset"),
+    proc(c, "al-pgnext", [V("alstick", "1"), V("alpage", f"(alpage + 1) % {npages()}"), Call("al-pickreset"),
                           Call("al-popup")])
+    proc(c, "al-pgprev", [V("alstick", "1"), V("alpage", f"(alpage + {npages()} - 1) % {npages()}"),
+                          Call("al-pickreset"), Call("al-popup")])
     for li, L in enumerate(LAYERS):
-        proc(c, f"al-sel-{L}", [V("allayer", str(li)), V("alview", "0"), V("alpage", "0"), Call("al-pickreset"),
+        proc(c, f"al-sel-{L}", [V("alstick", "1"), V("allayer", str(li)), V("alview", "0"), V("alpage", "0"), Call("al-pickreset"),
                                 Call("al-popup")] + ([V("alplane", str(li))] if L in LANES else []))
     layer_switches(c)
-    proc(c, "al-global", [If(f"alview == {VIEW_GLOBAL}", [V("alpage", f"(alpage + 1) % {len(M.GLOBAL_PAGES)}")],
+    proc(c, "al-global", [V("alstick", "1"), If(f"alview == {VIEW_GLOBAL}", [V("alpage", f"(alpage + 1) % {len(M.GLOBAL_PAGES)}")],
                              [V("alview", str(VIEW_GLOBAL)), V("alpage", "0")]), Call("al-pickreset"), Call("al-popup")])
-    proc(c, "al-mix", [If(f"alview == {VIEW_MIX}", [V("alpage", f"(alpage + 1) % {len(M.MIX_PAGES)}")],
+    proc(c, "al-mix", [V("alstick", "0"), If(f"alview == {VIEW_MIX}", [V("alpage", f"(alpage + 1) % {len(M.MIX_PAGES)}")],
                           [V("alview", str(VIEW_MIX)), V("alpage", "0")]), V("alpop", "0"), Call("al-pickreset")])
-    proc(c, "al-layerview", [V("alview", "0"), V("alpage", "0"), V("alpop", "0"), V("alpatv", "0"),
+    proc(c, "al-layerview", [V("alstick", "0"), V("alview", "0"), V("alpage", "0"), V("alpop", "0"), V("alpatv", "0"),
                              Call("al-pickreset")])
     # (low F#: the pattern view, then the roadmap view, then neither)
     proc(c, "al-patview", [V("alpatv", "(alpatv + 1) % 3"), V("alview", "if(alview == 2, 0, alview)"), V("alpop", "0"),
@@ -351,7 +354,8 @@ def organelle(c):
     a = c.ch(c.recv("aux"), "t f f")
     c.c(c.to((a, 1), "expr $f1 > 0"), 0, c.obj("v alaux"), 0)
     tap = c.ch((a, 0), "sel 0")
-    run_steps(c, (tap, 0), [If("alauxu == 0", [Call("al-pgnext")])])
+    # an aux tap (aux not used with a key or knob): home - the play view, from any page or view
+    run_steps(c, (tap, 0), [If("alauxu == 0", [Call("al-layerview"), Call("al-redraw")])])
     run_steps(c, (tap, 1), [V("alauxu", "0")])
 
 

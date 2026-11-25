@@ -5,6 +5,8 @@ Drone, sub, pads and four percussion lanes for real-time building. Loads silent:
 
 THE LAYERS: the low white keys, one each. A tap: the layer in / out (it fades over the PERFRM page's
 Fade time; out, a loop keeps its place, silent). Held (400 ms): its parameter pages.
+AUX TAPPED: home - the play view, from any page or view. Pages you open stay until then; the page a
+knob pops up in the play view closes 3 s after the last turn.
   low C    DRONE
   low D    SUB
   low E    PADS
@@ -18,7 +20,7 @@ THE OTHER KEYS (one press each): the low black keys the views, the top octave pl
   low C#   the play view (back from MIX / pattern / pages)
   low D#   the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)
   low F#   the pattern view (every gate and lane as steps), then the roadmap view, then neither
-  low G#   the MAIN / STORY / SYNC / PERFRM pages (again: the next one)
+  low G#   the global pages: MAIN, STORY, SYNC, MIDI, MIDI 2, PERFRM, HARMNY, ROAD, ROAD 2, SECTN (again: the next one)
   low A#   page forward
   top C    start / stop
   top C#   clear the shown layer (back to its default)
@@ -50,7 +52,7 @@ AUX held + key
   top G    show the CLOUD pages
   top G#   the roadmap's next section
   top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
-  aux tap  page forward
+  aux tap  home: the play view
   aux held + a knob: ASSIGN - that knob's place on the FAV page takes a
            parameter of the layer (the knob chooses which)
 

@@ -208,6 +208,22 @@ def main():
                    keep=True)
     lines = [l for l in log.splitlines() if "gPrintln 3 0 22" in l]
     check("assign mode puts a parameter on FAV", len(lines) >= 2 and lines[-1] != lines[0], lines[-1][-30:] if lines else "-")
+    fav = [l for l in lines if " 1 Engine " in l or l.endswith(" 1 Engine")]
+    check("FAV starts with the engine choice", bool(fav), fav[0][-30:] if fav else "-")
+
+    # navigation: a held layer key opens its pages; an aux tap (alone) goes home to the play view
+    def popq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "expr alpop*10 + alview"), 0, c.obj("print NAV", 900, 760), 0)
+    log, _ = H.run([(100, "notesRaw 64 100"), (700, "notesRaw 64 0"), (800, "h-q bang"), (6000, "h-q bang"),
+                    (6100, "aux 1"), (6150, "aux 0"), (6200, "h-q bang"),
+                    (6300, "notesRaw 68 100"), (6350, "notesRaw 68 0"), (6400, "h-q bang"),
+                    (6500, "aux 1"), (6550, "aux 0"), (6600, "h-q bang"),
+                    (7000, "knob3 0.1"), (7100, "knob3 0.9"), (7200, "h-q bang"), (11000, "h-q bang")],
+                   12, d=d, keep=True, extra=popq)
+    nav = [l.split()[-1] for l in log.splitlines() if l.startswith("NAV")]
+    check("a hold opens the pages (they stay), an aux tap goes home; a knob's pop-up closes by itself",
+          nav[:2] == ["10", "10"] and nav[2:3] == ["0"] and nav[3:4] != ["0"] and nav[4:5] == ["0"]
+          and nav[5:6] == ["10"] and nav[6:7] == ["0"], " ".join(nav))
 
     # snapshots: save 1, change the pads' engine and level, recall 1 (morph 0): back as it was; COMPARE: the change
     eng, lv = M.S("pad", None, "Engine"), M.S("pad", None, "Level")

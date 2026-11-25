@@ -5,7 +5,7 @@ from control import KEYS, AUX_KEYS, LAYER_KEYS, LAYER_HOLD
 NAMES = {60: "C", 61: "C#", 62: "D", 63: "D#", 64: "E", 65: "F", 66: "F#", 67: "G", 68: "G#", 69: "A", 70: "A#",
          71: "B"}
 WHAT = {**{f"al-sel-{L}": f"show the {M.LAYER_LABEL[L]} pages" for L in M.LAYERS},
-        "al-global": "the MAIN / STORY / SYNC / PERFRM pages (again: the next one)", "al-pgprev": "page back",
+        "al-global": "the global pages: MAIN, STORY, SYNC, MIDI, MIDI 2, PERFRM, HARMNY, ROAD, ROAD 2, SECTN (again: the next one)", "al-pgprev": "page back",
         "al-pgnext": "page forward", "al-latch": "latch on / off for the shown layer (drone, sub, pads)",
         "al-startstop": "start / stop", "al-clear": "clear the shown layer (back to its default)",
         "al-chordprev": "previous chord", "al-chordnext": "next chord",
@@ -28,7 +28,9 @@ def text():
     out = ["AMBLE LITE", "==========", "",
            "Drone, sub, pads and four percussion lanes for real-time building. Loads silent: top C starts and stops.", "",
            "THE LAYERS: the low white keys, one each. A tap: the layer in / out (it fades over the PERFRM page's",
-           f"Fade time; out, a loop keeps its place, silent). Held ({LAYER_HOLD} ms): its parameter pages."]
+           f"Fade time; out, a loop keeps its place, silent). Held ({LAYER_HOLD} ms): its parameter pages.",
+           "AUX TAPPED: home - the play view, from any page or view. Pages you open stay until then; the page a",
+           "knob pops up in the play view closes 3 s after the last turn."]
     out += [f"  {key(k):8} {M.LAYER_LABEL[L]}" for k, L in sorted(LAYER_KEYS.items())]
     out += ["", "THE OTHER KEYS (one press each): the low black keys the views, the top octave playing"]
     out += [f"  {key(k):8} {WHAT[v]}" for k, v in sorted(KEYS.items())]
@@ -36,7 +38,7 @@ def text():
             "           tapped alone: COMPARE (back to the sound before the recall; again: forward)"]
     out += ["", "AUX held + key"]
     out += [f"  {key(k):8} {WHAT[v]}" for k, v in sorted(AUX_KEYS.items())]
-    out += ["  aux tap  page forward", "  aux held + a knob: ASSIGN - that knob's place on the FAV page takes a",
+    out += ["  aux tap  home: the play view", "  aux held + a knob: ASSIGN - that knob's place on the FAV page takes a",
             "           parameter of the layer (the knob chooses which)", "",
             "KNOBS: the 4 parameters of the page on screen. A knob takes over once it passes the stored value.", "",
             "PAGES of each layer: LAYER (engine, level, cutoff, reso), ENV (attack, decay, sustain, release) or HIT",
