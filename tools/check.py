@@ -427,6 +427,22 @@ def main():
     check("the scale and mode reach the notes (C harmonic minor)", set(pcs) <= {0, 2, 3, 5, 7, 8, 11} and
           {8, 11} <= set(pcs), f"pitch classes {pcs}")
 
+    # ---- the filter doesn't crackle when its cutoff is turned by hand: a sine pad (no highs of its own) through a
+    # resonant filter, the knob moved every 20 ms - nothing above 5 kHz grows while it moves
+    ev = solo("pad") + [(30, f"al-set {M.S('pad', None, 'Evolve')} 0"), (31, f"al-set {M.S('pad', None, 'Reso')} 0.6"),
+                        (32, f"al-set {M.S('pad', None, 'Cutoff')} 0.3"), START]
+    ev += [(2000 + 20 * i, f"al-set {M.S('pad', None, 'Cutoff')} {0.3 + 0.45 * (i if i < 75 else 149 - i) / 74:.4f}")
+           for i in range(150)]
+    _, a = run(ev, 5.5)
+    xm = a.mean(axis=1)
+
+    def hf(seg_):
+        sp = np.abs(np.fft.rfft(seg_ * np.hanning(len(seg_)))) ** 2
+        fr = np.fft.rfftfreq(len(seg_), 1 / SR)
+        return 10 * np.log10(sp[fr > 5000].sum() / (sp.sum() + 1e-20) + 1e-15)
+    cr = hf(xm[int(2.0 * SR):int(5.0 * SR)]) - hf(xm[int(0.8 * SR):int(1.9 * SR)])
+    check("the filter doesn't crackle when turned", cr < 8, f"highs while moving {cr:+.1f} dB (the old filter: +28)")
+
     # ---- the looper's flow (the sub, Len 1 bar): armed until the bar line, the first pass, then overdub; a press:
     # play. Aux held over the start of a pass erases the A there while the D played meanwhile replaces it
     BARMS = 96 * 60000 / (84 * 24)

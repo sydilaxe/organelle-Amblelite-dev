@@ -97,12 +97,9 @@ def _grains(c):
         c.c(mul(c, gr, c.to(q, "cos~")), 0, L, 0)
         c.c(mul(c, gr, c.ch(q, "-~ 0.25", "cos~")), 0, R, 0)
     c.col(260)
-    # the layer's filter, then the cloud's bus
+    # to the cloud's bus (its filter is there, as every layer's: gen.layer_filter)
     for x, side in ((L, "L"), (R, "R")):
-        bq = c.obj("biquad~ 0 0 1 0 0")
-        c.c(c.recv("al-cloud-bq"), 0, bq, 0)
-        c.c(x, 0, bq, 0)
-        c.c(bq, 0, c.obj(f"throw~ al-cloud-{side}"), 0)
+        c.c(x, 0, c.obj(f"throw~ al-cloud-{side}"), 0)
 
 
 def ratios(c):
