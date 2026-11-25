@@ -60,8 +60,7 @@ def lfo(c):
     c.c(met, 0, c.obj("s al-lfo"), 0)
     mc = MAXC
     li = "int(allq/2)"
-    tgi = f"min({mc - 1}, int(alp[allfT[allq]]*{mc}))"
-    tgt = f"if({tgi} == 0, -1, alcand[({li}*{MAXENG} + aleng[{li}])*{mc} + {tgi} - 1])"
+    tgt = M.target_slot("alp[allfT[allq]]", f"{li}*{MAXENG} + aleng[{li}]")
     nr = len(M.LFO_RATES)
     r = f"min({nr - 1}, int(alp[allfR[allq]]*{nr}))"
     # 'loop': the layer's loop, or its pattern's cycle (steps x the step's clocks)

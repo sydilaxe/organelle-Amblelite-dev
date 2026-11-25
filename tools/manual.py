@@ -178,13 +178,14 @@ DESC = {
     "LINES:Style": "Neighbour notes or passing notes.",
     "FEEL:Swing": "Swing on the gates and lanes.",
     "FEEL:Feel": "The swing's shape: swing, lilt, drag, limp.",
-    "LFO 1:Target": "What the LFO moves: any of the layer's parameters (filter, level, place, envelopes, gate "
-                    "length, swing, the engine's).",
+    "LFO 1:Target": "What the LFO moves: the loaded engine's own parameters first (Table, Bright, Vowel ...), "
+                    "then the layer's filter, level, place, envelopes, gate length and swing. The knob's whole "
+                    "turn covers just this engine's list.",
     "LFO 1:Rate": "Its speed: loop (one cycle per loop or pattern), bars, or Hz.",
     "LFO 1:Depth": "How far it moves.",
     "LFO 1:Shape": "sine, tri, saw up / down, square, steps, random smooth, random stepped (the same 'random' "
                    "every time).",
-    "BREATH:Target": "What the breath controller (or MPE pressure) moves on this layer.",
+    "BREATH:Target": "What the breath controller (or MPE pressure) moves on this layer: the same list as the LFOs'.",
     "BREATH:Depth": "How far.",
     "BREATH:ZoneLo": "Keyboard zone (MIDI Zones on): the lowest note this layer takes.",
     "BREATH:ZoneHi": "The highest note.",

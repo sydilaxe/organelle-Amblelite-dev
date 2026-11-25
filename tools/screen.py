@@ -46,8 +46,8 @@ def row(c, name, x, y, parts):
             k = p[1]
             sl = f"alsl{k}"
             # (an LFO's target: the name of the parameter it moves, or 'off')
-            tgi = f"min({M.MAXC - 1}, int(alp[{sl}]*{M.MAXC}))"
-            tg = f"alcand[(allayer*{M.MAXENG} + aleng[allayer])*{M.MAXC} + {tgi} - 1]"
+            tgi = M.target_index(f"alp[{sl}]", f"allayer*{M.MAXENG} + aleng[allayer]")
+            tg = M.target_slot(f"alp[{sl}]", f"allayer*{M.MAXENG} + aleng[allayer]")
             sug = S("g", None, "Sugg")
             so = f"min(3, int(alp[{sug}]*4))"
             mode_w = f"{OFF['mode']} + {opt(MODE_SLOT)}"          # (the Mode knob: its mode's name)
