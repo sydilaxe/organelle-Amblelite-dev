@@ -7,6 +7,7 @@ A stripped-back, performance-focused patch for the Critter & Guitari **Organelle
 an Organelle yet.
 
 - Install: copy `patches/AmbleLite` into the Organelle's `Patches` folder. How to play: `patches/AmbleLite/README.txt`.
+- Roadmap planner (a web page): `docs/planner.html` - build a roadmap on a computer, copy its roadmap.txt to the patch folder.
 - Design: `docs/DESIGN.md` (decisions), `docs/PARAMETERS.md`, `docs/WAVETABLES.md`, `docs/ROADMAP.md`.
 
 ## Source (`tools/`)
@@ -20,6 +21,12 @@ The patch is generated: edit the generator, not the `.pd` files.
 | `filters.py` | each layer's low-pass coefficients |
 | `control.py` | parameters, knobs (pickup), pages, the Organelle keys, MIDI, notes to voices, clock, lanes, gates, chord story, Evolve |
 | `features.py` | LFOs, assign mode, snapshots (save, recall, morph, compare), the looper, toasts |
+| `midi.py` | MIDI in: channels, MPE, breath, keyboard zones, controller profiles (`controllers/*.txt`) |
+| `cloud.py` | the cloud: an 8 s recording of the layers or the input, grained |
+| `harmony.py` | chord suggestions, your own story, listening |
+| `roadmap.py` | the roadmap: sections built from a few settings, guide / auto, roadmap.txt |
+| `lines.py` | counterpoint (pad lines) and motifs (lanes playing another layer's loop) |
+| `planner.py` | `docs/planner.html`: the web roadmap planner, from the same tables |
 | `screen.py` | the OLED |
 | `wavetables.py` | the factory wavetables (WAV files) |
 | `gen.py` | the patch: `python3 gen.py` |

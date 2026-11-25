@@ -4,6 +4,7 @@
 set -e
 cd "$(dirname "$0")"
 python3 gen.py
+python3 planner.py >/dev/null
 if [ "$1" = "--check" ]; then
     python3 check.py
 fi
