@@ -48,9 +48,12 @@ def row(c, name, x, y, parts):
             # (an LFO's target: the name of the parameter it moves, or 'off')
             tgi = f"min({M.MAXC - 1}, int(alp[{sl}]*{M.MAXC}))"
             tg = f"alcand[(allayer*{M.MAXENG} + aleng[allayer])*{M.MAXC} + {tgi} - 1]"
-            wl = sc.to(src, f"expr if({sl} < 0, {OFF['misc']}, if(aln[{sl}] == -2, if({tgi} == 0, {OFF['off']}, "
+            sug = S("g", None, "Sugg")
+            so = f"min(3, int(alp[{sug}]*4))"
+            wl = sc.to(src, f"expr if({sl} == {sug}, {OFF['chord']} + alsuR[{so}]*{len(QUALS)} + altq[alsuT[{so}]], "
+                            f"if({sl} < 0, {OFF['misc']}, if(aln[{sl}] == -2, if({tgi} == 0, {OFF['off']}, "
                             f"if({tg} < 0, {OFF['misc']}, {OFF['name']} + {tg})), if(aln[{sl}] > 0, {OFF['opt']} + "
-                            f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1)))")
+                            f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1))))")
             mo = sc.to(wl, "moses 0")
             _sym(sc, sc.ch((mo, 1), "text get al-words"), (pk, i))
             nv = sc.to(sc.to((mo, 0), "t b"),
@@ -80,13 +83,21 @@ LINES.append("GLOBAL")
 OFF["global"] = len(LINES) - 1
 LINES.append("off")
 OFF["off"] = len(LINES) - 1
+LINES.append("out")
+OFF["out"] = len(LINES) - 1
 from features import TOASTS
 OFF["toast"] = len(LINES)
 LINES += TOASTS
 OFF["loopst"] = len(LINES)
 LINES += ["+", "R", "P", "O", "s"]          # a layer's loop: none, recording, playing, overdub, stopped
+for _w in ("road", "hold", "next"):
+    OFF[_w] = len(LINES)
+    LINES.append({"road": "ROAD", "hold": "HOLD", "next": "next:"}[_w])
+OFF["role"] = len(LINES)
+LINES += M.ROLES
 OFF["lanes"] = len(LINES)
-LINES += ["".join(str(i + 1) if b & (1 << i) else "." for i in range(len(M.LANES))) for b in range(2 ** len(M.LANES))]
+LINES += ["".join(str(i + 1) if b & (1 << i) else "." for i in range(len(M.LANES))) + ("c" if b & 16 else "")
+          for b in range(2 ** (len(M.LANES) + 1))]
 
 
 def misc(w):
@@ -94,14 +105,16 @@ def misc(w):
 
 
 PAT_X, PAT_W = 16, 7         # the pattern view: cells from x 16, 7 pixels each (16 steps)
+MIX_X0, MIX_DX, MIX_W = 1, 13, 9    # the MIX view's columns (the 8 layers; the master volume at x 112)
+PAT_LAYERS = M.NOTE_LAYERS          # the pattern view's rows (the cloud has no pattern)
 
 
 def rows_tables(c):
     """per pattern-view row (the 7 layers): the slots of its pattern, so one loop draws them all"""
     import model as M
-    sl = lambda n: [S(L, None, n) for L in LAYERS]
+    sl = lambda n: [S(L, None, n) for L in PAT_LAYERS]
     tabs = dict(alrh=sl("Hits"), alrs=sl("Steps"), alro=sl("Rotate"), alrr=sl("Rate"),
-                alrg=[S(L, None, "Gate") if L in ("drone", "sub", "pad") else -1 for L in LAYERS])
+                alrg=[S(L, None, "Gate") if L in ("drone", "sub", "pad") else -1 for L in PAT_LAYERS])
     for name, vals in tabs.items():
         c.obj(f"array define {name} {len(vals)}")
         c.c(c.m(c.recv("al-init"), " ".join(str(v) for v in vals)), 0, c.obj(f"array set {name}"), 0)
@@ -133,9 +146,10 @@ def build(c):
         L = LAYERS[li]
         row(c, f"al-r-l{li}", 0, 22 + 10 * li, [
             ("w", f"if(allayer == {li}, {misc('>')}, {misc('-')})"), ("w", f"{OFF['layer']} + {li}"),
-            ("w", f"{OFF['eng-' + L]} + aleng[{li}]"), ("w", f"if(almute[{li}], {misc('M')}, {OFF['loopst']} + allps[{li}])")])
+            ("w", f"{OFF['eng-' + L]} + aleng[{li}]"), ("w", f"if(alin[{li}] == 0, {OFF['out']}, {OFF['loopst']} + allps[{li}])")])
     # the percussion row: the lane last shown, its engine, and which lanes play (their numbers; '.' silent)
-    lanes_on = " + ".join(f"{2 ** i}*(allatch[{fl + i}] && almute[{fl + i}] == 0)" for i in range(nl))
+    ci = LAYERS.index("cloud")
+    lanes_on = " + ".join(f"{2 ** i}*alin[{fl + i}]" for i in range(nl)) + f" + {2 ** nl}*alin[{ci}]"
     row(c, "al-r-perc", 0, 52, [
         ("w", f"if(allayer >= {fl}, {misc('>')}, {misc('-')})"), ("w", f"{OFF['layer']} + alplane"),
         ("w", eng_word("alplane")), ("w", f"{OFF['lanes']} + {lanes_on}")])
@@ -149,7 +163,8 @@ def build(c):
                  SendL(OSC, [str(23 + 10 * li), f"max(1, int(alp[{lvl}]*20))"], "/oled/gFillArea 3 106 $1 $2 5 1")]
     play += [Call("al-r-perc")]
     # ---- layer view
-    lay = [Call("al-r-lhead"), Call("al-r-page")]
+    lay = [If("alview", [Call("al-r-ghead")], [Call("al-r-lhead")]), Call("al-r-page")]
+    row(c, "al-r-ghead", 0, 0, [("w", f"{OFF['global']}")])
     row(c, "al-r-lhead", 0, 0, [("w", f"if(alview, {OFF['global']}, {OFF['layer']} + allayer)"),
                                 ("w", f"if(alview, {misc('-')}, {eng_word('allayer')})")])
     row(c, "al-r-page", 0, 11, [("w", f"{OFF['page']} + {ctx()}*{M.MAXPAGES} + alpage"),
@@ -158,7 +173,7 @@ def build(c):
         row(c, f"al-r-k{k}", 0, 22 + 10 * k, [("w", f"if(alsl{k} < 0, {misc('-')}, {OFF['name']} + alsl{k})"),
                                               ("v", k)])
         lay += [Call(f"al-r-k{k}"),
-                If(f"alsl{k} >= 0 && aln[alsl{k}] <= 0",
+                If(f"alsl{k} >= 0 && (aln[alsl{k}] == 0 || aln[alsl{k}] == -1)",
                    [SendL(OSC, [str(23 + 10 * k), f"max(1, int(alp[alsl{k}]*46))"],
                           "/oled/gFillArea 3 80 $1 $2 5 1")])]
     # ---- mix view: every layer's level as a column, the master volume at the right; the shown page's columns
@@ -184,44 +199,78 @@ def build(c):
     mixv = [Call("al-r-mixhead")]
     for li, L in enumerate(LAYERS):
         lvl = S(L, None, "Level")
-        x = 2 + 15 * li
-        mixv += [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(1, int(alp[{lvl}]*38))"],
-                       "/oled/gFillArea 3 $1 $2 10 $3 1"),
-                 If(f"almute[{li}]", [Fill(x, 13, 10, 1, 1)])]
+        x = MIX_X0 + MIX_DX * li
+        # (a layer out: its column hollow)
+        mixv += [If(f"alin[{li}]", [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(1, int(alp[{lvl}]*38))"],
+                                          f"/oled/gFillArea 3 $1 $2 {MIX_W} $3 1")],
+                    [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(2, int(alp[{lvl}]*38))"],
+                           f"/oled/gBox 3 $1 $2 {MIX_W} $3 1")]),
+                 Send(OSC, f"/oled/gPrintln 3 {x} 55 8 1 {M.SHORT[L][1] if M.kind(L) == 'perc' else M.SHORT[L][0]}")]
     vol = S("g", None, "Volume")
     mixv += [SendL(OSC, [f"52 - int(alp[{vol}]*38)", f"max(1, int(alp[{vol}]*38))"], "/oled/gFillArea 3 112 $1 14 $2 1")]
-    mixv += [Send(OSC, "/oled/gPrintln 3 0 55 8 1 " + " ".join(M.SHORT[L] for L in LAYERS) + " V")]
+    mixv += [Send(OSC, "/oled/gPrintln 3 114 55 8 1 V")]
     # (the columns the knobs turn now: a line under them)
     for k in range(4):
         terms = " + ".join(f"(alsl{k} == {S(L, None, 'Level')})*{li}" for li, L in enumerate(LAYERS))
-        col = f"if(alsl{k} == {vol}, 112, 2 + 15*({terms}))"
-        mixv += [If(f"alsl{k} >= 0", [SendL(OSC, [col], "/oled/gFillArea 3 $1 54 12 1 1")])]
+        col = f"if(alsl{k} == {vol}, 112, {MIX_X0} + {MIX_DX}*({terms}))"
+        mixv += [If(f"alsl{k} >= 0", [SendL(OSC, [col], f"/oled/gFillArea 3 $1 54 {MIX_W + 2} 1 1")])]
     # ---- pattern view: a row per layer (its gate or lane pattern), hits as boxes, the length as a tick; a
     # playhead under each row, moved every 16th (al-patmark)
     def row_on(r):
-        return f"if({r} < 3, alp[alrg[{r}]] >= 0.5, allatch[{r}])"
+        return f"alin[{r}] && if({r} < 3, alp[alrg[{r}]] >= 0.5, 1)"
     hits = "int(1 + alp[alrh[alpr]]*15 + 0.5)"
     steps = "int(2 + alp[alrs[alpr]]*14 + 0.5)"
     cell = f"(alpc2*{hits}) % {steps} < {hits}"
-    patv = [Loop(str(len(LAYERS)), "alpr", [
+    patv = [Loop(str(len(PAT_LAYERS)), "alpr", [
         If(row_on("alpr"), [
             Loop(steps, "alpc2", [If(cell, [SendL(OSC, [f"{PAT_X} + alpc2*{PAT_W}", "alpr*9 + 1"],
                                                     f"/oled/gFillArea 3 $1 $2 {PAT_W - 1} 6 1")])]),
             SendL(OSC, [f"{PAT_X} + {steps}*{PAT_W}", "alpr*9"], "/oled/gFillArea 3 $1 $2 1 8 1")])])]
-    for li, L in enumerate(LAYERS):
+    for li, L in enumerate(PAT_LAYERS):
         patv.append(Send(OSC, f"/oled/gPrintln 3 0 {li * 9} 8 1 {M.SHORT[L]}"))
     rate = f"{pick_clocks('alrr[alpr]')}"
     cur = (f"((int(max(0, alc24)/{rate}) + int(alp[alro[alpr]]*15 + 0.5) + if(alpr >= {fl}, allrot[alpr - {fl}], 0))"
            f" % {steps})")
-    mark = [Loop(str(len(LAYERS)), "alpr", [
+    mark = [Loop(str(len(PAT_LAYERS)), "alpr", [
         SendL(OSC, ["alpr*9 + 7"], f"/oled/gFillArea 3 {PAT_X} $1 {16 * PAT_W} 1 0"),
         If(row_on("alpr"), [SendL(OSC, [f"{PAT_X} + {cur}*{PAT_W}", "alpr*9 + 7"],
                                   f"/oled/gFillArea 3 $1 $2 {PAT_W - 1} 1 1")])]),
         Send(OSC, "/oled/gFlip 3")]
-    proc(c, "al-patmark", [If("alpatv && alpop == 0 && altick % 2 == 0", mark)])
+    proc(c, "al-patmark", [If("alpatv == 1 && alpop == 0 && altick % 2 == 0", mark)])
+    roadv = road_view(c)
     proc(c, "al-draw", [Fill(0, 0, 128, 64, 0),
-                        If("alpop", lay, [If(f"alview == 2", mixv, [If("alpatv", patv, play)])]),
+                        If("alpop", lay, [If(f"alview == 2", mixv, [If("alpatv == 1", patv,
+                                                                       [If("alpatv == 2", roadv, play)])])]),
                         Send(OSC, "/oled/gFlip 3")])
+
+
+def road_view(c):
+    """the roadmap: section n/count and its role (HOLD while held); its story and the bar within it; the sections as
+    a strip (widths by their bars, the current one filled, a playhead); the layers in it; the next one's role"""
+    from pdlib import V, Loop
+    st = S("g", None, "Story")
+    row(c, "al-r-road", 0, 0, [("w", str(OFF["road"])), ("w", f"{OFF['frac']} + max(0, alrn - 1)*{M.MAXPAGES} + alrc"),
+                               ("w", f"{OFF['role']} + alrsR[alrc]"), ("w", f"if(alrhold, {OFF['hold']}, {OFF['plus']})")])
+    row(c, "al-r-road2", 0, 11, [("w", f"{OFF['opt']} + alob[{st}] + alrsS[alrc]"),
+                                 ("n", "max(0, altick/32 - alrb0) + 1", "%d"), ("n", "alrsL[alrc]", "/%d")])
+    row(c, "al-r-road3", 0, 54, [("w", str(OFF["next"])), ("w", f"{OFF['role']} + alrsR[min(alrc + 1, alrn - 1)]")])
+    steps = [If("alrn == 0", [Send(OSC, "/oled/gPrintln 3 0 0 8 1 ROAD: aux + top C#")], [
+        Call("al-r-road"), Call("al-r-road2"),
+        V("alrtot", "0"), Loop("alrn", "alri", [V("alrtot", "alrtot + alrsL[alri]")]), V("alrsw", "0"),
+        Loop("alrn", "alri", [
+            If("alri == alrc", [SendL(OSC, ["int(alrsw*127/alrtot)", "max(2, int(alrsL[alri]*127/alrtot))"],
+                                      "/oled/gFillArea 3 $1 24 $2 10 1")],
+               [SendL(OSC, ["int(alrsw*127/alrtot)", "max(2, int(alrsL[alri]*127/alrtot))"],
+                      "/oled/gBox 3 $1 24 $2 10 1")]),
+            V("alrsw", "alrsw + alrsL[alri]")])])]
+    for li, L in enumerate(LAYERS):
+        x = 1 + 16 * li
+        lab = M.SHORT[L][1] if M.kind(L) == "perc" else M.SHORT[L][0]
+        steps.append(If(f"alrn > 0 && int(alrsM[alrc]/{2 ** li}) % 2",
+                        [Fill(x, 38, 11, 10, 1), Send(OSC, f"/oled/gPrintln 3 {x + 3} 39 8 0 {lab}")],
+                        [If("alrn > 0", [Send(OSC, f"/oled/gPrintln 3 {x + 3} 39 8 1 {lab}")])]))
+    steps.append(If("alrn > 1", [Call("al-r-road3")]))
+    return steps
 
 
 def pick_clocks(slot_expr):

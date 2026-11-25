@@ -14,7 +14,7 @@ from dsp import mul, add
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "patches", "AmbleLite")
-TRIM = dict(drone=0.8, sub=0.9, pad=0.7, perc1=0.8, perc2=0.7, perc3=0.7, perc4=0.6)   # the balance at Level 50 %
+TRIM = dict(drone=0.8, sub=0.9, pad=0.7, perc1=0.8, perc2=0.7, perc3=0.7, perc4=0.6, cloud=0.9)   # at Level 50 %
 
 
 def level(v):
@@ -30,11 +30,14 @@ def mix():
     mL, mR = c.obj("+~"), c.obj("+~")
     for li, L in enumerate(M.LAYERS):
         lvl = M.S(L, None, "Level")
-        g = c.obj(f"expr {level('alpe[%d]' % lvl)}*(1 - almute[{li}])*{TRIM[L]}")
+        g = c.obj(f"expr {level('alpe[%d]' % lvl)}*{TRIM[L]}")
         c.c(c.ch(c.recv(f"al-s{lvl}"), "t b"), 0, g, 0)
-        c.c(c.ch(c.recv(f"al-mute{li}"), "t b"), 0, g, 0)
-        gl = c.ch(g, "pack f 30", "line~")
-        if M.kind(L) == "perc":       # (no Pan page: the lanes' voices spread themselves)
+        gl0 = c.ch(g, "pack f 30", "line~")
+        # in / out: 'in fade_ms' (control.layer_switches) - the layer fades up or down over the Fade time
+        ins = c.ch(c.recv(f"al-in{li}"), "line~")
+        c.c(c.m(c.recv("al-init"), f"{1 if L in control.IN_AT_START else 0}"), 0, ins, 0)
+        gl = mul(c, gl0, ins)
+        if M.kind(L) in ("perc", "cloud"):       # (no Pan page: the lanes' voices and the grains spread themselves)
             bl, br = gl, gl
         else:
             pan = M.S(L, None, "Pan")
@@ -42,8 +45,12 @@ def mix():
             c.c(c.ch(c.recv(f"al-s{pan}"), "t b"), 0, pb, 0)
             bl = mul(c, gl, c.ch(pb, "pack f 30", "line~"))
             br = mul(c, gl, c.ch((pb, 1), "pack f 30", "line~"))
-        c.c(mul(c, c.obj(f"catch~ al-{L}-L"), bl), 0, mL, 0)
-        c.c(mul(c, c.obj(f"catch~ al-{L}-R"), br), 0, mR, 0)
+        oL, oR = mul(c, c.obj(f"catch~ al-{L}-L"), bl), mul(c, c.obj(f"catch~ al-{L}-R"), br)
+        c.c(oL, 0, mL, 0)
+        c.c(oR, 0, mR, 0)
+        if L != "cloud":            # (what the cloud records: every other layer, after its level)
+            c.c(oL, 0, c.obj("throw~ al-csrcL"), 0)
+            c.c(oR, 0, c.obj("throw~ al-csrcR"), 0)
         c.col(200)
     vol = c.ch(c.recv(f"al-s{M.S('g', None, 'Volume')}"), "expr $f1*$f1*2", "pack f 30", "line~")
     for x, o in ((mL, "outL"), (mR, "outR")):
@@ -77,12 +84,30 @@ def main_patch():
     flt = Canvas("filters", w=1600)
     filters.build(flt)
     m.sub(flt, 330, 250)
+    import cloud
+    m.sub(cloud.build(), 510, 250)
+    import harmony
+    hm = Canvas("harmony", w=2600)
+    harmony.build(hm)
+    m.sub(hm, 690, 250)
+    import lines
+    ln = Canvas("lines", w=2600)
+    lines.build(ln)
+    m.sub(ln, 870, 250)
+    import roadmap
+    rd = Canvas("roadmap", w=2600)
+    roadmap.build(rd)
+    m.sub(rd, 780, 250)
+    import midi
+    mi = Canvas("midi", w=1600)
+    midi.build(mi)
+    m.sub(mi, 600, 250)
     m3 = Canvas("features", w=1600)
     features.build(m3)
     m.sub(m3, 420, 250)
     m.comment("voices", 20, 300)
     x = 20
-    for L in M.LAYERS:
+    for L in M.NOTE_LAYERS:
         for k in range(M.VOICES[L]):
             m.obj(f"al-{L} {k}", x, 325 + 25 * (k % 3))
             if k % 3 == 2:
@@ -94,7 +119,7 @@ def main_patch():
 def build(out=OUT):
     os.makedirs(out, exist_ok=True)
     main = main_patch()
-    voices = {L: voice.voice(L) for L in M.LAYERS}
+    voices = {L: voice.voice(L) for L in M.NOTE_LAYERS}
     pdlib.fold_patch(main, *voices.values())
     main.save(os.path.join(out, "main.pd"))
     for L, v in voices.items():
@@ -103,7 +128,12 @@ def build(out=OUT):
     open(os.path.join(out, "al-words.txt"), "w").write("".join(w.replace(" ", "\\ ") + "\n" for w in screen.LINES))
     wavetables.write(os.path.join(out, "waves", "factory"))
     open(os.path.join(out, "pd-opts.txt"), "w").write("-audiobuf 25\n")
+    import midi
+    midi.write_profiles(out)
     # the snapshots: kept across builds (an update keeps your saves); 18 empty lines the first time
+    rm = os.path.join(out, "roadmap.txt")        # (the roadmap: kept across builds too)
+    if not os.path.exists(rm):
+        open(rm, "w").write("")
     sv = os.path.join(out, "saves.txt")
     if not os.path.exists(sv):
         open(sv, "w").write("-1;\n" * (features.SCRATCH + 2))

@@ -20,6 +20,7 @@ from model import S, LAYERS, MAXENG, MAXPAGES, NSLOTS, MAXC
 from control import opt, num, pick, clocks, ctx, NL
 
 BAR = 96                    # clocks in a 4/4 bar
+MAXCLK = 16 * BAR           # the longest breath line a loop keeps (16 bars)
 MAXEV = 256                 # events a loop holds
 SAVE_SLOTS = 16
 SCRATCH = SAVE_SLOTS        # (line 16 of saves.txt: the sound before the last recall, for COMPARE)
@@ -78,7 +79,7 @@ def lfo(c):
     val = (f"if({sh} == 0, sin(6.28319*{p1}), if({sh} == 1, 4*abs({p1} - 0.5) - 1, if({sh} == 2, 2*{p1} - 1, "
            f"if({sh} == 3, 1 - 2*{p1}, if({sh} == 4, if({p1} < 0.5, 1, -1), if({sh} == 5, alstp[int({p1}*8) % 8], "
            f"if({sh} == 6, {rnd(cy)} + ({rnd(cy + ' + 1')} - {rnd(cy)})*{sm}, {rnd(cy)})))))))")
-    eff = "max(0, min(1, alp[alftg] + alem[alftg] + alfm[alftg] + alfn[alftg]))"
+    eff = "max(0, min(1, alp[alftg] + alem[alftg] + alfm[alftg] + alfn[alftg] + alfb[alftg]))"
 
     def refresh(slot):
         return [V("alfnew", eff.replace("alftg", slot)), If(f"abs(alfnew - alpe[{slot}]) > 0.0008", [
@@ -109,7 +110,8 @@ def assign(c):
 
 
 # ---------------------------------------------------------------------------------------------- toasts
-TOASTS = ["SAVED", "LOADED", "EMPTY", "COMPARE", "BACK", "REC", "PLAY", "DUB", "STOPPED", "CLEARED", "ASSIGN"]
+TOASTS = ["SAVED", "LOADED", "EMPTY", "COMPARE", "BACK", "REC", "PLAY", "DUB", "STOPPED", "CLEARED", "ASSIGN",
+          "ROAD", "NEXT", "SECTION", "HOLD"]
 
 
 def toast(name, number=None):
@@ -138,7 +140,7 @@ def saves(c):
     c.c(c.m(c.recv("al-init"), " ".join(str(x) for x in fav)), 0, c.obj("array set alfavix"), 0)
     proc(c, "al-gather", [
         ACopy("alp", 0, NSLOTS, "alsnap", 0), ACopy("allatch", 0, NL, "alsnap", NSLOTS),
-        ACopy("almute", 0, NL, "alsnap", NSLOTS + NL),
+        ACopy("alin", 0, NL, "alsnap", NSLOTS + NL),
         Loop(str(FAVN), "alsi", [T("alsnap", f"{NSLOTS + 2 * NL} + alsi", "alks[alfavix[alsi]]")])])
     # write line n of saves.txt from alsnap (array get -> text set: the line replaced), then the file
     wr = c.to(c.recv("al-snapwrite"), "t b f")
@@ -173,9 +175,9 @@ def saves(c):
     # apply alsnap: latches, mutes, FAV pages at once; the choices at once; the rest glides (or all at once)
     proc(c, "al-apply", [
         Loop(str(NL), "alsi", [T("allatch", "alsi", f"alsnap[{NSLOTS} + alsi]"),
-                               If(f"almute[alsi] != alsnap[{NSLOTS + NL} + alsi]", [
-                                   T("almute", "alsi", f"alsnap[{NSLOTS + NL} + alsi]"),
-                                   SendL("al-mutel", ["alsi", "almute[alsi]"])])]),
+                               # (layers in or out: each fades with the Fade time)
+                               If(f"alin[alsi] != alsnap[{NSLOTS + NL} + alsi]", [
+                                   SendL("al-inset", ["alsi", f"alsnap[{NSLOTS + NL} + alsi]"])])]),
         Loop(str(FAVN), "alsi", [T("alks", "alfavix[alsi]", f"alsnap[{NSLOTS + 2 * NL} + alsi]")]),
         V("almcnt", "0"), V("almdur", mms),
         Loop(str(NSLOTS), "alsi", [If("abs(alsnap[alsi] - alp[alsi]) > 0.0005", [
@@ -201,11 +203,13 @@ def looper(c):
         c.obj(f"array define {name} {NL * MAXEV}")
     for name in ("allpc", "allpl", "allps", "allp0", "allpi", "allpx", "allpr"):
         c.obj(f"array define {name} {NL}")
+    # each layer's breath line: one value a clock (breath + 1; 0 = nothing recorded there), up to 16 bars
+    c.obj(f"array define albk {NL * MAXCLK}")
     nl, ql, ll = len(M.LOOP_LENS), len(M.QUANTS), len(M.LOOP_BARS)
 
     def p(L, key):
         return S(L, None, key)
-    for li, L in enumerate(LAYERS):
+    for li, L in enumerate(M.NOTE_LAYERS):
         # the tap: store a note while recording or overdubbing (its time quantised, its chord root kept)
         r = c.ch(c.recv(f"al-user-{L}"), "t l l")
         c.c((r, 0), 0, c.obj(f"s al-in-{L}"), 0)
@@ -233,8 +237,15 @@ def looper(c):
             If(f"allk < allpi[{li}]", [T("allpi", str(li), f"allpi[{li}] + 1")])])])
     # the loop key on the shown layer: empty -> record -> play -> overdub -> play ...
     lb = f"{pick(M.LOOP_BARS, opt_layer('LpLen', nl))}"
-    proc(c, "al-loop", [
-        V("allx", "allayer"),
+    # the loop key: the shown layer's looper - or, with zones on, every zoned layer's together (one pass across the
+    # keyboard records each zone's notes and breath)
+    zones = S("g", None, "Zones")
+    zoned = " || ".join(f"(alzl == {li} && {num(S(L, None, 'ZnLo'))} <= {num(S(L, None, 'ZnHi'))})"
+                        for li, L in enumerate(M.NOTE_LAYERS))
+    proc(c, "al-loop", [If(f"{opt(zones)} == 1", [
+        Loop(str(len(M.NOTE_LAYERS)), "alzl", [If(zoned, [V("allx", "alzl"), Call("al-loopone")])])],
+        [If(f"allayer < {len(M.NOTE_LAYERS)}", [V("allx", "allayer"), Call("al-loopone")])])])
+    proc(c, "al-loopone", [
         If("alrun == 0", [Call("al-start")]),
         If("allps[allx] == 0", [T("allps", "allx", "1"), T("allp0", "allx", "max(0, alc24)"), T("allpc", "allx", "0"),
                                 T("allpl", "allx", f"{lb}*{BAR}"), T("allpi", "allx", "0")] + toast("REC"),
@@ -251,39 +262,56 @@ def looper(c):
     proc(c, "al-loopstop", [If("allps[allayer] == 2 || allps[allayer] == 3", [
         T("allps", "allayer", "4"), Call("al-loopnotesoff")] + toast("STOPPED"),
         [If("allps[allayer] == 4", [T("allps", "allayer", "2"), T("allpi", "allayer", "0")] + toast("PLAY"))])])
-    proc(c, "al-loopclear", [T("allps", "allayer", "0"), T("allpc", "allayer", "0"), T("allpl", "allayer", "0"),
+    # (clearing: the layer's breath line too - zeros: no breath recorded)
+    clr = c.obj("array set albk")
+    c.c(c.m(c.recv("al-bkclear"), " ".join(["0"] * MAXCLK)), 0, clr, 0)
+    c.c(c.ch(c.recv("al-bkclearat"), f"* {MAXCLK}"), 0, clr, 1)
+    proc(c, "al-loopclear", [SendL("al-bkclearat", ["allayer"]), Send("al-bkclear"), T("alblp", "allayer", "0"),
+                             Call("al-breathapply"),
+                             T("allps", "allayer", "0"), T("allpc", "allayer", "0"), T("allpl", "allayer", "0"),
                              Call("al-loopnotesoff")] + toast("CLEARED"))
     proc(c, "al-loopnotesoff", [Send("al-clear")])
     # playback, each clock: the events at this point of the cycle (up to 6 at one clock), transposed with the
     # chord (worked out at the cycle's start)
     steps = []
-    for li, L in enumerate(LAYERS):
+    for li, L in enumerate(M.NOTE_LAYERS):
         base = f"{li}*{MAXEV}"
         fol = opt(S(L, None, "Follow"))
-        steps.append(If(f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0", [
-            V("allpos", f"(alc24 - allp0[{li}]) % allpl[{li}]"),
-            If("allpos == 0", [T("allpi", str(li), "0"), T("allpx", str(li), "alcr")]),
-            Loop("6", "alli", [If(f"allpi[{li}] < allpc[{li}] && allpt[{base} + allpi[{li}]] == allpos", [
-                # (follow: moved by the nearest step from the chord it was played over to the cycle's chord)
-                SendL(f"al-in-{L}", [f"allpn[{base} + allpi[{li}]] + if({fol} == 0, "
-                                     f"(allpx[{li}] - allpq[{base} + allpi[{li}]] + 18) % 12 - 6, 0)",
-                                     f"allpv[{base} + allpi[{li}]]*alpe[{S(L, None, 'LpVel')}]/0.8"]),
-                T("allpi", str(li), f"allpi[{li}] + 1")])]),
+        playing = f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0"
+        steps.append(If(f"allps[{li}] >= 1 && allps[{li}] <= 3", [
+            # the point in the cycle (a first recording: since it began)
+            V("allpos", f"if(allpl[{li}] > 0, (alc24 - allp0[{li}]) % max(1, allpl[{li}]), alc24 - allp0[{li}])"),
+            If(playing, [
+                If("allpos == 0", [T("allpi", str(li), "0"), T("allpx", str(li), "alcr")]),
+                Loop("6", "alli", [If(f"allpi[{li}] < allpc[{li}] && allpt[{base} + allpi[{li}]] == allpos", [
+                    # (follow: moved by the nearest step from the chord it was played over to the cycle's chord;
+                    # a layer out: its loop keeps its place, silent)
+                    If(f"alin[{li}]", [SendL(f"al-in-{L}", [f"allpn[{base} + allpi[{li}]] + if({fol} == 0, "
+                                         f"(allpx[{li}] - allpq[{base} + allpi[{li}]] + 18) % 12 - 6, 0)",
+                                         f"allpv[{base} + allpi[{li}]]*alpe[{S(L, None, 'LpVel')}]/0.8"])]),
+                    T("allpi", str(li), f"allpi[{li}] + 1")])]),
+                # its breath line, played where it holds one
+                If(f"allpos < {MAXCLK} && albk[{li}*{MAXCLK} + allpos] > 0 && "
+                   f"abs(albk[{li}*{MAXCLK} + allpos] - 1 - alblp[{li}]) > 0.002",
+                   [T("alblp", str(li), f"albk[{li}*{MAXCLK} + allpos] - 1"), V("albdirty", "1")])]),
+            # the breath line recorded: all through a first recording, and in an overdub where it breathes
+            If(f"allpos < {MAXCLK} && (allps[{li}] == 1 || (allps[{li}] == 3 && albll[{li}] > 0.01))",
+               [T("albk", f"{li}*{MAXCLK} + allpos", f"albll[{li}] + 1")]),
             # a first recording with a set length closes by itself
             If(f"allps[{li}] == 1 && allpl[{li}] > 0 && alc24 - allp0[{li}] >= allpl[{li}]", [
                 V("allx", str(li)), Call("al-loopclose")])]))
-    proc(c, "al-loops", steps)
+    proc(c, "al-loops", [V("albdirty", "0")] + steps + [If("albdirty", [Call("al-breathapply")])])
 
 
 def opt_layer(key, n):
     """an option of the shown layer's slot by key (the slot looked up by layer)"""
-    sl = pick([S(L, None, key) for L in LAYERS], "allx")
+    sl = pick([S(L, None, key) for L in M.NOTE_LAYERS], "allx")
     return f"min({n - 1}, int(alp[{sl}]*{n}))"
 
 
 GLOBALS = dict(allq=0, alftg=-1, alfold=0, alfnew=0, alfph=0, alfv=0, altw=-1, altn=-1, alslot=0, allast=-1,
                alcmp=0, alsnv=0, alsi=0, almdur=0, almt0=0, almp=0, almcnt=0, alslh=0, alslu=0, alasv=0,
-               allx=0, allrt=0, allk=0, alli=0, allsz=0, allpos=0)
+               allx=0, allrt=0, allk=0, alli=0, allsz=0, allpos=0, alzl=0, allbp=0, albdirty=0)
 for _li in range(NL):
     GLOBALS.update({f"allrn{_li}": 0, f"allrv{_li}": 0})
 

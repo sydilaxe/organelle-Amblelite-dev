@@ -1,0 +1,217 @@
+<title>Amble Lite Roadmap Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a hardware-panel tool - setup controls as a top strip, the roadmap as a timeline, the sections as a
+   table beneath, roadmap.txt at the foot. Colours: an OLED-ink dark / paper light pair, one cool accent, a
+   muted hue per role. */
+:root {
+  --bg: #f3f4f1; --panel: #ffffff; --ink: #1b1f1d; --muted: #5d6762; --line: #d5dad6; --accent: #1f6f78;
+  --accent-ink: #ffffff; --chip: #e6ebe8;
+  --r0: #9db6c3; --r1: #8fb39a; --r2: #b8c68a; --r3: #d8b46a; --r4: #d98a6a; --r5: #a9a1c7; --r6: #8fb3b0; --r7: #b3a99c;
+  --display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1312; --panel: #171c1b; --ink: #e4ebe7; --muted: #93a19a; --line: #2a3331; --accent: #5cc3cc;
+  --accent-ink: #0f1312; --chip: #222a28;
+  --r0: #4d6a78; --r1: #4b6e55; --r2: #6c7a3e; --r3: #8b6b2c; --r4: #8f4f37; --r5: #5f5883; --r6: #456e6a; --r7: #6b6257;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1312; --panel: #171c1b; --ink: #e4ebe7; --muted: #93a19a; --line: #2a3331; --accent: #5cc3cc;
+  --accent-ink: #0f1312; --chip: #222a28;
+  --r0: #4d6a78; --r1: #4b6e55; --r2: #6c7a3e; --r3: #8b6b2c; --r4: #8f4f37; --r5: #5f5883; --r6: #456e6a; --r7: #6b6257;
+  color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); line-height: 1.5; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 22px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 1.7rem; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.05rem; margin: 0; }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 65ch; }
+.label { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px 18px; align-items: end; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field output { font-family: var(--mono); font-size: .85rem; }
+input[type=number], select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+button { font: 500 .9rem var(--body); border-radius: 6px; padding: 8px 14px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .chip:focus-visible, .seg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.summary { font-family: var(--mono); font-size: .85rem; color: var(--muted); }
+.timeline { display: flex; gap: 3px; height: 64px; }
+.seg { border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between; padding: 6px; min-width: 0; overflow: hidden; color: var(--ink); border: 2px solid transparent; cursor: pointer; }
+.seg.sel { border-color: var(--accent); }
+.seg b { font: 600 .75rem var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seg span { font: .7rem var(--mono); white-space: nowrap; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: .9rem; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr.sel td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td input[type=number] { width: 72px; }
+.chips { display: flex; gap: 4px; flex-wrap: nowrap; }
+.chip { font: 500 .75rem var(--mono); width: 28px; height: 26px; border-radius: 5px; border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 0; }
+.chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+pre { font-family: var(--mono); font-size: .85rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin: 0; overflow-x: auto; white-space: pre; }
+textarea { width: 100%; box-sizing: border-box; font-family: var(--mono); font-size: .85rem; min-height: 90px; }
+.note { color: var(--muted); font-size: .85rem; max-width: 70ch; margin: 0; }
+.status { font-size: .85rem; color: var(--accent); min-height: 1.2em; }
+@media (prefers-reduced-motion: no-preference) { .seg { transition: flex-grow .2s ease; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Roadmap Planner</h1>
+    <p class="lede">Plan an Amble Lite piece as sections: build one from a few settings, as the Organelle does with aux + top C#, then change any section. The text at the bottom is the roadmap.txt the patch reads.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="h-setup">
+    <h2 id="h-setup">Build</h2>
+    <div class="setup">
+      <label class="field"><span class="label">Minutes</span><input id="mins" type="number" min="4" max="30" value="12"></label>
+      <label class="field"><span class="label">Tempo (bpm)</span><input id="tempo" type="number" min="30" max="200" value="84"></label>
+      <label class="field"><span class="label">Arc</span><select id="arc"></select></label>
+      <label class="field"><span class="label">Tension <output id="tensO">40</output></span><input id="tens" type="range" min="0" max="100" value="40"></label>
+      <label class="field"><span class="label">Density <output id="densO">50</output></span><input id="dens" type="range" min="0" max="100" value="50"></label>
+      <label class="field"><span class="label">Variation</span><input id="varia" type="number" min="0" max="15" value="0"></label>
+    </div>
+    <div class="row"><button class="primary" id="build" type="button">Build roadmap</button><span class="summary" id="summary"></span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-road">
+    <div class="row" style="justify-content:space-between"><h2 id="h-road">Roadmap</h2>
+      <div class="row"><button id="add" type="button">Add section</button><button id="del" type="button">Remove selected</button></div></div>
+    <div class="timeline" id="timeline" role="list"></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>#</th><th>Role</th><th>Bars</th><th>Time</th><th>Story</th><th>Layers in</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-file">
+    <h2 id="h-file">roadmap.txt</h2>
+    <p class="note">Copy this into a file named roadmap.txt in the AmbleLite folder on the Organelle's card, replacing the one there. Set Road to auto (or guide) on the ROAD 2 page and press Start. Each line is one section: bars, story, layers, role.</p>
+    <pre id="txt"></pre>
+    <div class="row"><button class="primary" id="copy" type="button">Copy roadmap.txt</button><span class="status" id="status" role="status"></span></div>
+    <details><summary>Load a roadmap.txt</summary>
+      <div style="display:grid;gap:10px;margin-top:10px">
+        <textarea id="paste" placeholder="Paste a roadmap.txt here"></textarea>
+        <div class="row"><button id="load" type="button">Load pasted text</button><input id="file" type="file" accept=".txt,text/plain"></div>
+      </div></details>
+  </section>
+</div>
+
+<script>
+const D = {"roles": ["emerge", "establish", "develop", "intensify", "climax", "break", "return", "dissolve"], "arcs": ["arch", "build", "waves", "twin", "journey"], "arcRoles": [[0, 1, 2, 3, 4, 2, 7], [0, 1, 2, 2, 3, 3, 4, 7], [0, 2, 5, 2, 3, 5, 4, 7], [0, 3, 4, 5, 3, 4, 7], [0, 1, 2, 5, 3, 4, 6, 7]], "weights": [1, 1, 1.5, 1, 1, 0.7, 1, 1], "tension": [0.6, 0.8, 1.0, 1.2, 1.4, 0.9, 0.8, 0.5], "masks": [[1, 1, 3], [7, 7, 15], [135, 143, 159], [15, 63, 127], [143, 191, 255], [129, 133, 149], [7, 15, 47], [1, 129, 133]], "pools": [[20, 22, 24, 0, 4, 21, 28, 29], [0, 15, 16, 17, 27, 26, 7, 1], [25, 30, 31, 32, 33, 13, 12, 34]], "stories": ["modal", "home", "descend", "circle", "pedal", "rise", "still", "axis", "canon", "ii-V-I", "circle7", "plagal", "andalus", "epic", "minor4", "dorvamp", "mixvamp", "lydfloat", "phrvamp", "aeolvmp", "float", "gymno", "suspend", "newage", "still6", "mediant", "diamed", "minimal", "planing", "sus", "neoriem", "hexaton", "thirds", "octaton", "tritone", "quartal", "wholetn", "own"], "layers": ["DRONE", "SUB", "PADS", "PERC1", "PERC2", "PERC3", "PERC4", "CLOUD"], "short": ["Dr", "Sb", "Pd", "P1", "P2", "P3", "P4", "Cl"], "maxSec": 12};
+const $ = id => document.getElementById(id);
+let secs = [], sel = 0;
+const int = x => Math.trunc(x);
+
+D.arcs.forEach((a, i) => $("arc").add(new Option(a, i)));
+
+// the patch's own rule (roadmap.py, al-rgen)
+function build() {
+  const mins = +$("mins").value, tempo = +$("tempo").value, a = +$("arc").value;
+  const tens = $("tens").value / 100, dens = $("dens").value / 100, v = +$("varia").value;
+  const roles = D.arcRoles[a], tot = mins * tempo / 4;
+  const sw = roles.reduce((s, r) => s + D.weights[r], 0), dt = Math.min(2, int(dens * 2.99));
+  secs = roles.map((r, i) => ({
+    role: r,
+    bars: Math.max(4, int(tot * D.weights[r] / sw / 4 + 0.5) * 4),
+    mask: D.masks[r][dt],
+    story: D.pools[Math.min(2, int(tens * D.tension[r] * 2.2))][(v * 5 + i * 3 + a) % 8],
+  }));
+  sel = 0; render(); save();
+}
+
+function render() {
+  const tempo = +$("tempo").value || 84, total = secs.reduce((s, x) => s + x.bars, 0);
+  const tl = $("timeline"); tl.replaceChildren();
+  secs.forEach((s, i) => {
+    const d = document.createElement("div");
+    d.className = "seg" + (i === sel ? " sel" : ""); d.setAttribute("role", "listitem"); d.tabIndex = 0;
+    d.style.flexGrow = s.bars; d.style.background = `var(--r${s.role})`;
+    d.innerHTML = `<b>${D.roles[s.role]}</b><span>${s.bars} bars</span>`;
+    d.onclick = () => { sel = i; render(); };
+    d.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sel = i; render(); } };
+    tl.append(d);
+  });
+  const tb = $("rows"); tb.replaceChildren();
+  secs.forEach((s, i) => {
+    const tr = document.createElement("tr"); if (i === sel) tr.className = "sel";
+    tr.onclick = e => { if (e.target === tr || e.target.tagName === "TD") { sel = i; render(); } };
+    const td = () => tr.appendChild(document.createElement("td"));
+    let c = td(); c.className = "num"; c.textContent = i + 1;
+    c = td(); const rs = document.createElement("select"); rs.id = `role-${i}`;
+    D.roles.forEach((r, k) => rs.add(new Option(r, k))); rs.value = s.role;
+    rs.onchange = () => { s.role = +rs.value; render(); save(); };
+    const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = `var(--r${s.role})`;
+    c.append(dot, rs);
+    c = td(); const b = document.createElement("input"); b.type = "number"; b.min = 4; b.max = 64; b.step = 4; b.value = s.bars; b.id = `bars-${i}`;
+    b.onchange = () => { s.bars = Math.max(4, Math.min(64, +b.value || 4)); render(); save(); };
+    c.append(b);
+    c = td(); c.className = "num"; c.textContent = fmt(s.bars * 4 * 60 / tempo);
+    c = td(); const st = document.createElement("select"); st.id = `story-${i}`;
+    D.stories.forEach((n, k) => st.add(new Option(n, k))); st.value = s.story;
+    st.onchange = () => { s.story = +st.value; save(); };
+    c.append(st);
+    c = td(); const ch = document.createElement("div"); ch.className = "chips";
+    D.short.forEach((n, k) => {
+      const t = document.createElement("button"); t.type = "button";
+      const on = (s.mask >> k) & 1; t.className = "chip" + (on ? " on" : ""); t.textContent = n;
+      t.title = D.layers[k] + (on ? " in" : " out"); t.setAttribute("aria-pressed", on ? "true" : "false");
+      t.onclick = () => { s.mask ^= (1 << k); render(); save(); };
+      ch.append(t);
+    });
+    c.append(ch);
+    tb.append(tr);
+  });
+  $("summary").textContent = `${secs.length} sections, ${total} bars, ${fmt(total * 4 * 60 / tempo)} at ${tempo} bpm`;
+  $("txt").textContent = secs.map(s => `${s.bars} ${s.story} ${s.mask} ${s.role};`).join("\n");
+  $("add").disabled = secs.length >= D.maxSec; $("del").disabled = secs.length <= 1;
+}
+const fmt = sec => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
+
+function parse(text) {
+  const out = [];
+  text.split(";").map(l => l.trim()).filter(Boolean).forEach(l => {
+    const [bars, story, mask, role] = l.split(/\s+/).map(Number);
+    if ([bars, story, mask, role].every(Number.isFinite)) out.push({ bars, story, mask, role });
+  });
+  return out.slice(0, D.maxSec);
+}
+function save() { try { localStorage.setItem("al-road", $("txt").textContent); } catch (e) {} }
+
+$("build").onclick = build;
+["tens", "dens"].forEach(id => $(id).oninput = () => $(id + "O").textContent = $(id).value);
+$("tempo").onchange = render;
+$("add").onclick = () => { if (secs.length < D.maxSec) { secs.splice(sel + 1, 0, { ...secs[sel] }); sel++; render(); save(); } };
+$("del").onclick = () => { if (secs.length > 1) { secs.splice(sel, 1); sel = Math.max(0, sel - 1); render(); save(); } };
+$("copy").onclick = () => {
+  const t = $("txt").textContent;
+  navigator.clipboard.writeText(t).then(() => $("status").textContent = "Copied.", () => {
+    const r = document.createRange(); r.selectNodeContents($("txt"));
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    $("status").textContent = "Selected: copy it with your keyboard.";
+  });
+};
+$("load").onclick = () => {
+  const p = parse($("paste").value);
+  if (p.length) { secs = p; sel = 0; render(); save(); $("status").textContent = `Loaded ${p.length} sections.`; }
+  else $("status").textContent = "No sections found: each line should read bars story layers role;";
+};
+$("file").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => { $("paste").value = r.result; $("load").onclick(); }; r.readAsText(f);
+};
+
+let saved = null; try { saved = localStorage.getItem("al-road"); } catch (e) {}
+const p0 = saved ? parse(saved) : [];
+if (p0.length) { secs = p0; render(); } else build();
+</script>

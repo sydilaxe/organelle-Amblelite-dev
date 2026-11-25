@@ -1,0 +1,11 @@
+comment  a general keyboard: the mod wheel and CC 2 as breath CC 70-77 the 8 knobs;
+cc 1 breath;
+cc 2 breath;
+cc 70 knob 1;
+cc 71 knob 2;
+cc 72 knob 3;
+cc 73 knob 4;
+cc 74 knob 5;
+cc 75 knob 6;
+cc 76 knob 7;
+cc 77 knob 8;

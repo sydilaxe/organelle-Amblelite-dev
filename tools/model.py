@@ -63,7 +63,16 @@ STORIES = [("modal", "deg", None), ("home", "deg", [0, 3, 0, 4]), ("descend", "d
            ("octaton", "chr", [(0, "maj"), (3, "maj"), (6, "maj"), (9, "maj")]),  # minor-third cycle
            ("tritone", "chr", [(0, "maj"), (6, "maj")]),
            ("quartal", "chr", [(0, "q4"), (2, "q4"), (5, "q4"), (7, "q4")]),
-           ("wholetn", "chr", [(0, "aug"), (2, "aug"), (4, "aug"), (6, "aug")])]
+           ("wholetn", "chr", [(0, "aug"), (2, "aug"), (4, "aug"), (6, "aug")]),
+           # ---- your own: the suggestions you accept (aux + top E), up to 8 (harmony.py)
+           ("own", "chr", [(0, "maj")])]
+OWN_STORY = len(STORIES) - 1
+# the roadmap: arcs (the roles of their sections), roles, and how many sections it holds at most
+ROLES = ["emerge", "establ", "develp", "intens", "climax", "break", "return", "dissol"]
+ARCS = ["arch", "build", "waves", "twin", "journy"]
+ARC_ROLES = {"arch": [0, 1, 2, 3, 4, 2, 7], "build": [0, 1, 2, 2, 3, 3, 4, 7], "waves": [0, 2, 5, 2, 3, 5, 4, 7],
+             "twin": [0, 3, 4, 5, 3, 4, 7], "journy": [0, 1, 2, 5, 3, 4, 6, 7]}
+MAXSEC = 12
 STORY_LEN = 8          # a story is stored as 8 chords (repeated to fill)
 
 
@@ -105,10 +114,17 @@ RATE_CLOCKS = [24, 12, 8, 6, 4, 3]
 BARS = ["manual", "1", "2", "4", "8", "16"]
 BAR_N = [0, 1, 2, 4, 8, 16]
 SUBMODES = ["pedal", "root"]
-PITCHES = ["up", "down", "updown", "root", "fifth", "scl up", "scl dn", "stack"]
+PITCHES = ["up", "down", "updown", "root", "fifth", "scl up", "scl dn", "stack", "motif"]
+MOTIF_SRC = ["drone", "sub", "pads", "perc1", "perc2", "perc3", "perc4"]
+MOTIF_TRANS = ["as is", "invert", "revrse", "+5th", "+oct", "-oct"]
+LINE_VOICES = ["top", "inner", "all", "bass"]
+LINE_STYLES = ["neighb", "passing"]
 PHASES = ["off", "16bar", "8bar", "4bar", "2bar", "1bar"]
 PHASE_BARS = [0, 16, 8, 4, 2, 1]
 COMPS = ["none", "drone", "sub", "pads"]
+CLOUD_PITCHES = ["unison", "octaves", "fifths", "chord", "shimmr"]
+# each grain stream's transposition, per pitch set (the 'chord' set is worked out from the chord: cloud.py)
+CLOUD_RATIOS = [[1, 1, 1, 1, 1, 1], [1, 0.5, 2, 1, 0.5, 2], [1, 1.5, 0.75, 2, 1, 1.5], None, [1, 2, 2, 4, 1, 2]]
 FEELS = ["swing", "lilt", "drag", "limp"]
 # a feel: each step's delay (x Swing x half a step), over 4 steps
 FEEL_OFFSETS = [[0, 1, 0, 1], [0, 0.5, 0.25, 0.75], [0, 0.25, 0.5, 0.75], [0, 0, 1, 0]]
@@ -125,6 +141,10 @@ QUANT_CLOCKS = [1, 6, 12, 8, 24]
 MAXC = 24          # an LFO's targets: off + up to 23 of the layer's parameters
 
 LANES = ["perc1", "perc2", "perc3", "perc4"]
+# the keyboard zones (MIDI page Zones on): the notes each layer takes (lo, hi); (127, 0): none. The first layer
+# whose zone holds a note plays it
+ZONE_DEFAULT = dict(sub=(0, 47), pad=(48, 71), perc1=(72, 127))
+PROFILES = ["generic", "nanokey", "nanoktl", "dm48x", "user"]
 OCT_DEFAULT = dict(drone=2, sub=1, pad=3, perc1=4, perc2=4, perc3=3, perc4=5)      # -1, -2, 0, +1 ...
 # the lanes' defaults: a cascade that interlocks (engine, hits, steps, rotate, rate, pitch, phase, decay)
 LANE_DEFAULT = dict(perc1=(3, 5, 8, 0, 3, 0, 0, 0.45), perc2=(4, 3, 8, 2, 1, 4, 0, 0.5),
@@ -134,6 +154,10 @@ LANE_DEFAULT = dict(perc1=(3, 5, 8, 0, 3, 0, 0, 0.45), perc2=(4, 3, 8, 2, 1, 4, 
 def kind(layer):
     """the engines a layer plays: the percussion lanes share theirs"""
     return "perc" if layer.startswith("perc") else layer
+
+
+# the layers with notes (a looper, a pattern or a gate); the cloud has none: it grains what the others play
+NOTE_LAYERS = ["drone", "sub", "pad", "perc1", "perc2", "perc3", "perc4"]
 
 
 def layer_controls(layer, engines=()):
@@ -150,7 +174,12 @@ def layer_controls(layer, engines=()):
                           Param("Shape", 0, opts=LFO_SHAPES, key=f"L{n}Shp")]) for n in (1, 2)]
     loop = ("LOOP", [Param("Len", 0, opts=LOOP_LENS, key="LpLen"), Param("Quant", 1, opts=QUANTS),
                      Param("Follow", 0, opts=["chord", "exact"]), Param("Vel", 0.8, key="LpVel")])
+    zone = ZONE_DEFAULT.get(layer, (127, 0))
+    breath = ("BREATH", [Param("Target", 0, key="BTgt", target=True), Param("Depth", 0.5, key="BDep"),
+                         Param("ZoneLo", zone[0], lo=0, hi=127, key="ZnLo"), Param("ZoneHi", zone[1], lo=0, hi=127, key="ZnHi")])
     front = [("LAYER", common)]
+    if layer == "cloud":
+        return front, lfos + [breath, ("EVOLVE", evolve[1][:3])]
     if perc:
         return front, [
             ("HIT", [Param("Decay", d[7]), Param("Velo", 0.5), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
@@ -158,7 +187,9 @@ def layer_controls(layer, engines=()):
             ("RHYTHM", [Param("Hits", d[1], lo=1, hi=16), Param("Steps", d[2], lo=2, hi=16),
                         Param("Rotate", d[3], lo=0, hi=15), Param("Rate", d[4], opts=RATES)]),
             ("MOTION", [Param("Phase", d[6], opts=PHASES), Param("Spread", 0.6), Param("Accent", 0.3)]),
-            feel] + lfos + [evolve, loop]
+            # a motif (its Pitch 'motif'): the notes of another layer's loop, transformed
+            ("MOTIF", [Param("Source", 2, opts=MOTIF_SRC, key="MSrc"), Param("Transf", 0, opts=MOTIF_TRANS, key="MTran")]),
+            feel] + lfos + [breath, evolve, loop]
     return front, [
         ("ENV", [Param("Attack", 0.45), Param("Decay", 0.6), Param("Sustn", 0.85), Param("Releas", 0.55)]),
         ("PLAY", [Param("Artic", 2, opts=ARTIC), Param("Glide", 0.45), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
@@ -167,16 +198,22 @@ def layer_controls(layer, engines=()):
                   Param("Rotate", 0, lo=0, hi=15)]),
         ("GATE 2", [Param("Rate", 1, opts=RATES), Param("Length", 0.5), Param("Comp", 0, opts=COMPS),
                     Param("Accent", 0.3)]),
+        # counterpoint (pads): on the hits of a pattern, a voice steps from its chord tone and back
+        ] + ([("LINES", [Param("Lines", 0.0), Param("Rate", 1, opts=RATES, key="LnRate"),
+                         Param("Voices", 0, opts=LINE_VOICES, key="LnVoic"),
+                         Param("Style", 0, opts=LINE_STYLES, key="LnStyl")])] if layer == "pad" else []) + [
         # the gate's own envelope: its hits shaped apart from the notes you play
         ("GATENV", [Param("Attack", 0.15, key="GAtk"), Param("Decay", 0.4, key="GDec"),
                     Param("Sustn", 0.6, key="GSus"), Param("Releas", 0.35, key="GRel")]),
-        feel] + lfos + [evolve, loop]
+        feel] + lfos + [breath, evolve, loop]
 
 
 def targets(layer, engine):
     """what an LFO can move on this layer with this engine (after 'off'): the filter, level, place, the envelopes,
     the gate's length, then the engine's parameters"""
-    if kind(layer) == "perc":
+    if layer == "cloud":
+        own = ["Cutoff", "Level"]
+    elif kind(layer) == "perc":
         own = ["Cutoff", "Level", "Spread", "Decay", "Accent", "Velo", "Swing"]
     else:
         own = ["Cutoff", "Level", "Pan", "Attack", "Decay", "Sustn", "Releas", "GAtk", "GDec", "GSus", "GRel",
@@ -215,6 +252,11 @@ ENGINES = {
         ("wave", [Param("Table", 0, opts=WAVE_TABLES), Param("Pos", 0.3), Param("Mode", 1, opts=["8bit", "smooth"]),
                   Param("Shimr", 0.0), Param("Detune", 0.3)]),
     ],
+    "cloud": [
+        ("grains", [Param("Size", 0.45), Param("Densty", 0.6), Param("Pitch", 0, opts=CLOUD_PITCHES),
+                    Param("Spread", 0.6), Param("Scan", 0.3), Param("Jitter", 0.4), Param("Revrse", 0.2),
+                    Param("Source", 0, opts=["layers", "input", "both"])]),
+    ],
     "perc": [
         ("blip", [Param("Cutoff", 0.5), Param("Flick", 0.5), Param("FlTime", 0.3), Param("Reso", 0.4),
                   Param("Sub", 0.5), Param("FEnv", 0.5)]),
@@ -224,10 +266,11 @@ ENGINES = {
         ("metal", [Param("Bright", 0.5), Param("Beat", 0.5), Param("TremR", 0.5), Param("TremD", 0.4)]),
     ],
 }
-LAYERS = ["drone", "sub", "pad"] + LANES
-LAYER_LABEL = {"drone": "DRONE", "sub": "SUB", "pad": "PADS", "perc1": "PERC1", "perc2": "PERC2", "perc3": "PERC3",
+LAYERS = ["drone", "sub", "pad"] + LANES + ["cloud"]
+LAYER_LABEL = {"drone": "DRONE", "sub": "SUB", "pad": "PADS", "perc1": "PERC1", "perc2": "PERC2", "perc3": "PERC3", "cloud": "CLOUD",
                "perc4": "PERC4"}
-SHORT = {"drone": "Dr", "sub": "Sb", "pad": "Pd", "perc1": "P1", "perc2": "P2", "perc3": "P3", "perc4": "P4"}
+SHORT = {"drone": "Dr", "sub": "Sb", "pad": "Pd", "perc1": "P1", "perc2": "P2", "perc3": "P3", "perc4": "P4",
+         "cloud": "Cl"}
 VOICES = {"drone": 1, "sub": 1, "pad": 4, "perc1": 3, "perc2": 3, "perc3": 3, "perc4": 3}
 
 GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opts=NOTE_NAMES),
@@ -235,10 +278,28 @@ GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opt
                 ("STORY", [Param("Story", 0, opts=[n for n, _, _ in STORIES]), Param("Bars", 3, opts=BARS),
                            Param("SubTo", 1, opts=SUBMODES), Param("Voicng", 0.4)]),
                 ("SYNC", [Param("Sync", 0, opts=["int", "ext"]), Param("ClkOut", 1, opts=ONOFF)]),
-                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3)])]
+                # MIDI: the controller profile (controllers/<name>.txt), channels (layers: 1 the shown layer, 2-9 one
+                # layer each; mpe: every channel plays, each note its own bend and pressure), keyboard zones, and the
+                # last CC that came in (to find what a controller sends)
+                ("MIDI", [Param("Profil", 0, opts=PROFILES), Param("Chans", 0, opts=["layers", "mpe"]),
+                          Param("Zones", 0, opts=ONOFF), Param("LastCC", 0, lo=0, hi=127)]),
+                ("MIDI 2", [Param("Bend", 3, opts=["2", "12", "24", "48"]), Param("Press", 1, opts=["off", "expr", "breath"])]),
+                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Fade", 0.62)]),
+                # the harmony assistant: the next chords ranked (Sugg shows one by name: aux + top E plays it and
+                # adds it to your own story), which kind, and listening (held notes pull the next chord)
+                ("HARMNY", [Param("Sugg", 0, opts=["1", "2", "3", "4"], key="Sugg"),
+                            Param("Group", 3, opts=["mode", "borrow", "moves", "all"]),
+                            Param("Listen", 0, opts=ONOFF)]),
+                # the roadmap (roadmap.py): what it is built from (aux + top C# builds it), how it runs, a section
+                ("ROAD", [Param("Mins", 12, lo=4, hi=30), Param("Arc", 0, opts=ARCS), Param("Tensn", 0.4),
+                          Param("Densty", 0.5, key="RDens")]),
+                ("ROAD 2", [Param("Road", 0, opts=["off", "guide", "auto"]), Param("Varia", 0, lo=0, hi=15)]),
+                ("SECTN", [Param("Sect", 1, lo=1, hi=MAXSEC), Param("Bars", 16, lo=4, hi=64, key="SBars"),
+                           Param("Story", 0, opts=[n for n, _, _ in STORIES], key="SStory"),
+                           Param("Role", 0, opts=ROLES, key="SRole")])]
 # the MIX view's pages: existing slots (layer, name)
-MIX_PAGES = [("MIX 1", [("drone", "Level"), ("sub", "Level"), ("pad", "Level"), ("g", "Volume")]),
-             ("MIX 2", [(L, "Level") for L in LANES])]
+MIX_PAGES = [("MIX 1", [("drone", "Level"), ("sub", "Level"), ("pad", "Level"), ("cloud", "Level")]),
+             ("MIX 2", [(L, "Level") for L in LANES]), ("MIX 3", [("g", "Volume")])]
 
 # ---- Evolve: what moves in each engine, and how far (a weight: the share of the knob's range at Evolve 100 %).
 # ("Cutoff", None) is the layer's filter. Each target moves on two slow sines of its own (control.evolve).
@@ -255,6 +316,7 @@ EVOLVE = {
     ("pad", "saws"): [("Detune", 0.3), ("Spread", 0.4), ("Centre", 0.4), (None, 0.4)],
     ("pad", "pwm"): [("Width", 0.5), ("Depth", 0.3), ("Rate", 0.2), (None, 0.4)],
     ("pad", "wave"): [("Pos", 0.8), ("Shimr", 0.3), ("Detune", 0.3), (None, 0.3)],
+    ("cloud", "grains"): [("Scan", 0.5), ("Size", 0.4), ("Spread", 0.3), ("Jitter", 0.3), (None, 0.25)],
     ("perc", "blip"): [("Cutoff", 0.5), ("Flick", 0.3), ("FEnv", 0.3)],
     ("perc", "lpg"): [("Fold", 0.5), ("Open", 0.5), ("Vactrl", 0.3)],
     ("perc", "bowl"): [("Hard", 0.5), ("Beat", 0.4), ("Strtch", 0.2)],

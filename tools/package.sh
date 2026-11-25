@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 VERSION="${1:-dev}"
 rm -rf dist && mkdir -p dist/stage
 cp -r patches/AmbleLite dist/stage/
-rm -f dist/stage/AmbleLite/saves.txt
+rm -f dist/stage/AmbleLite/saves.txt dist/stage/AmbleLite/roadmap.txt dist/stage/AmbleLite/controllers/user.txt
 printf 'Amble Lite %s\n' "$VERSION" > dist/stage/AmbleLite/VERSION.txt
 (cd dist/stage && zip -qr "../AmbleLite-${VERSION}.zip" .)
 rm -rf dist/stage

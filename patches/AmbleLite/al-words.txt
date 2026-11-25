@@ -8,8 +8,28 @@ SubTo
 Voicng
 Sync
 ClkOut
+Profil
+Chans
+Zones
+LastCC
+Bend
+Press
 Evolve
 Morph
+Fade
+Sugg
+Group
+Listen
+Mins
+Arc
+Tensn
+Densty
+Road
+Varia
+Sect
+Bars
+Story
+Role
 Engine
 Level
 Cutoff
@@ -44,6 +64,10 @@ Target
 Rate
 Depth
 Shape
+Target
+Depth
+ZoneLo
+ZoneHi
 Evolve
 Pace
 EvSync
@@ -106,6 +130,10 @@ Target
 Rate
 Depth
 Shape
+Target
+Depth
+ZoneLo
+ZoneHi
 Evolve
 Pace
 EvSync
@@ -144,6 +172,10 @@ Rate
 Length
 Comp
 Accent
+Lines
+Rate
+Voices
+Style
 Attack
 Decay
 Sustn
@@ -158,6 +190,10 @@ Target
 Rate
 Depth
 Shape
+Target
+Depth
+ZoneLo
+ZoneHi
 Evolve
 Pace
 EvSync
@@ -204,6 +240,8 @@ Rate
 Phase
 Spread
 Accent
+Source
+Transf
 Swing
 Feel
 Target
@@ -214,6 +252,10 @@ Target
 Rate
 Depth
 Shape
+Target
+Depth
+ZoneLo
+ZoneHi
 Evolve
 Pace
 EvSync
@@ -258,6 +300,8 @@ Rate
 Phase
 Spread
 Accent
+Source
+Transf
 Swing
 Feel
 Target
@@ -268,6 +312,10 @@ Target
 Rate
 Depth
 Shape
+Target
+Depth
+ZoneLo
+ZoneHi
 Evolve
 Pace
 EvSync
@@ -312,6 +360,8 @@ Rate
 Phase
 Spread
 Accent
+Source
+Transf
 Swing
 Feel
 Target
@@ -322,6 +372,10 @@ Target
 Rate
 Depth
 Shape
+Target
+Depth
+ZoneLo
+ZoneHi
 Evolve
 Pace
 EvSync
@@ -366,6 +420,8 @@ Rate
 Phase
 Spread
 Accent
+Source
+Transf
 Swing
 Feel
 Target
@@ -376,6 +432,10 @@ Target
 Rate
 Depth
 Shape
+Target
+Depth
+ZoneLo
+ZoneHi
 Evolve
 Pace
 EvSync
@@ -405,6 +465,33 @@ Bright
 Beat
 TremR
 TremD
+Engine
+Level
+Cutoff
+Reso
+Target
+Rate
+Depth
+Shape
+Target
+Rate
+Depth
+Shape
+Target
+Depth
+ZoneLo
+ZoneHi
+Evolve
+Pace
+EvSync
+Size
+Densty
+Pitch
+Spread
+Scan
+Jitter
+Revrse
+Source
 C
 C#
 D
@@ -463,6 +550,7 @@ octaton
 tritone
 quartal
 wholetn
+own
 manual
 1
 2
@@ -475,6 +563,86 @@ int
 ext
 off
 on
+generic
+nanokey
+nanoktl
+dm48x
+user
+layers
+mpe
+off
+on
+2
+12
+24
+48
+off
+expr
+breath
+1
+2
+3
+4
+mode
+borrow
+moves
+all
+off
+on
+arch
+build
+waves
+twin
+journy
+off
+guide
+auto
+modal
+home
+descend
+circle
+pedal
+rise
+still
+axis
+canon
+ii-V-I
+circle7
+plagal
+andalus
+epic
+minor4
+dorvamp
+mixvamp
+lydfloat
+phrvamp
+aeolvmp
+float
+gymno
+suspend
+newage
+still6
+mediant
+diamed
+minimal
+planing
+sus
+neoriem
+hexaton
+thirds
+octaton
+tritone
+quartal
+wholetn
+own
+emerge
+establ
+develp
+intens
+climax
+break
+return
+dissol
 analog
 fm
 spectr
@@ -711,6 +879,18 @@ none
 drone
 sub
 pads
+1/4
+1/8
+1/8T
+1/16
+1/16T
+1/32
+top
+inner
+all
+bass
+neighb
+passing
 swing
 lilt
 drag
@@ -824,6 +1004,7 @@ fifth
 scl\ up
 scl\ dn
 stack
+motif
 1/4
 1/8
 1/8T
@@ -836,6 +1017,19 @@ off
 4bar
 2bar
 1bar
+drone
+sub
+pads
+perc1
+perc2
+perc3
+perc4
+as\ is
+invert
+revrse
++5th
++oct
+-oct
 swing
 lilt
 drag
@@ -924,6 +1118,7 @@ fifth
 scl\ up
 scl\ dn
 stack
+motif
 1/4
 1/8
 1/8T
@@ -936,6 +1131,19 @@ off
 4bar
 2bar
 1bar
+drone
+sub
+pads
+perc1
+perc2
+perc3
+perc4
+as\ is
+invert
+revrse
++5th
++oct
+-oct
 swing
 lilt
 drag
@@ -1024,6 +1232,7 @@ fifth
 scl\ up
 scl\ dn
 stack
+motif
 1/4
 1/8
 1/8T
@@ -1036,6 +1245,19 @@ off
 4bar
 2bar
 1bar
+drone
+sub
+pads
+perc1
+perc2
+perc3
+perc4
+as\ is
+invert
+revrse
++5th
++oct
+-oct
 swing
 lilt
 drag
@@ -1124,6 +1346,7 @@ fifth
 scl\ up
 scl\ dn
 stack
+motif
 1/4
 1/8
 1/8T
@@ -1136,6 +1359,19 @@ off
 4bar
 2bar
 1bar
+drone
+sub
+pads
+perc1
+perc2
+perc3
+perc4
+as\ is
+invert
+revrse
++5th
++oct
+-oct
 swing
 lilt
 drag
@@ -1204,6 +1440,65 @@ off
 1/4
 chord
 exact
+grains
+loop
+16bar
+8bar
+4bar
+2bar
+1bar
+1/2
+1/4
+0.02Hz
+0.05Hz
+0.1Hz
+0.2Hz
+0.5Hz
+1Hz
+2Hz
+4Hz
+sine
+tri
+saw\ up
+saw\ dn
+square
+steps
+rnd\ sm
+rnd\ st
+loop
+16bar
+8bar
+4bar
+2bar
+1bar
+1/2
+1/4
+0.02Hz
+0.05Hz
+0.1Hz
+0.2Hz
+0.5Hz
+1Hz
+2Hz
+4Hz
+sine
+tri
+saw\ up
+saw\ dn
+square
+steps
+rnd\ sm
+rnd\ st
+free
+bars
+unison
+octaves
+fifths
+chord
+shimmr
+layers
+input
+both
 FAV
 LAYER
 ANALOG\ 1
@@ -1216,8 +1511,10 @@ GATENV
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
+-
 FAV
 LAYER
 FM\ 1
@@ -1230,8 +1527,10 @@ GATENV
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
+-
 FAV
 LAYER
 SPECTR\ 1
@@ -1244,8 +1543,14 @@ GATENV
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
+-
+-
+-
+-
+-
 -
 -
 -
@@ -1285,8 +1590,10 @@ GATENV
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
+-
 -
 FAV
 LAYER
@@ -1299,8 +1606,10 @@ GATENV
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
+-
 -
 FAV
 LAYER
@@ -1313,8 +1622,10 @@ GATENV
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
+-
 -
 FAV
 LAYER
@@ -1327,8 +1638,12 @@ GATENV
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
+-
+-
+-
 -
 -
 -
@@ -1352,10 +1667,12 @@ ENV
 PLAY
 GATE
 GATE\ 2
+LINES
 GATENV
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 FAV
@@ -1366,10 +1683,12 @@ ENV
 PLAY
 GATE
 GATE\ 2
+LINES
 GATENV
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 FAV
@@ -1379,10 +1698,12 @@ ENV
 PLAY
 GATE
 GATE\ 2
+LINES
 GATENV
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1393,10 +1714,12 @@ ENV
 PLAY
 GATE
 GATE\ 2
+LINES
 GATENV
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1408,10 +1731,12 @@ ENV
 PLAY
 GATE
 GATE\ 2
+LINES
 GATENV
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 FAV
@@ -1421,9 +1746,11 @@ BLIP\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1435,9 +1762,11 @@ LPG\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1448,9 +1777,11 @@ BOWL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1462,9 +1793,11 @@ WOOD\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1476,79 +1809,11 @@ METAL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
-EVOLVE
-LOOP
--
--
--
-FAV
-LAYER
-BLIP\ 1
-BLIP\ 2
-HIT
-RHYTHM
-MOTION
-FEEL
-LFO\ 1
-LFO\ 2
-EVOLVE
-LOOP
--
--
-FAV
-LAYER
-LPG\ 1
-LPG\ 2
-HIT
-RHYTHM
-MOTION
-FEEL
-LFO\ 1
-LFO\ 2
-EVOLVE
-LOOP
--
--
-FAV
-LAYER
-BOWL\ 1
-HIT
-RHYTHM
-MOTION
-FEEL
-LFO\ 1
-LFO\ 2
-EVOLVE
-LOOP
--
--
--
-FAV
-LAYER
-WOOD\ 1
-HIT
-RHYTHM
-MOTION
-FEEL
-LFO\ 1
-LFO\ 2
-EVOLVE
-LOOP
--
--
--
-FAV
-LAYER
-METAL\ 1
-HIT
-RHYTHM
-MOTION
-FEEL
-LFO\ 1
-LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1561,9 +1826,11 @@ BLIP\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1575,9 +1842,11 @@ LPG\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1588,9 +1857,11 @@ BOWL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1602,9 +1873,11 @@ WOOD\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1616,9 +1889,11 @@ METAL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1631,9 +1906,11 @@ BLIP\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1645,9 +1922,11 @@ LPG\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1658,9 +1937,11 @@ BOWL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1672,9 +1953,11 @@ WOOD\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
 -
@@ -1686,18 +1969,190 @@ METAL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
+BREATH
 EVOLVE
 LOOP
+-
+-
+-
+FAV
+LAYER
+BLIP\ 1
+BLIP\ 2
+HIT
+RHYTHM
+MOTION
+MOTIF
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
+-
+-
+FAV
+LAYER
+LPG\ 1
+LPG\ 2
+HIT
+RHYTHM
+MOTION
+MOTIF
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
+-
+-
+FAV
+LAYER
+BOWL\ 1
+HIT
+RHYTHM
+MOTION
+MOTIF
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
+-
+-
+-
+FAV
+LAYER
+WOOD\ 1
+HIT
+RHYTHM
+MOTION
+MOTIF
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
+-
+-
+-
+FAV
+LAYER
+METAL\ 1
+HIT
+RHYTHM
+MOTION
+MOTIF
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
+-
+-
+-
+FAV
+LAYER
+GRAINS\ 1
+GRAINS\ 2
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
 -
 -
 -
 MAIN
 STORY
 SYNC
+MIDI
+MIDI\ 2
 PERFRM
+HARMNY
+ROAD
+ROAD\ 2
+SECTN
+-
+-
+-
+-
 -
 -
 -
@@ -1766,6 +2221,16 @@ PERFRM
 -
 MIX\ 1
 MIX\ 2
+MIX\ 3
+-
+-
+-
+-
+-
+-
+-
+-
+-
 -
 -
 -
@@ -1862,6 +2327,7 @@ PERC1
 PERC2
 PERC3
 PERC4
+CLOUD
 Dr
 Sb
 Pd
@@ -1869,6 +2335,7 @@ P1
 P2
 P3
 P4
+Cl
 -
 m
 dim
@@ -1922,6 +2389,7 @@ lpg
 bowl
 wood
 metal
+grains
 C
 Cm
 Cdim
@@ -2104,6 +2572,8 @@ B6/9
 12/1
 13/1
 14/1
+15/1
+16/1
 1/2
 2/2
 3/2
@@ -2118,6 +2588,8 @@ B6/9
 12/2
 13/2
 14/2
+15/2
+16/2
 1/3
 2/3
 3/3
@@ -2132,6 +2604,8 @@ B6/9
 12/3
 13/3
 14/3
+15/3
+16/3
 1/4
 2/4
 3/4
@@ -2146,6 +2620,8 @@ B6/9
 12/4
 13/4
 14/4
+15/4
+16/4
 1/5
 2/5
 3/5
@@ -2160,6 +2636,8 @@ B6/9
 12/5
 13/5
 14/5
+15/5
+16/5
 1/6
 2/6
 3/6
@@ -2174,6 +2652,8 @@ B6/9
 12/6
 13/6
 14/6
+15/6
+16/6
 1/7
 2/7
 3/7
@@ -2188,6 +2668,8 @@ B6/9
 12/7
 13/7
 14/7
+15/7
+16/7
 1/8
 2/8
 3/8
@@ -2202,6 +2684,8 @@ B6/9
 12/8
 13/8
 14/8
+15/8
+16/8
 1/9
 2/9
 3/9
@@ -2216,6 +2700,8 @@ B6/9
 12/9
 13/9
 14/9
+15/9
+16/9
 1/10
 2/10
 3/10
@@ -2230,6 +2716,8 @@ B6/9
 12/10
 13/10
 14/10
+15/10
+16/10
 1/11
 2/11
 3/11
@@ -2244,6 +2732,8 @@ B6/9
 12/11
 13/11
 14/11
+15/11
+16/11
 1/12
 2/12
 3/12
@@ -2258,6 +2748,8 @@ B6/9
 12/12
 13/12
 14/12
+15/12
+16/12
 1/13
 2/13
 3/13
@@ -2272,6 +2764,8 @@ B6/9
 12/13
 13/13
 14/13
+15/13
+16/13
 1/14
 2/14
 3/14
@@ -2286,9 +2780,44 @@ B6/9
 12/14
 13/14
 14/14
+15/14
+16/14
+1/15
+2/15
+3/15
+4/15
+5/15
+6/15
+7/15
+8/15
+9/15
+10/15
+11/15
+12/15
+13/15
+14/15
+15/15
+16/15
+1/16
+2/16
+3/16
+4/16
+5/16
+6/16
+7/16
+8/16
+9/16
+10/16
+11/16
+12/16
+13/16
+14/16
+15/16
+16/16
 +
 GLOBAL
 off
+out
 SAVED
 LOADED
 EMPTY
@@ -2300,11 +2829,26 @@ DUB
 STOPPED
 CLEARED
 ASSIGN
+ROAD
+NEXT
+SECTION
+HOLD
 +
 R
 P
 O
 s
+ROAD
+HOLD
+next:
+emerge
+establ
+develp
+intens
+climax
+break
+return
+dissol
 ....
 1...
 .2..
@@ -2321,3 +2865,19 @@ s
 1.34
 .234
 1234
+....c
+1...c
+.2..c
+12..c
+..3.c
+1.3.c
+.23.c
+123.c
+...4c
+1..4c
+.2.4c
+12.4c
+..34c
+1.34c
+.234c
+1234c

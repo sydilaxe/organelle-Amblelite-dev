@@ -12,7 +12,8 @@ FAILS = []
 
 
 def solo(L, t=60):
-    return [(t + i, f"al-mute-{o} bang") for i, o in enumerate(M.LAYERS) if o != L]
+    """only L in (every other layer out; L in)"""
+    return [(t + i, f"al-inset {i} {1 if o == L else 0}") for i, o in enumerate(M.LAYERS)]
 
 
 def seg(a, t0, t1):
@@ -135,11 +136,9 @@ def main():
 
     # the lanes: all four on, each at its own density (perc2 3/8 in 8ths, perc3 2/5 in quarters stacked, perc4
     # 7/16 in 16ths); perc1 in 8th triplets
-    on = []
-    for i, L in enumerate(M.LANES[1:]):
-        on += [(20 + 2 * i, f"al-sel-{L} bang"), (21 + 2 * i, "al-latch bang")]
+    on = [(20 + i, f"al-inset {M.LAYERS.index(L)} 1") for i, L in enumerate(M.LANES[1:])]
     on += [(40, f"al-set {M.S('perc1', None, 'Rate')} {(2 + 0.5) / 6}"),
-           (41, f"al-set {M.S('perc3', None, 'Pitch')} {(7 + 0.5) / 8}")]
+           (41, f"al-set {M.S('perc3', None, 'Pitch')} {(7 + 0.5) / len(M.PITCHES)}")]
     log, a = H.run(on + [START], 5, d=d, keep=True, prints=tuple(f"al-{L}-hit" for L in M.LANES))
     n = {L: sum(1 for l in log.splitlines() if l.startswith(f"al-{L}-hit")) for L in M.LANES}
     beats = 4.8 * 84 / 60
@@ -258,9 +257,145 @@ def main():
     alt = np.mean(np.abs(np.diff(gaps))) if len(gaps) > 3 else 0
     check("swing alternates the steps", alt > 0.04, f"gaps {[round(g, 3) for g in gaps[:6]]} s")
 
+    # in / out: a tap on low C takes the drone out (it fades over Fade: about 1.8 s), another brings it back; a
+    # hold (on low D) shows the sub's pages and leaves it in
+    ev4 = solo("drone") + [START, (2000, "notesRaw 60 100"), (2050, "notesRaw 60 0"), (6000, "notesRaw 60 100"),
+                           (6050, "notesRaw 60 0"), (6500, "notesRaw 62 100"), (7100, "notesRaw 62 0")]
+    log, a = H.run(ev4, 9, d=d, keep=True, prints=("oscOut",))
+    r1, r2, r3 = H.rms_db(seg(a, 1.5, 2)), H.rms_db(seg(a, 4.5, 5.5)), H.rms_db(seg(a, 8.3, 8.9))
+    held = any("gPrintln 3 0 0 8 1 SUB" in l for l in log.splitlines())
+    check("a tap takes a layer out and back in; a hold shows its pages", r1 > -40 and r2 < -80 and r3 > -40 and held,
+          f"{r1:.1f} -> out {r2:.1f} -> in {r3:.1f} dB, hold shows pages: {held}")
+
+    # the cloud: it records the other layers and grains them - the pads go out, the cloud keeps sounding them for
+    # a few seconds (its grains read up to about 4 s back); without the cloud, silence
+    ci, pi = M.LAYERS.index("cloud"), M.LAYERS.index("pad")
+    cl = solo("pad") + [(80, f"al-set {M.S('g', None, 'Fade')} 0"), START, (6000, f"al-inset {pi} 0")]
+    _, a = run(cl + [(81, f"al-inset {ci} 1")], 7.5)
+    _, b = run(cl, 7.5)
+    rc, r0 = H.rms_db(seg(a, 6.3, 7.3)), H.rms_db(seg(b, 6.3, 7.3))
+    check("the cloud grains the layers (and outlives them)", rc > -50 and r0 < -80, f"after the pads left: {rc:.1f} dB with the cloud, {r0:.1f} without")
+
+    # ---- milestone 4: controllers, MPE, breath, zones
+    S_ = M.S
+    pr, chans, zones, bend = (S_("g", None, k) for k in ("Profil", "Chans", "Zones", "Bend"))
+    # a profile: the nanoKONTROL Studio's slider 1 sets the drone's level, its M button 1 takes it out, knob 1 the
+    # first parameter on the page shown
+    log, _ = H.run([(100, f"al-set {pr} {(2 + 0.5) / 5}"), (300, "al-cc 20 0 1"), (400, "al-cc 127 48 1"),
+                    (500, "al-cc 100 16 1")], 1, d=d, keep=True, prints=("al-set", "al-inset"))
+    lv = f"al-set: {S_('drone', None, 'Level')} 0.15748"
+    check("controller profile (nanoKONTROL Studio)", lv in log and "al-inset: 0 0" in log and
+          any(l.startswith("al-set:") and l.endswith(" 0.787402") for l in log.splitlines()), "slider, M button, knob")
+
+    # MPE: a note on channel 3 bent up a semitone (range 2) on its own, then its pressure lowers its level
+    mp = solo("sub") + [(50, f"al-set {chans} 0.75"), (51, f"al-set {bend} 0.1"), (52, "al-sel-sub bang"), START,
+                        (900, "al-bendin 12288 3"), (1000, "al-midi 69 100 3"), (3000, "al-touchin 20 3")]
+    _, a = run(mp, 4.5)
+    hz = peak_hz(seg(a, 1.8, 2.8), 30, 400)
+    l1, l2 = H.rms_db(seg(a, 2.0, 2.8)), H.rms_db(seg(a, 3.6, 4.4))
+    check("MPE: a note's own bend and pressure", abs(hz - 116.5) < 2 and l1 - l2 > 6,
+          f"{hz:.1f} Hz (116.5), pressure {l1:.1f} -> {l2:.1f} dB")
+
+    # breath (the generic profile: CC 2) -> the pads' cutoff (their BREATH page): brighter as it blows
+    bt = [(50, f"al-set {S_('pad', None, 'BTgt')} {(1 + 0.5) / M.MAXC}"), (51, f"al-set {S_('pad', None, 'BDep')} 1"),
+          (52, f"al-set {S_('pad', None, 'Cutoff')} 0.35"), (53, f"al-set {S_('pad', None, 'Evolve')} 0"),
+          (54, f"al-set {S_('pad', None, 'Engine')} {(2 + 0.5) / 5}")]      # (the saws: harmonics to filter)
+    _, a = run(solo("pad") + bt + [START, (2000, "al-cc 127 2 1")], 3.5)
+
+    def bright(x):
+        m = x.mean(axis=1)
+        sp = np.abs(np.fft.rfft(m * np.hanning(len(m))))
+        f = np.fft.rfftfreq(len(m), 1 / SR)
+        return float((sp * f).sum() / (sp.sum() + 1e-9))
+    b1, b2 = bright(seg(a, 1.2, 1.9)), bright(seg(a, 2.6, 3.4))
+    check("breath moves a layer's target", b2 > b1 * 1.3, f"brightness {b1:.0f} -> {b2:.0f} Hz")
+
+    # zones: low notes to the sub, middle ones to the pads (whatever is shown)
+    log, _ = H.run([(50, f"al-set {zones} 0.75"), START, (500, "al-midi 40 100 1"), (600, "al-midi 60 100 1")], 1,
+                   d=d, keep=True, prints=("al-user-sub", "al-user-pad"))
+    ok = "al-user-sub: 40 0.787402" in log and "al-user-pad: 60 0.787402" in log
+    check("zones split the keyboard", ok, "40 -> sub, 60 -> pads" if ok else log[-200:])
+
+    # a zone's breath, looped: the sub's breath (to its level) recorded with its notes in one bar; the next cycle
+    # plays it back with no breath - loud where it blew, quiet where it didn't
+    zb = solo("sub") + [(50, f"al-set {zones} 0.75"), (51, f"al-set {S_('sub', None, 'BTgt')} {(2 + 0.5) / M.MAXC}"),
+                        (52, f"al-set {S_('sub', None, 'BDep')} 1"), (53, f"al-set {S_('sub', None, 'Level')} 0.15"),
+                        (54, f"al-set {S_('g', None, 'Bars')} 0.05"), START,
+                        (1000, "notesRaw 75 100"), (1001, "al-midi 45 100 1"), (1010, "al-cc 127 2 1"),
+                        (2000, "al-cc 0 2 1"), (3800, "al-midi 45 0 1"), (3810, "notesRaw 75 100")]
+    _, a = run(zb, 7.2)
+    hi_, lo_ = H.rms_db(seg(a, 4.0, 4.7)), H.rms_db(seg(a, 5.2, 6.4))
+    check("a zone's breath loops", hi_ - lo_ > 8, f"replayed: {hi_:.1f} dB where it blew, {lo_:.1f} after")
+
+    # ---- milestone 6: the harmony assistant
+    sg, lis = M.S("g", None, "Sugg"), M.S("g", None, "Listen")
+
+    def peaks(x, n=16):
+        m = x.mean(axis=1)
+        sp = np.abs(np.fft.rfft(m * np.hanning(len(m))))
+        f = np.fft.rfftfreq(len(m), 1 / SR)
+        return f[np.argsort(sp)[-n:]]
+
+    def has(tops, hz):
+        return any(abs(t - hz) < 3 for t in tops)
+    # accept: from Cm in C dorian the 2nd suggestion is F7 (dorian's IV) - played at once on the pads
+    acc = solo("pad") + [(50, f"al-set {sg} {(1 + 0.5) / 4}"), (55, f"al-set {M.S('g', None, 'Bars')} 0.05"), START,
+                         (1500, "aux 1"), (1600, "notesRaw 76 100"), (1700, "aux 0")]
+    _, a = run(acc, 3.5)
+    t = peaks(seg(a, 2.5, 3.5))
+    check("a suggestion accepted plays at once (F7)", has(t, 349.2) and has(t, 440.0), f"peaks {sorted(round(x) for x in t)[:10]}")
+    # listening: an E held (on the sub) - the next chord holds E
+    li = solo("pad") + [(50, f"al-set {lis} 0.75"), (55, f"al-set {M.S('g', None, 'Bars')} 0.05"), START,
+                        (1200, "al-midi 64 100 3"), (1500, "notesRaw 76 100")]
+    _, a = run(li, 3.5)
+    t = peaks(seg(a, 2.5, 3.5), 20)
+    e = any(has(t, 329.63 * r) for r in (0.5, 1, 2))
+    check("listening: the next chord holds the note held", e, f"peaks {sorted(round(x) for x in t)[:12]}")
+
+    # ---- the roadmap: built (aux + top C#) at 200 bpm from 4 minutes - its first section 'emerge' brings only the
+    # drone; 4 bars later (4.8 s) 'establish' brings the sub and pads in. On the SECTN page a layer key edits the
+    # section (the file roadmap.txt)
+    import os
+    g = lambda k: M.S("g", None, k)
+    gpages = [n for n, _ in M.GLOBAL_PAGES]
+    rd = [(50, f"al-set {g('Road')} 0.9"), (51, f"al-set {g('Mins')} 0"), (52, f"al-set {g('Tempo')} 1"),
+          (100, "aux 1"), (150, "notesRaw 73 100"), (160, "notesRaw 73 0"), (200, "aux 0"), START]
+    # (the first section shortened to 4 bars on the SECTN page: Bars, for the section Sect shows)
+    log, _ = H.run(rd + [(300, f"al-set {g('SBars')} 0")], 9, d=d, keep=True, prints=("al-inset",))
+    ins = [l for l in log.splitlines() if l.startswith("al-inset")]
+    check("the roadmap runs its sections (auto)", ins[:3] == ["al-inset: 1 0", "al-inset: 2 0", "al-inset: 3 0"] and
+          "al-inset: 1 1" in ins and "al-inset: 2 1" in ins, " ".join(i.split(": ")[1] for i in ins))
+    keys = [(400 + 100 * i, "notesRaw 68 100") for i in range(gpages.index("SECTN") + 1)]
+    log, _ = H.run(rd[:-1] + keys + [(2000, "notesRaw 71 100"), (2050, "notesRaw 71 0")], 3, d=d, keep=True)
+    line1 = open(os.path.join(d, "roadmap.txt")).read().splitlines()[0]
+    check("a layer key edits the section on the SECTN page", line1.split()[2] == str(1 + 64), f"section 1: {line1}")
+
+    # ---- counterpoint: the pads' top voice steps to a neighbour and back on every 8th (Lines 100 %); at 0, still
+    pl = M.S("pad", None, "Lines")
+    log, _ = H.run(solo("pad") + [(50, f"al-set {pl} 1"), START], 3, d=d, keep=True, prints=("al-pad-n",))
+    moves = [l for l in log.splitlines() if l.startswith("al-pad-n") and l.endswith(" 80")]
+    log0, _ = H.run(solo("pad") + [START], 3, d=d, keep=True, prints=("al-pad-n",))
+    still = [l for l in log0.splitlines() if l.startswith("al-pad-n") and l.endswith(" 80")]
+    notes_ = sorted({int(float(l.split()[2])) for l in moves})
+    # (Cm7's top voice is Bb (70): its neighbours in C dorian, C above and A below, in turn)
+    check("counterpoint: a voice steps away and back", len(moves) >= 8 and not still and notes_ == [69, 70, 72],
+          f"{len(moves)} moves between {notes_}, {len(still)} at Lines 0")
+
+    # ---- motif: the pads' loop (A, C, E) played by percussion lane 1 (Pitch motif, Source pads), an octave up
+    mo = [(30, "al-sel-pad bang"), (40, f"al-set {M.S('perc1', None, 'Pitch')} {(8 + 0.5) / len(M.PITCHES)}"),
+          (41, f"al-set {M.S('perc1', None, 'MSrc')} {(2 + 0.5) / 7}"), START, (600, "notesRaw 75 100")]
+    for i, n in enumerate((57, 60, 64)):
+        mo += [(700 + 400 * i, f"al-midi {n} 100 1"), (900 + 400 * i, f"al-midi {n} 0 1")]
+    mo += [(2400, "notesRaw 75 100")]
+    log, _ = H.run(mo, 6, d=d, keep=True, prints=("al-perc1-hit",))
+    hits_ = [int(float(l.split()[2])) for l in log.splitlines() if l.startswith("al-perc1-hit")]
+    late = hits_[len(hits_) // 2:]
+    check("motif: a lane plays another layer's loop", late and set(late) <= {69, 72, 76} and len(set(late)) >= 2,
+          f"lane notes {sorted(set(late))} (69 72 76)")
+
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()
-    run(on + [START], 30)        # (all four lanes on)
+    run(on + [(25, f"al-inset {M.LAYERS.index('cloud')} 1"), START], 30)        # (all four lanes and the cloud in)
     rt = (time.time() - t0) / 30
     # (a report more than a test: machines differ - it fails only when something has gone badly wrong)
     check("CPU", rt < 0.5, f"{100 * rt:.1f} % of real time on this machine")
