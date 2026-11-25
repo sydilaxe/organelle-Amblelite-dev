@@ -1,13 +1,13 @@
-<title>Amble Lite Roadmap Planner</title>
+<title>Amble Lite Editor</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: a hardware-panel tool - setup controls as a top strip, the roadmap as a timeline, the sections as a
-   table beneath, roadmap.txt at the foot. Colours: an OLED-ink dark / paper light pair, one cool accent, a
-   muted hue per role. */
+/* Layout: a hardware-panel tool - the library of slots as a strip of numbered keys, then the open piece or snapshot as
+   the Organelle's own pages (four knobs each) under layer tabs, the files at the foot. Colours: an OLED-ink dark /
+   paper light pair, one cool accent, a muted hue per roadmap role. */
 :root {
   --bg: #f3f4f1; --panel: #ffffff; --ink: #1b1f1d; --muted: #5d6762; --line: #d5dad6; --accent: #1f6f78;
-  --accent-ink: #ffffff; --chip: #e6ebe8;
+  --accent-ink: #ffffff; --chip: #e6ebe8; --warn: #9a5a12;
   --r0: #9db6c3; --r1: #8fb39a; --r2: #b8c68a; --r3: #d8b46a; --r4: #d98a6a; --r5: #a9a1c7; --r6: #8fb3b0; --r7: #b3a99c;
   --display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
   --body: "Inter", "Helvetica Neue", Arial, sans-serif;
@@ -15,34 +15,71 @@
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0f1312; --panel: #171c1b; --ink: #e4ebe7; --muted: #93a19a; --line: #2a3331; --accent: #5cc3cc;
-  --accent-ink: #0f1312; --chip: #222a28;
+  --accent-ink: #0f1312; --chip: #222a28; --warn: #e0a458;
   --r0: #4d6a78; --r1: #4b6e55; --r2: #6c7a3e; --r3: #8b6b2c; --r4: #8f4f37; --r5: #5f5883; --r6: #456e6a; --r7: #6b6257;
   color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #0f1312; --panel: #171c1b; --ink: #e4ebe7; --muted: #93a19a; --line: #2a3331; --accent: #5cc3cc;
-  --accent-ink: #0f1312; --chip: #222a28;
+  --accent-ink: #0f1312; --chip: #222a28; --warn: #e0a458;
   --r0: #4d6a78; --r1: #4b6e55; --r2: #6c7a3e; --r3: #8b6b2c; --r4: #8f4f37; --r5: #5f5883; --r6: #456e6a; --r7: #6b6257;
   color-scheme: dark }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); line-height: 1.5; }
-.wrap { max-width: 1080px; margin: 0 auto; padding-block: 28px 48px;
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 28px 48px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   display: grid; gap: 22px; }
 h1 { font-family: var(--display); font-weight: 600; font-size: 1.7rem; margin: 0; text-wrap: balance; }
-h2 { font-family: var(--display); font-weight: 600; font-size: 1.05rem; margin: 0; }
-.lede { color: var(--muted); margin: 4px 0 0; max-width: 65ch; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.05rem; margin: 0; text-wrap: balance; }
+h3 { font-family: var(--display); font-weight: 600; font-size: .85rem; letter-spacing: .06em; margin: 0; }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 68ch; }
 .label { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
-.setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px 18px; align-items: end; }
 .field { display: grid; gap: 6px; min-width: 0; }
-.field output { font-family: var(--mono); font-size: .85rem; }
 input[type=number], select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
 button { font: 500 .9rem var(--body); border-radius: 6px; padding: 8px 14px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); cursor: pointer; }
 button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .chip:focus-visible, .seg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .seg:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.between { justify-content: space-between; }
 .summary { font-family: var(--mono); font-size: .85rem; color: var(--muted); }
-.timeline { display: flex; gap: 3px; height: 64px; }
+.note { color: var(--muted); font-size: .85rem; max-width: 72ch; margin: 0; }
+.status { font-size: .85rem; color: var(--accent); min-height: 1.2em; }
+.warn { color: var(--warn); }
+/* library: numbered slot keys */
+.lib { display: grid; gap: 12px; }
+.keys { display: flex; flex-wrap: wrap; gap: 6px; }
+.key { font: 500 .85rem var(--mono); width: 40px; height: 40px; padding: 0; border-radius: 6px; background: transparent; color: var(--muted); border: 1px dashed var(--line); font-variant-numeric: tabular-nums; }
+.key.full { background: var(--chip); color: var(--ink); border-style: solid; }
+.key.cur { border: 2px solid var(--accent); color: var(--ink); }
+/* editor */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.tab { font: 600 .75rem var(--display); letter-spacing: .06em; padding: 7px 10px; background: transparent; border-color: transparent; color: var(--muted); }
+.tab[aria-selected="true"] { background: var(--chip); color: var(--ink); border-color: var(--line); }
+.tab.out { text-decoration: line-through; text-decoration-color: var(--muted); }
+.pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.page { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.page h3 { display: flex; justify-content: space-between; gap: 8px; }
+.page h3 span { font: .7rem var(--mono); color: var(--muted); letter-spacing: 0; }
+.knob { display: grid; grid-template-columns: 64px 1fr 44px; gap: 8px; align-items: center; min-width: 0; }
+.knob .nm { font-size: .8rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.knob .val { font: .8rem var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.knob select { grid-column: 2 / 4; font-size: .85rem; padding: 4px 6px; }
+.knob.empty .nm { opacity: .4; }
+.layerbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.toggle { display: inline-flex; gap: 8px; align-items: center; font-size: .9rem; }
+.toggle input { accent-color: var(--accent); width: 18px; height: 18px; }
+/* rhythms */
+.rh { display: grid; gap: 8px; }
+.rhrow { display: grid; grid-template-columns: 70px 1fr; gap: 10px; align-items: center; }
+.steps { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px; max-width: 560px; }
+.step { height: 28px; padding: 0; border-radius: 4px; background: transparent; }
+.step.on { background: var(--accent); border-color: var(--accent); }
+.step.off { opacity: .35; }
+.step:nth-child(4n+1) { border-color: var(--muted); }
+/* roadmap */
+.setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px 18px; align-items: end; }
+.timeline { display: flex; gap: 3px; height: 56px; }
 .seg { border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between; padding: 6px; min-width: 0; overflow: hidden; color: var(--ink); border: 2px solid transparent; cursor: pointer; }
 .seg.sel { border-color: var(--accent); }
 .seg b { font: 600 .75rem var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -58,160 +95,435 @@ td input[type=number] { width: 72px; }
 .chip { font: 500 .75rem var(--mono); width: 28px; height: 26px; border-radius: 5px; border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 0; }
 .chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
-pre { font-family: var(--mono); font-size: .85rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin: 0; overflow-x: auto; white-space: pre; }
-textarea { width: 100%; box-sizing: border-box; font-family: var(--mono); font-size: .85rem; min-height: 90px; }
-.note { color: var(--muted); font-size: .85rem; max-width: 70ch; margin: 0; }
-.status { font-size: .85rem; color: var(--accent); min-height: 1.2em; }
+/* files */
+.files { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+textarea { width: 100%; box-sizing: border-box; font-family: var(--mono); font-size: .75rem; min-height: 90px; }
+textarea.out { height: 120px; white-space: pre; overflow: auto; }
+details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
 @media (prefers-reduced-motion: no-preference) { .seg { transition: flex-grow .2s ease; } }
+@media (max-width: 480px) { .knob { grid-template-columns: 56px 1fr 40px; } .rhrow { grid-template-columns: 1fr; } }
 </style>
 
 <div class="wrap">
   <header>
-    <h1>Roadmap Planner</h1>
-    <p class="lede">Plan an Amble Lite piece as sections: build one from a few settings, as the Organelle does with aux + top C#, then change any section. The text at the bottom is the roadmap.txt the patch reads.</p>
+    <h1>Amble Lite Editor</h1>
+    <p class="lede">Open your pieces.txt or saves.txt from the AmbleLite folder, edit any piece or snapshot page by page as on the Organelle, then copy the file back. Pieces also hold their roadmap.</p>
   </header>
 
-  <section class="panel" aria-labelledby="h-setup">
-    <h2 id="h-setup">Build</h2>
-    <div class="setup">
-      <label class="field"><span class="label">Minutes</span><input id="mins" type="number" min="4" max="30" value="12"></label>
-      <label class="field"><span class="label">Tempo (bpm)</span><input id="tempo" type="number" min="30" max="200" value="84"></label>
-      <label class="field"><span class="label">Arc</span><select id="arc"></select></label>
-      <label class="field"><span class="label">Tension <output id="tensO">40</output></span><input id="tens" type="range" min="0" max="100" value="40"></label>
-      <label class="field"><span class="label">Density <output id="densO">50</output></span><input id="dens" type="range" min="0" max="100" value="50"></label>
-      <label class="field"><span class="label">Variation</span><input id="varia" type="number" min="0" max="15" value="0"></label>
+  <section class="panel" aria-labelledby="h-lib">
+    <div class="row between"><h2 id="h-lib">Library</h2>
+      <label class="toggle" for="file"><span class="label">Open pieces.txt or saves.txt</span><input id="file" type="file" accept=".txt,text/plain"></label></div>
+    <div class="lib">
+      <div class="field"><span class="label">Pieces (pieces.txt)</span><div class="keys" id="kp"></div></div>
+      <div class="field"><span class="label">Snapshots (saves.txt)</span><div class="keys" id="ks"></div></div>
     </div>
-    <div class="row"><button class="primary" id="build" type="button">Build roadmap</button><span class="summary" id="summary"></span></div>
-  </section>
-
-  <section class="panel" aria-labelledby="h-road">
-    <div class="row" style="justify-content:space-between"><h2 id="h-road">Roadmap</h2>
-      <div class="row"><button id="add" type="button">Add section</button><button id="del" type="button">Remove selected</button></div></div>
-    <div class="timeline" id="timeline" role="list"></div>
-    <div class="tablewrap"><table>
-      <thead><tr><th>#</th><th>Role</th><th>Bars</th><th>Time</th><th>Story</th><th>Layers in</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table></div>
-  </section>
-
-  <section class="panel" aria-labelledby="h-file">
-    <h2 id="h-file">roadmap.txt</h2>
-    <p class="note">Copy this into a file named roadmap.txt in the AmbleLite folder on the Organelle's card, replacing the one there. Set Road to auto (or guide) on the ROAD 2 page and press Start. Each line is one section: bars, story, layers, role.</p>
-    <pre id="txt"></pre>
-    <div class="row"><button class="primary" id="copy" type="button">Copy roadmap.txt</button><span class="status" id="status" role="status"></span></div>
-    <details><summary>Load a roadmap.txt</summary>
+    <details><summary>Paste a file's text instead</summary>
       <div style="display:grid;gap:10px;margin-top:10px">
-        <textarea id="paste" placeholder="Paste a roadmap.txt here"></textarea>
-        <div class="row"><button id="load" type="button">Load pasted text</button><input id="file" type="file" accept=".txt,text/plain"></div>
+        <textarea id="paste" placeholder="Paste the text of pieces.txt or saves.txt here"></textarea>
+        <div class="row"><button id="loadpaste" type="button">Load pasted text</button></div>
       </div></details>
+    <p class="status" id="libstatus" role="status"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-ed">
+    <div class="row between"><div><h2 id="h-ed">—</h2><div class="summary" id="sum"></div></div>
+      <div class="row">
+        <button id="fresh" type="button">Reset to defaults</button>
+        <button id="clear" type="button">Empty this slot</button>
+        <label class="toggle"><span class="label">Copy to</span><select id="copyto"></select></label>
+        <button id="copygo" type="button">Copy</button>
+      </div></div>
+    <p class="note warn" id="confirm" hidden></p>
+    <div id="editor"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-files">
+    <h2 id="h-files">Save to the Organelle</h2>
+    <p class="note">Copy a file's text and save it over the file of the same name in the AmbleLite folder on the Organelle (keep a copy of the old one). The patch reads both when it loads. Download works when this page is opened from the repository's docs folder.</p>
+    <div class="files">
+      <div class="field"><span class="label">pieces.txt</span><textarea class="out" id="outp" readonly></textarea>
+        <div class="row"><button class="primary" id="cpp" type="button">Copy pieces.txt</button><button id="dlp" type="button">Download</button></div></div>
+      <div class="field"><span class="label">saves.txt</span><textarea class="out" id="outs" readonly></textarea>
+        <div class="row"><button class="primary" id="cps" type="button">Copy saves.txt</button><button id="dls" type="button">Download</button></div></div>
+    </div>
+    <p class="status" id="filestatus" role="status"></p>
   </section>
 </div>
 
 <script>
-const D = {"roles": ["emerge", "establish", "develop", "intensify", "climax", "break", "return", "dissolve"], "arcs": ["arch", "build", "waves", "twin", "journey"], "arcRoles": [[0, 1, 2, 3, 4, 2, 7], [0, 1, 2, 2, 3, 3, 4, 7], [0, 2, 5, 2, 3, 5, 4, 7], [0, 3, 4, 5, 3, 4, 7], [0, 1, 2, 5, 3, 4, 6, 7]], "weights": [1, 1, 1.5, 1, 1, 0.7, 1, 1], "tension": [0.6, 0.8, 1.0, 1.2, 1.4, 0.9, 0.8, 0.5], "masks": [[1, 1, 3], [7, 7, 15], [135, 143, 159], [15, 63, 127], [143, 191, 255], [129, 133, 149], [7, 15, 47], [1, 129, 133]], "pools": [[20, 22, 24, 0, 4, 21, 28, 29], [0, 15, 16, 17, 27, 26, 7, 1], [25, 30, 31, 32, 33, 13, 12, 34]], "stories": ["modal", "home", "descend", "circle", "pedal", "rise", "still", "axis", "canon", "ii-V-I", "circle7", "plagal", "andalus", "epic", "minor4", "dorvamp", "mixvamp", "lydfloat", "phrvamp", "aeolvmp", "float", "gymno", "suspend", "newage", "still6", "mediant", "diamed", "minimal", "planing", "sus", "neoriem", "hexaton", "thirds", "octaton", "tritone", "quartal", "wholetn", "own"], "layers": ["DRONE", "SUB", "PADS", "PERC1", "PERC2", "PERC3", "PERC4", "CLOUD"], "short": ["Dr", "Sb", "Pd", "P1", "P2", "P3", "P4", "Cl"], "maxSec": 12};
+const D = {"slots":[{"n":"Key","t":"opt","o":["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],"lo":null,"hi":null,"d":0.041667,"L":"g","e":null},{"n":"Tempo","t":"num","o":null,"lo":30,"hi":200,"d":0.317647,"L":"g","e":null},{"n":"Scale","t":"opt","o":["modes","harmin","melmin","pent"],"lo":null,"hi":null,"d":0.125,"L":"g","e":null},{"n":"Mode","t":"opt","o":["1","2","3","4","5","6","7"],"lo":null,"hi":null,"d":0.214286,"L":"g","e":null},{"n":"Piece","t":"opt","o":["1","2","3","4","5","6","7","8"],"lo":null,"hi":null,"d":0.0625,"L":"g","e":null},{"n":"Fade","t":"pct","o":null,"lo":null,"hi":null,"d":0.62,"L":"g","e":null},{"n":"FadeBy","t":"opt","o":["time","env"],"lo":null,"hi":null,"d":0.25,"L":"g","e":null},{"n":"Mode","t":"opt","o":["off","reso","cloud","bands","morph","octave"],"lo":null,"hi":null,"d":0.083333,"L":"g","e":null},{"n":"Gain","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"g","e":null},{"n":"Amount","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"g","e":null},{"n":"Story","t":"opt","o":["modal","home","descend","circle","pedal","rise","still","axis","canon","ii-V-I","circle7","plagal","andalus","epic","minor4","dorvamp","mixvamp","lydfloat","phrvamp","aeolvmp","float","gymno","suspend","newage","still6","mediant","diamed","minimal","planing","sus","neoriem","hexaton","thirds","octaton","tritone","quartal","wholetn","own"],"lo":null,"hi":null,"d":0.013158,"L":"g","e":null},{"n":"Bars","t":"opt","o":["manual","1","2","4","8","16"],"lo":null,"hi":null,"d":0.583333,"L":"g","e":null},{"n":"SubTo","t":"opt","o":["pedal","root"],"lo":null,"hi":null,"d":0.75,"L":"g","e":null},{"n":"Voicng","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"g","e":null},{"n":"Sync","t":"opt","o":["int","ext"],"lo":null,"hi":null,"d":0.25,"L":"g","e":null},{"n":"ClkOut","t":"opt","o":["off","on"],"lo":null,"hi":null,"d":0.75,"L":"g","e":null},{"n":"Profil","t":"opt","o":["generic","nanokey","nanoktl","dm48x","user"],"lo":null,"hi":null,"d":0.1,"L":"g","e":null},{"n":"Chans","t":"opt","o":["layers","mpe"],"lo":null,"hi":null,"d":0.25,"L":"g","e":null},{"n":"Zones","t":"opt","o":["off","on"],"lo":null,"hi":null,"d":0.25,"L":"g","e":null},{"n":"LastCC","t":"num","o":null,"lo":0,"hi":127,"d":0.0,"L":"g","e":null},{"n":"Bend","t":"opt","o":["2","12","24","48"],"lo":null,"hi":null,"d":0.875,"L":"g","e":null},{"n":"Press","t":"opt","o":["off","expr","breath"],"lo":null,"hi":null,"d":0.5,"L":"g","e":null},{"n":"Evolve","t":"pct","o":null,"lo":null,"hi":null,"d":1.0,"L":"g","e":null},{"n":"Morph","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"g","e":null},{"n":"Volume","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"g","e":null},{"n":"CmpGl","t":"pct","o":null,"lo":null,"hi":null,"d":0.25,"L":"g","e":null},{"n":"Sugg","t":"opt","o":["1","2","3","4"],"lo":null,"hi":null,"d":0.125,"L":"g","e":null},{"n":"Group","t":"opt","o":["mode","borrow","moves","all"],"lo":null,"hi":null,"d":0.875,"L":"g","e":null},{"n":"Listen","t":"opt","o":["off","on"],"lo":null,"hi":null,"d":0.25,"L":"g","e":null},{"n":"Mins","t":"num","o":null,"lo":4,"hi":30,"d":0.307692,"L":"g","e":null},{"n":"Arc","t":"opt","o":["arch","build","waves","twin","journy"],"lo":null,"hi":null,"d":0.1,"L":"g","e":null},{"n":"Tensn","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"g","e":null},{"n":"Densty","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"g","e":null},{"n":"Road","t":"opt","o":["off","guide","auto"],"lo":null,"hi":null,"d":0.166667,"L":"g","e":null},{"n":"Varia","t":"num","o":null,"lo":0,"hi":15,"d":0.0,"L":"g","e":null},{"n":"Sect","t":"num","o":null,"lo":1,"hi":12,"d":0.0,"L":"g","e":null},{"n":"Bars","t":"num","o":null,"lo":4,"hi":64,"d":0.2,"L":"g","e":null},{"n":"Story","t":"opt","o":["modal","home","descend","circle","pedal","rise","still","axis","canon","ii-V-I","circle7","plagal","andalus","epic","minor4","dorvamp","mixvamp","lydfloat","phrvamp","aeolvmp","float","gymno","suspend","newage","still6","mediant","diamed","minimal","planing","sus","neoriem","hexaton","thirds","octaton","tritone","quartal","wholetn","own"],"lo":null,"hi":null,"d":0.013158,"L":"g","e":null},{"n":"Role","t":"opt","o":["emerge","establ","develp","intens","climax","break","return","dissol"],"lo":null,"hi":null,"d":0.0625,"L":"g","e":null},{"n":"Engine","t":"opt","o":["analog","fm","spectr","frost","choir","bowed","gendy"],"lo":null,"hi":null,"d":0.071429,"L":"drone","e":null},{"n":"Level","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":null},{"n":"Cutoff","t":"pct","o":null,"lo":null,"hi":null,"d":1.0,"L":"drone","e":null},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.1,"L":"drone","e":null},{"n":"Attack","t":"pct","o":null,"lo":null,"hi":null,"d":0.45,"L":"drone","e":null},{"n":"Decay","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"drone","e":null},{"n":"Sustn","t":"pct","o":null,"lo":null,"hi":null,"d":0.85,"L":"drone","e":null},{"n":"Releas","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"drone","e":null},{"n":"Artic","t":"opt","o":["artic","legato","porta","slide"],"lo":null,"hi":null,"d":0.625,"L":"drone","e":null},{"n":"Glide","t":"pct","o":null,"lo":null,"hi":null,"d":0.45,"L":"drone","e":null},{"n":"Octave","t":"opt","o":["-3","-2","-1","0","+1","+2","+3"],"lo":null,"hi":null,"d":0.357143,"L":"drone","e":null},{"n":"Pan","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":null},{"n":"Gate","t":"opt","o":["off","on","tapped"],"lo":null,"hi":null,"d":0.166667,"L":"drone","e":null},{"n":"Hits","t":"num","o":null,"lo":1,"hi":16,"d":0.133333,"L":"drone","e":null},{"n":"Steps","t":"num","o":null,"lo":2,"hi":16,"d":0.428571,"L":"drone","e":null},{"n":"Rotate","t":"num","o":null,"lo":0,"hi":15,"d":0.0,"L":"drone","e":null},{"n":"Rate","t":"opt","o":["1/4","1/8","1/8T","1/16","1/16T","1/32"],"lo":null,"hi":null,"d":0.25,"L":"drone","e":null},{"n":"Length","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":null},{"n":"Comp","t":"opt","o":["none","drone","sub","pads"],"lo":null,"hi":null,"d":0.125,"L":"drone","e":null},{"n":"Accent","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"drone","e":null},{"n":"Attack","t":"pct","o":null,"lo":null,"hi":null,"d":0.15,"L":"drone","e":null},{"n":"Decay","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"drone","e":null},{"n":"Sustn","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"drone","e":null},{"n":"Releas","t":"pct","o":null,"lo":null,"hi":null,"d":0.35,"L":"drone","e":null},{"n":"Swing","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"drone","e":null},{"n":"Feel","t":"opt","o":["swing","lilt","drag","limp"],"lo":null,"hi":null,"d":0.125,"L":"drone","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"drone","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"drone","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"drone","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"drone","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"drone","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"drone","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"drone","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":null},{"n":"ZoneLo","t":"num","o":null,"lo":0,"hi":127,"d":1.0,"L":"drone","e":null},{"n":"ZoneHi","t":"num","o":null,"lo":0,"hi":127,"d":0.0,"L":"drone","e":null},{"n":"Evolve","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"drone","e":null},{"n":"Pace","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"drone","e":null},{"n":"EvSync","t":"opt","o":["free","bars"],"lo":null,"hi":null,"d":0.25,"L":"drone","e":null},{"n":"Drift","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"drone","e":null},{"n":"Len","t":"opt","o":["auto","free","1bar","2bar","4bar","8bar","16bar"],"lo":null,"hi":null,"d":0.071429,"L":"drone","e":null},{"n":"Quant","t":"opt","o":["off","1/16","1/8","1/8T","1/4"],"lo":null,"hi":null,"d":0.3,"L":"drone","e":null},{"n":"Follow","t":"opt","o":["chord","exact"],"lo":null,"hi":null,"d":0.25,"L":"drone","e":null},{"n":"Vel","t":"pct","o":null,"lo":null,"hi":null,"d":0.8,"L":"drone","e":null},{"n":"WaveA","t":"pct","o":null,"lo":null,"hi":null,"d":0.67,"L":"drone","e":"analog"},{"n":"WaveB","t":"pct","o":null,"lo":null,"hi":null,"d":0.67,"L":"drone","e":"analog"},{"n":"Intvl","t":"opt","o":["unison","5th","oct","-oct","4th"],"lo":null,"hi":null,"d":0.1,"L":"drone","e":"analog"},{"n":"Detune","t":"pct","o":null,"lo":null,"hi":null,"d":0.35,"L":"drone","e":"analog"},{"n":"XMod","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"drone","e":"analog"},{"n":"Ring","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"drone","e":"analog"},{"n":"Sub","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"drone","e":"analog"},{"n":"Mix","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"analog"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.7,"L":"drone","e":"analog"},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.25,"L":"drone","e":"analog"},{"n":"Sweep","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"drone","e":"analog"},{"n":"Width","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"drone","e":"analog"},{"n":"Ratio","t":"opt","o":["0.5","1","1.5","2","3","3.5","4","5","7"],"lo":null,"hi":null,"d":0.166667,"L":"drone","e":"fm"},{"n":"Fine","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"fm"},{"n":"Index","t":"pct","o":null,"lo":null,"hi":null,"d":0.35,"L":"drone","e":"fm"},{"n":"Fdbk","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"drone","e":"fm"},{"n":"Motion","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"drone","e":"fm"},{"n":"MoRate","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"drone","e":"fm"},{"n":"Width","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"drone","e":"fm"},{"n":"Upper","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"spectr"},{"n":"Drift","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"spectr"},{"n":"DrRate","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"drone","e":"spectr"},{"n":"OddEv","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"spectr"},{"n":"Tilt","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"spectr"},{"n":"Strtch","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"drone","e":"spectr"},{"n":"Detune","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"drone","e":"frost"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"frost"},{"n":"Glass","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"drone","e":"frost"},{"n":"Drift","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"drone","e":"frost"},{"n":"Vowel","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"choir"},{"n":"Breath","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"drone","e":"choir"},{"n":"Fifth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"choir"},{"n":"Drift","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"drone","e":"choir"},{"n":"Press","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"bowed"},{"n":"Body","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"bowed"},{"n":"Vib","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"drone","e":"bowed"},{"n":"Swell","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"drone","e":"bowed"},{"n":"Steps","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"drone","e":"gendy"},{"n":"Rough","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"gendy"},{"n":"Spread","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"drone","e":"gendy"},{"n":"Engine","t":"opt","o":["sine","warm","pulse","fm"],"lo":null,"hi":null,"d":0.125,"L":"sub","e":null},{"n":"Level","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"sub","e":null},{"n":"Cutoff","t":"pct","o":null,"lo":null,"hi":null,"d":1.0,"L":"sub","e":null},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.1,"L":"sub","e":null},{"n":"Attack","t":"pct","o":null,"lo":null,"hi":null,"d":0.45,"L":"sub","e":null},{"n":"Decay","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"sub","e":null},{"n":"Sustn","t":"pct","o":null,"lo":null,"hi":null,"d":0.85,"L":"sub","e":null},{"n":"Releas","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"sub","e":null},{"n":"Artic","t":"opt","o":["artic","legato","porta","slide"],"lo":null,"hi":null,"d":0.625,"L":"sub","e":null},{"n":"Glide","t":"pct","o":null,"lo":null,"hi":null,"d":0.45,"L":"sub","e":null},{"n":"Octave","t":"opt","o":["-3","-2","-1","0","+1","+2","+3"],"lo":null,"hi":null,"d":0.214286,"L":"sub","e":null},{"n":"Pan","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"sub","e":null},{"n":"Gate","t":"opt","o":["off","on","tapped"],"lo":null,"hi":null,"d":0.166667,"L":"sub","e":null},{"n":"Hits","t":"num","o":null,"lo":1,"hi":16,"d":0.133333,"L":"sub","e":null},{"n":"Steps","t":"num","o":null,"lo":2,"hi":16,"d":0.428571,"L":"sub","e":null},{"n":"Rotate","t":"num","o":null,"lo":0,"hi":15,"d":0.0,"L":"sub","e":null},{"n":"Rate","t":"opt","o":["1/4","1/8","1/8T","1/16","1/16T","1/32"],"lo":null,"hi":null,"d":0.25,"L":"sub","e":null},{"n":"Length","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"sub","e":null},{"n":"Comp","t":"opt","o":["none","drone","sub","pads"],"lo":null,"hi":null,"d":0.125,"L":"sub","e":null},{"n":"Accent","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"sub","e":null},{"n":"Attack","t":"pct","o":null,"lo":null,"hi":null,"d":0.15,"L":"sub","e":null},{"n":"Decay","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"sub","e":null},{"n":"Sustn","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"sub","e":null},{"n":"Releas","t":"pct","o":null,"lo":null,"hi":null,"d":0.35,"L":"sub","e":null},{"n":"Swing","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"sub","e":null},{"n":"Feel","t":"opt","o":["swing","lilt","drag","limp"],"lo":null,"hi":null,"d":0.125,"L":"sub","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"sub","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"sub","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"sub","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"sub","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"sub","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"sub","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"sub","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"sub","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"sub","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"sub","e":null},{"n":"ZoneLo","t":"num","o":null,"lo":0,"hi":127,"d":0.0,"L":"sub","e":null},{"n":"ZoneHi","t":"num","o":null,"lo":0,"hi":127,"d":0.370079,"L":"sub","e":null},{"n":"Evolve","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"sub","e":null},{"n":"Pace","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"sub","e":null},{"n":"EvSync","t":"opt","o":["free","bars"],"lo":null,"hi":null,"d":0.25,"L":"sub","e":null},{"n":"Drift","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"sub","e":null},{"n":"Len","t":"opt","o":["auto","free","1bar","2bar","4bar","8bar","16bar"],"lo":null,"hi":null,"d":0.071429,"L":"sub","e":null},{"n":"Quant","t":"opt","o":["off","1/16","1/8","1/8T","1/4"],"lo":null,"hi":null,"d":0.3,"L":"sub","e":null},{"n":"Follow","t":"opt","o":["chord","exact"],"lo":null,"hi":null,"d":0.25,"L":"sub","e":null},{"n":"Vel","t":"pct","o":null,"lo":null,"hi":null,"d":0.8,"L":"sub","e":null},{"n":"Harm","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"sub","e":"sine"},{"n":"Body","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"sub","e":"sine"},{"n":"Octave","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"sub","e":"warm"},{"n":"Body","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"sub","e":"warm"},{"n":"Width","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"sub","e":"pulse"},{"n":"Body","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"sub","e":"pulse"},{"n":"Ratio","t":"opt","o":["0.5","1","1.5","2","3"],"lo":null,"hi":null,"d":0.3,"L":"sub","e":"fm"},{"n":"Index","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"sub","e":"fm"},{"n":"Fdbk","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"sub","e":"fm"},{"n":"Growl","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"sub","e":"fm"},{"n":"Engine","t":"opt","o":["sine","fm","saws","pwm","wave","vox","part","fold","pulsr","sync","cz","choir","vosim","lissa","chip","vector"],"lo":null,"hi":null,"d":0.03125,"L":"pad","e":null},{"n":"Level","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":null},{"n":"Cutoff","t":"pct","o":null,"lo":null,"hi":null,"d":1.0,"L":"pad","e":null},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.1,"L":"pad","e":null},{"n":"Attack","t":"pct","o":null,"lo":null,"hi":null,"d":0.45,"L":"pad","e":null},{"n":"Decay","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"pad","e":null},{"n":"Sustn","t":"pct","o":null,"lo":null,"hi":null,"d":0.85,"L":"pad","e":null},{"n":"Releas","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"pad","e":null},{"n":"Artic","t":"opt","o":["artic","legato","porta","slide"],"lo":null,"hi":null,"d":0.625,"L":"pad","e":null},{"n":"Glide","t":"pct","o":null,"lo":null,"hi":null,"d":0.45,"L":"pad","e":null},{"n":"Octave","t":"opt","o":["-3","-2","-1","0","+1","+2","+3"],"lo":null,"hi":null,"d":0.5,"L":"pad","e":null},{"n":"Pan","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":null},{"n":"Gate","t":"opt","o":["off","on","tapped"],"lo":null,"hi":null,"d":0.166667,"L":"pad","e":null},{"n":"Hits","t":"num","o":null,"lo":1,"hi":16,"d":0.133333,"L":"pad","e":null},{"n":"Steps","t":"num","o":null,"lo":2,"hi":16,"d":0.428571,"L":"pad","e":null},{"n":"Rotate","t":"num","o":null,"lo":0,"hi":15,"d":0.0,"L":"pad","e":null},{"n":"Rate","t":"opt","o":["1/4","1/8","1/8T","1/16","1/16T","1/32"],"lo":null,"hi":null,"d":0.25,"L":"pad","e":null},{"n":"Length","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":null},{"n":"Comp","t":"opt","o":["none","drone","sub","pads"],"lo":null,"hi":null,"d":0.125,"L":"pad","e":null},{"n":"Accent","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":null},{"n":"Lines","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"pad","e":null},{"n":"Rate","t":"opt","o":["1/4","1/8","1/8T","1/16","1/16T","1/32"],"lo":null,"hi":null,"d":0.25,"L":"pad","e":null},{"n":"Voices","t":"opt","o":["top","inner","all","bass"],"lo":null,"hi":null,"d":0.125,"L":"pad","e":null},{"n":"Style","t":"opt","o":["neighb","passing"],"lo":null,"hi":null,"d":0.25,"L":"pad","e":null},{"n":"Attack","t":"pct","o":null,"lo":null,"hi":null,"d":0.15,"L":"pad","e":null},{"n":"Decay","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":null},{"n":"Sustn","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"pad","e":null},{"n":"Releas","t":"pct","o":null,"lo":null,"hi":null,"d":0.35,"L":"pad","e":null},{"n":"Swing","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"pad","e":null},{"n":"Feel","t":"opt","o":["swing","lilt","drag","limp"],"lo":null,"hi":null,"d":0.125,"L":"pad","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"pad","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"pad","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"pad","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"pad","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"pad","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"pad","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"pad","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":null},{"n":"ZoneLo","t":"num","o":null,"lo":0,"hi":127,"d":0.377953,"L":"pad","e":null},{"n":"ZoneHi","t":"num","o":null,"lo":0,"hi":127,"d":0.559055,"L":"pad","e":null},{"n":"Evolve","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"pad","e":null},{"n":"Pace","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"pad","e":null},{"n":"EvSync","t":"opt","o":["free","bars"],"lo":null,"hi":null,"d":0.25,"L":"pad","e":null},{"n":"Drift","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"pad","e":null},{"n":"Len","t":"opt","o":["auto","free","1bar","2bar","4bar","8bar","16bar"],"lo":null,"hi":null,"d":0.071429,"L":"pad","e":null},{"n":"Quant","t":"opt","o":["off","1/16","1/8","1/8T","1/4"],"lo":null,"hi":null,"d":0.3,"L":"pad","e":null},{"n":"Follow","t":"opt","o":["chord","exact"],"lo":null,"hi":null,"d":0.25,"L":"pad","e":null},{"n":"Vel","t":"pct","o":null,"lo":null,"hi":null,"d":0.8,"L":"pad","e":null},{"n":"Harm","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"pad","e":"sine"},{"n":"Slope","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"sine"},{"n":"OddEv","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"sine"},{"n":"Count","t":"opt","o":["2","3","4","5","6","7","8"],"lo":null,"hi":null,"d":0.928571,"L":"pad","e":"sine"},{"n":"Chorus","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"pad","e":"sine"},{"n":"Ratio","t":"opt","o":["0.5","1","1.5","2","3","3.5","4","5","7"],"lo":null,"hi":null,"d":0.166667,"L":"pad","e":"fm"},{"n":"Fine","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"fm"},{"n":"Index","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"fm"},{"n":"Fdbk","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"pad","e":"fm"},{"n":"EnvAmt","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"fm"},{"n":"EnvDec","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"fm"},{"n":"Detune","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"saws"},{"n":"Spread","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"pad","e":"saws"},{"n":"Centre","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"pad","e":"saws"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"pad","e":"saws"},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"saws"},{"n":"Sweep","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"saws"},{"n":"Width","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"pwm"},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"pwm"},{"n":"Rate","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"pwm"},{"n":"Spread","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"pad","e":"pwm"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"pad","e":"pwm"},{"n":"Sweep","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"pwm"},{"n":"Table","t":"opt","o":["amble","basic","reson","pulse","formnt","harmon","mini","user1","user2","user3","user4","user5","user6","user7","user8"],"lo":null,"hi":null,"d":0.033333,"L":"pad","e":"wave"},{"n":"Pos","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"wave"},{"n":"Mode","t":"opt","o":["8bit","smooth"],"lo":null,"hi":null,"d":0.75,"L":"pad","e":"wave"},{"n":"Shimr","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"pad","e":"wave"},{"n":"Detune","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"wave"},{"n":"Vowel","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"vox"},{"n":"Motion","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"vox"},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"vox"},{"n":"Body","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"vox"},{"n":"Set","t":"opt","o":["harm","bell","fifths","odd","strtch"],"lo":null,"hi":null,"d":0.1,"L":"pad","e":"part"},{"n":"Tilt","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"part"},{"n":"Swell","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"part"},{"n":"Spread","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"pad","e":"part"},{"n":"Fold","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"fold"},{"n":"Sub","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"fold"},{"n":"Bias","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"fold"},{"n":"Motion","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"fold"},{"n":"Formnt","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"pulsr"},{"n":"Cycles","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"pulsr"},{"n":"Sweep","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"pulsr"},{"n":"Spread","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"pulsr"},{"n":"Ratio","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"sync"},{"n":"Sweep","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"sync"},{"n":"Rate","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"sync"},{"n":"Detune","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"sync"},{"n":"Bend","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"cz"},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"cz"},{"n":"Mix","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"cz"},{"n":"Sweep","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"cz"},{"n":"Vowel","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"choir"},{"n":"Drift","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"choir"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"choir"},{"n":"Breath","t":"pct","o":null,"lo":null,"hi":null,"d":0.2,"L":"pad","e":"choir"},{"n":"Formnt","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"vosim"},{"n":"Decay","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"vosim"},{"n":"Sweep","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"vosim"},{"n":"Spread","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"vosim"},{"n":"Ratio","t":"opt","o":["1:1","3:2","2:1","4:3","5:4"],"lo":null,"hi":null,"d":0.3,"L":"pad","e":"lissa"},{"n":"Drift","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"lissa"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"lissa"},{"n":"Cross","t":"pct","o":null,"lo":null,"hi":null,"d":0.25,"L":"pad","e":"lissa"},{"n":"Duty","t":"opt","o":["12%","25%","50%"],"lo":null,"hi":null,"d":0.833333,"L":"pad","e":"chip"},{"n":"Tri","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"chip"},{"n":"Crush","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"chip"},{"n":"Vib","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"chip"},{"n":"X","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"vector"},{"n":"Y","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"pad","e":"vector"},{"n":"Orbit","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"pad","e":"vector"},{"n":"Rate","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"vector"},{"n":"Detune","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"pad","e":"vector"},{"n":"Engine","t":"opt","o":["blip","lpg","bowl","wood","metal","wave"],"lo":null,"hi":null,"d":0.583333,"L":"perc1","e":null},{"n":"Level","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":null},{"n":"Cutoff","t":"pct","o":null,"lo":null,"hi":null,"d":1.0,"L":"perc1","e":null},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.1,"L":"perc1","e":null},{"n":"Decay","t":"pct","o":null,"lo":null,"hi":null,"d":0.45,"L":"perc1","e":null},{"n":"Velo","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":null},{"n":"Octave","t":"opt","o":["-3","-2","-1","0","+1","+2","+3"],"lo":null,"hi":null,"d":0.642857,"L":"perc1","e":null},{"n":"Pitch","t":"opt","o":["up","down","updown","root","fifth","scl up","scl dn","stack","motif"],"lo":null,"hi":null,"d":0.055556,"L":"perc1","e":null},{"n":"Hits","t":"num","o":null,"lo":1,"hi":16,"d":0.266667,"L":"perc1","e":null},{"n":"Steps","t":"num","o":null,"lo":2,"hi":16,"d":0.428571,"L":"perc1","e":null},{"n":"Rotate","t":"num","o":null,"lo":0,"hi":15,"d":0.0,"L":"perc1","e":null},{"n":"Rate","t":"opt","o":["1/4","1/8","1/8T","1/16","1/16T","1/32"],"lo":null,"hi":null,"d":0.583333,"L":"perc1","e":null},{"n":"Phase","t":"opt","o":["off","16bar","8bar","4bar","2bar","1bar"],"lo":null,"hi":null,"d":0.083333,"L":"perc1","e":null},{"n":"Spread","t":"pct","o":null,"lo":null,"hi":null,"d":0.8,"L":"perc1","e":null},{"n":"Accent","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc1","e":null},{"n":"Patt","t":"opt","o":["euclid","tapped"],"lo":null,"hi":null,"d":0.25,"L":"perc1","e":null},{"n":"Source","t":"opt","o":["drone","sub","pads","perc1","perc2","perc3","perc4"],"lo":null,"hi":null,"d":0.357143,"L":"perc1","e":null},{"n":"Transf","t":"opt","o":["as is","invert","revrse","+5th","+oct","-oct"],"lo":null,"hi":null,"d":0.083333,"L":"perc1","e":null},{"n":"Swing","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"perc1","e":null},{"n":"Feel","t":"opt","o":["swing","lilt","drag","limp"],"lo":null,"hi":null,"d":0.125,"L":"perc1","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"perc1","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"perc1","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"perc1","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"perc1","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"perc1","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"perc1","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"perc1","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":null},{"n":"ZoneLo","t":"num","o":null,"lo":0,"hi":127,"d":0.566929,"L":"perc1","e":null},{"n":"ZoneHi","t":"num","o":null,"lo":0,"hi":127,"d":1.0,"L":"perc1","e":null},{"n":"Evolve","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"perc1","e":null},{"n":"Pace","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"perc1","e":null},{"n":"EvSync","t":"opt","o":["free","bars"],"lo":null,"hi":null,"d":0.25,"L":"perc1","e":null},{"n":"Len","t":"opt","o":["auto","free","1bar","2bar","4bar","8bar","16bar"],"lo":null,"hi":null,"d":0.071429,"L":"perc1","e":null},{"n":"Quant","t":"opt","o":["off","1/16","1/8","1/8T","1/4"],"lo":null,"hi":null,"d":0.3,"L":"perc1","e":null},{"n":"Follow","t":"opt","o":["chord","exact"],"lo":null,"hi":null,"d":0.25,"L":"perc1","e":null},{"n":"Vel","t":"pct","o":null,"lo":null,"hi":null,"d":0.8,"L":"perc1","e":null},{"n":"Cutoff","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"blip"},{"n":"Flick","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"blip"},{"n":"FlTime","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc1","e":"blip"},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"perc1","e":"blip"},{"n":"Sub","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"blip"},{"n":"FEnv","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"blip"},{"n":"Fold","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"lpg"},{"n":"FoldDc","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"lpg"},{"n":"Open","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"lpg"},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.2,"L":"perc1","e":"lpg"},{"n":"Vactrl","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"lpg"},{"n":"Hard","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"bowl"},{"n":"Beat","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"bowl"},{"n":"Strtch","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"perc1","e":"bowl"},{"n":"Strike","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"bowl"},{"n":"Mallet","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"wood"},{"n":"Matrl","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"perc1","e":"wood"},{"n":"Knock","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"wood"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"metal"},{"n":"Beat","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"metal"},{"n":"TremR","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"metal"},{"n":"TremD","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"perc1","e":"metal"},{"n":"Table","t":"opt","o":["amble","basic","reson","pulse","formnt","harmon","mini","user1","user2","user3","user4","user5","user6","user7","user8"],"lo":null,"hi":null,"d":0.033333,"L":"perc1","e":"wave"},{"n":"Pos","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc1","e":"wave"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc1","e":"wave"},{"n":"Shimr","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc1","e":"wave"},{"n":"Engine","t":"opt","o":["blip","lpg","bowl","wood","metal","wave"],"lo":null,"hi":null,"d":0.75,"L":"perc2","e":null},{"n":"Level","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":null},{"n":"Cutoff","t":"pct","o":null,"lo":null,"hi":null,"d":1.0,"L":"perc2","e":null},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.1,"L":"perc2","e":null},{"n":"Decay","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":null},{"n":"Velo","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":null},{"n":"Octave","t":"opt","o":["-3","-2","-1","0","+1","+2","+3"],"lo":null,"hi":null,"d":0.642857,"L":"perc2","e":null},{"n":"Pitch","t":"opt","o":["up","down","updown","root","fifth","scl up","scl dn","stack","motif"],"lo":null,"hi":null,"d":0.5,"L":"perc2","e":null},{"n":"Hits","t":"num","o":null,"lo":1,"hi":16,"d":0.133333,"L":"perc2","e":null},{"n":"Steps","t":"num","o":null,"lo":2,"hi":16,"d":0.428571,"L":"perc2","e":null},{"n":"Rotate","t":"num","o":null,"lo":0,"hi":15,"d":0.133333,"L":"perc2","e":null},{"n":"Rate","t":"opt","o":["1/4","1/8","1/8T","1/16","1/16T","1/32"],"lo":null,"hi":null,"d":0.25,"L":"perc2","e":null},{"n":"Phase","t":"opt","o":["off","16bar","8bar","4bar","2bar","1bar"],"lo":null,"hi":null,"d":0.083333,"L":"perc2","e":null},{"n":"Spread","t":"pct","o":null,"lo":null,"hi":null,"d":0.8,"L":"perc2","e":null},{"n":"Accent","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc2","e":null},{"n":"Patt","t":"opt","o":["euclid","tapped"],"lo":null,"hi":null,"d":0.25,"L":"perc2","e":null},{"n":"Source","t":"opt","o":["drone","sub","pads","perc1","perc2","perc3","perc4"],"lo":null,"hi":null,"d":0.357143,"L":"perc2","e":null},{"n":"Transf","t":"opt","o":["as is","invert","revrse","+5th","+oct","-oct"],"lo":null,"hi":null,"d":0.083333,"L":"perc2","e":null},{"n":"Swing","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"perc2","e":null},{"n":"Feel","t":"opt","o":["swing","lilt","drag","limp"],"lo":null,"hi":null,"d":0.125,"L":"perc2","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"perc2","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"perc2","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"perc2","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"perc2","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"perc2","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"perc2","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"perc2","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":null},{"n":"ZoneLo","t":"num","o":null,"lo":0,"hi":127,"d":1.0,"L":"perc2","e":null},{"n":"ZoneHi","t":"num","o":null,"lo":0,"hi":127,"d":0.0,"L":"perc2","e":null},{"n":"Evolve","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"perc2","e":null},{"n":"Pace","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"perc2","e":null},{"n":"EvSync","t":"opt","o":["free","bars"],"lo":null,"hi":null,"d":0.25,"L":"perc2","e":null},{"n":"Len","t":"opt","o":["auto","free","1bar","2bar","4bar","8bar","16bar"],"lo":null,"hi":null,"d":0.071429,"L":"perc2","e":null},{"n":"Quant","t":"opt","o":["off","1/16","1/8","1/8T","1/4"],"lo":null,"hi":null,"d":0.3,"L":"perc2","e":null},{"n":"Follow","t":"opt","o":["chord","exact"],"lo":null,"hi":null,"d":0.25,"L":"perc2","e":null},{"n":"Vel","t":"pct","o":null,"lo":null,"hi":null,"d":0.8,"L":"perc2","e":null},{"n":"Cutoff","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"blip"},{"n":"Flick","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"blip"},{"n":"FlTime","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc2","e":"blip"},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"perc2","e":"blip"},{"n":"Sub","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"blip"},{"n":"FEnv","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"blip"},{"n":"Fold","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"lpg"},{"n":"FoldDc","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"lpg"},{"n":"Open","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"lpg"},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.2,"L":"perc2","e":"lpg"},{"n":"Vactrl","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"lpg"},{"n":"Hard","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"bowl"},{"n":"Beat","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"bowl"},{"n":"Strtch","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"perc2","e":"bowl"},{"n":"Strike","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"bowl"},{"n":"Mallet","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"wood"},{"n":"Matrl","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"perc2","e":"wood"},{"n":"Knock","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"wood"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"metal"},{"n":"Beat","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"metal"},{"n":"TremR","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"metal"},{"n":"TremD","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"perc2","e":"metal"},{"n":"Table","t":"opt","o":["amble","basic","reson","pulse","formnt","harmon","mini","user1","user2","user3","user4","user5","user6","user7","user8"],"lo":null,"hi":null,"d":0.033333,"L":"perc2","e":"wave"},{"n":"Pos","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc2","e":"wave"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc2","e":"wave"},{"n":"Shimr","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc2","e":"wave"},{"n":"Engine","t":"opt","o":["blip","lpg","bowl","wood","metal","wave"],"lo":null,"hi":null,"d":0.416667,"L":"perc3","e":null},{"n":"Level","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":null},{"n":"Cutoff","t":"pct","o":null,"lo":null,"hi":null,"d":1.0,"L":"perc3","e":null},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.1,"L":"perc3","e":null},{"n":"Decay","t":"pct","o":null,"lo":null,"hi":null,"d":0.75,"L":"perc3","e":null},{"n":"Velo","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":null},{"n":"Octave","t":"opt","o":["-3","-2","-1","0","+1","+2","+3"],"lo":null,"hi":null,"d":0.5,"L":"perc3","e":null},{"n":"Pitch","t":"opt","o":["up","down","updown","root","fifth","scl up","scl dn","stack","motif"],"lo":null,"hi":null,"d":0.388889,"L":"perc3","e":null},{"n":"Hits","t":"num","o":null,"lo":1,"hi":16,"d":0.066667,"L":"perc3","e":null},{"n":"Steps","t":"num","o":null,"lo":2,"hi":16,"d":0.214286,"L":"perc3","e":null},{"n":"Rotate","t":"num","o":null,"lo":0,"hi":15,"d":0.0,"L":"perc3","e":null},{"n":"Rate","t":"opt","o":["1/4","1/8","1/8T","1/16","1/16T","1/32"],"lo":null,"hi":null,"d":0.083333,"L":"perc3","e":null},{"n":"Phase","t":"opt","o":["off","16bar","8bar","4bar","2bar","1bar"],"lo":null,"hi":null,"d":0.083333,"L":"perc3","e":null},{"n":"Spread","t":"pct","o":null,"lo":null,"hi":null,"d":0.8,"L":"perc3","e":null},{"n":"Accent","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc3","e":null},{"n":"Patt","t":"opt","o":["euclid","tapped"],"lo":null,"hi":null,"d":0.25,"L":"perc3","e":null},{"n":"Source","t":"opt","o":["drone","sub","pads","perc1","perc2","perc3","perc4"],"lo":null,"hi":null,"d":0.357143,"L":"perc3","e":null},{"n":"Transf","t":"opt","o":["as is","invert","revrse","+5th","+oct","-oct"],"lo":null,"hi":null,"d":0.083333,"L":"perc3","e":null},{"n":"Swing","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"perc3","e":null},{"n":"Feel","t":"opt","o":["swing","lilt","drag","limp"],"lo":null,"hi":null,"d":0.125,"L":"perc3","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"perc3","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"perc3","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"perc3","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"perc3","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"perc3","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"perc3","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"perc3","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":null},{"n":"ZoneLo","t":"num","o":null,"lo":0,"hi":127,"d":1.0,"L":"perc3","e":null},{"n":"ZoneHi","t":"num","o":null,"lo":0,"hi":127,"d":0.0,"L":"perc3","e":null},{"n":"Evolve","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"perc3","e":null},{"n":"Pace","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"perc3","e":null},{"n":"EvSync","t":"opt","o":["free","bars"],"lo":null,"hi":null,"d":0.25,"L":"perc3","e":null},{"n":"Len","t":"opt","o":["auto","free","1bar","2bar","4bar","8bar","16bar"],"lo":null,"hi":null,"d":0.071429,"L":"perc3","e":null},{"n":"Quant","t":"opt","o":["off","1/16","1/8","1/8T","1/4"],"lo":null,"hi":null,"d":0.3,"L":"perc3","e":null},{"n":"Follow","t":"opt","o":["chord","exact"],"lo":null,"hi":null,"d":0.25,"L":"perc3","e":null},{"n":"Vel","t":"pct","o":null,"lo":null,"hi":null,"d":0.8,"L":"perc3","e":null},{"n":"Cutoff","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"blip"},{"n":"Flick","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"blip"},{"n":"FlTime","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc3","e":"blip"},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"perc3","e":"blip"},{"n":"Sub","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"blip"},{"n":"FEnv","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"blip"},{"n":"Fold","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"lpg"},{"n":"FoldDc","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"lpg"},{"n":"Open","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"lpg"},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.2,"L":"perc3","e":"lpg"},{"n":"Vactrl","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"lpg"},{"n":"Hard","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"bowl"},{"n":"Beat","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"bowl"},{"n":"Strtch","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"perc3","e":"bowl"},{"n":"Strike","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"bowl"},{"n":"Mallet","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"wood"},{"n":"Matrl","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"perc3","e":"wood"},{"n":"Knock","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"wood"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"metal"},{"n":"Beat","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"metal"},{"n":"TremR","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"metal"},{"n":"TremD","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"perc3","e":"metal"},{"n":"Table","t":"opt","o":["amble","basic","reson","pulse","formnt","harmon","mini","user1","user2","user3","user4","user5","user6","user7","user8"],"lo":null,"hi":null,"d":0.033333,"L":"perc3","e":"wave"},{"n":"Pos","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc3","e":"wave"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc3","e":"wave"},{"n":"Shimr","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc3","e":"wave"},{"n":"Engine","t":"opt","o":["blip","lpg","bowl","wood","metal","wave"],"lo":null,"hi":null,"d":0.25,"L":"perc4","e":null},{"n":"Level","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":null},{"n":"Cutoff","t":"pct","o":null,"lo":null,"hi":null,"d":1.0,"L":"perc4","e":null},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.1,"L":"perc4","e":null},{"n":"Decay","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"perc4","e":null},{"n":"Velo","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":null},{"n":"Octave","t":"opt","o":["-3","-2","-1","0","+1","+2","+3"],"lo":null,"hi":null,"d":0.785714,"L":"perc4","e":null},{"n":"Pitch","t":"opt","o":["up","down","updown","root","fifth","scl up","scl dn","stack","motif"],"lo":null,"hi":null,"d":0.277778,"L":"perc4","e":null},{"n":"Hits","t":"num","o":null,"lo":1,"hi":16,"d":0.4,"L":"perc4","e":null},{"n":"Steps","t":"num","o":null,"lo":2,"hi":16,"d":1.0,"L":"perc4","e":null},{"n":"Rotate","t":"num","o":null,"lo":0,"hi":15,"d":0.0,"L":"perc4","e":null},{"n":"Rate","t":"opt","o":["1/4","1/8","1/8T","1/16","1/16T","1/32"],"lo":null,"hi":null,"d":0.583333,"L":"perc4","e":null},{"n":"Phase","t":"opt","o":["off","16bar","8bar","4bar","2bar","1bar"],"lo":null,"hi":null,"d":0.416667,"L":"perc4","e":null},{"n":"Spread","t":"pct","o":null,"lo":null,"hi":null,"d":0.8,"L":"perc4","e":null},{"n":"Accent","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc4","e":null},{"n":"Patt","t":"opt","o":["euclid","tapped"],"lo":null,"hi":null,"d":0.25,"L":"perc4","e":null},{"n":"Source","t":"opt","o":["drone","sub","pads","perc1","perc2","perc3","perc4"],"lo":null,"hi":null,"d":0.357143,"L":"perc4","e":null},{"n":"Transf","t":"opt","o":["as is","invert","revrse","+5th","+oct","-oct"],"lo":null,"hi":null,"d":0.083333,"L":"perc4","e":null},{"n":"Swing","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"perc4","e":null},{"n":"Feel","t":"opt","o":["swing","lilt","drag","limp"],"lo":null,"hi":null,"d":0.125,"L":"perc4","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"perc4","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"perc4","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"perc4","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"perc4","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"perc4","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"perc4","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"perc4","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":null},{"n":"ZoneLo","t":"num","o":null,"lo":0,"hi":127,"d":1.0,"L":"perc4","e":null},{"n":"ZoneHi","t":"num","o":null,"lo":0,"hi":127,"d":0.0,"L":"perc4","e":null},{"n":"Evolve","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"perc4","e":null},{"n":"Pace","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"perc4","e":null},{"n":"EvSync","t":"opt","o":["free","bars"],"lo":null,"hi":null,"d":0.25,"L":"perc4","e":null},{"n":"Len","t":"opt","o":["auto","free","1bar","2bar","4bar","8bar","16bar"],"lo":null,"hi":null,"d":0.071429,"L":"perc4","e":null},{"n":"Quant","t":"opt","o":["off","1/16","1/8","1/8T","1/4"],"lo":null,"hi":null,"d":0.3,"L":"perc4","e":null},{"n":"Follow","t":"opt","o":["chord","exact"],"lo":null,"hi":null,"d":0.25,"L":"perc4","e":null},{"n":"Vel","t":"pct","o":null,"lo":null,"hi":null,"d":0.8,"L":"perc4","e":null},{"n":"Cutoff","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"blip"},{"n":"Flick","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"blip"},{"n":"FlTime","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc4","e":"blip"},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"perc4","e":"blip"},{"n":"Sub","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"blip"},{"n":"FEnv","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"blip"},{"n":"Fold","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"lpg"},{"n":"FoldDc","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"lpg"},{"n":"Open","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"lpg"},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.2,"L":"perc4","e":"lpg"},{"n":"Vactrl","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"lpg"},{"n":"Hard","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"bowl"},{"n":"Beat","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"bowl"},{"n":"Strtch","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"perc4","e":"bowl"},{"n":"Strike","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"bowl"},{"n":"Mallet","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"wood"},{"n":"Matrl","t":"pct","o":null,"lo":null,"hi":null,"d":0.0,"L":"perc4","e":"wood"},{"n":"Knock","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"wood"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"metal"},{"n":"Beat","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"metal"},{"n":"TremR","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"metal"},{"n":"TremD","t":"pct","o":null,"lo":null,"hi":null,"d":0.4,"L":"perc4","e":"metal"},{"n":"Table","t":"opt","o":["amble","basic","reson","pulse","formnt","harmon","mini","user1","user2","user3","user4","user5","user6","user7","user8"],"lo":null,"hi":null,"d":0.033333,"L":"perc4","e":"wave"},{"n":"Pos","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc4","e":"wave"},{"n":"Bright","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"perc4","e":"wave"},{"n":"Shimr","t":"pct","o":null,"lo":null,"hi":null,"d":0.3,"L":"perc4","e":"wave"},{"n":"Engine","t":"opt","o":["grains"],"lo":null,"hi":null,"d":0.5,"L":"cloud","e":null},{"n":"Level","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"cloud","e":null},{"n":"Cutoff","t":"pct","o":null,"lo":null,"hi":null,"d":1.0,"L":"cloud","e":null},{"n":"Reso","t":"pct","o":null,"lo":null,"hi":null,"d":0.1,"L":"cloud","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"cloud","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"cloud","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"cloud","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"cloud","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"cloud","e":null},{"n":"Rate","t":"opt","o":["loop","16bar","8bar","4bar","2bar","1bar","1/2","1/4","0.02Hz","0.05Hz","0.1Hz","0.2Hz","0.5Hz","1Hz","2Hz","4Hz"],"lo":null,"hi":null,"d":0.65625,"L":"cloud","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"cloud","e":null},{"n":"Shape","t":"opt","o":["sine","tri","saw up","saw dn","square","steps","rnd sm","rnd st"],"lo":null,"hi":null,"d":0.0625,"L":"cloud","e":null},{"n":"Target","t":"tgt","o":null,"lo":null,"hi":null,"d":0.015625,"L":"cloud","e":null},{"n":"Depth","t":"pct","o":null,"lo":null,"hi":null,"d":0.5,"L":"cloud","e":null},{"n":"ZoneLo","t":"num","o":null,"lo":0,"hi":127,"d":1.0,"L":"cloud","e":null},{"n":"ZoneHi","t":"num","o":null,"lo":0,"hi":127,"d":0.0,"L":"cloud","e":null},{"n":"Evolve","t":"pct","o":null,"lo":null,"hi":null,"d":0.6,"L":"cloud","e":null},{"n":"Pace","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"cloud","e":null},{"n":"EvSync","t":"opt","o":["free","bars"],"lo":null,"hi":null,"d":0.25,"L":"cloud","e":null},{"n":"Size","t":"pct","o":null,"lo":null,"hi":null,"d":0.55,"L":"cloud","e":"grains"},{"n":"Densty","t":"pct","o":null,"lo":null,"hi":null,"d":1.0,"L":"cloud","e":"grains"},{"n":"Pitch","t":"opt","o":["unison","octaves","fifths","chord","shimmr"],"lo":null,"hi":null,"d":0.1,"L":"cloud","e":"grains"},{"n":"Spread","t":"pct","o":null,"lo":null,"hi":null,"d":0.9,"L":"cloud","e":"grains"},{"n":"Scan","t":"pct","o":null,"lo":null,"hi":null,"d":0.15,"L":"cloud","e":"grains"},{"n":"Jitter","t":"pct","o":null,"lo":null,"hi":null,"d":0.7,"L":"cloud","e":"grains"},{"n":"Revrse","t":"pct","o":null,"lo":null,"hi":null,"d":0.2,"L":"cloud","e":"grains"},{"n":"Source","t":"opt","o":["layers","input","both"],"lo":null,"hi":null,"d":0.166667,"L":"cloud","e":"grains"}],"layers":[{"id":"drone","label":"DRONE","short":"Dr","engines":["analog","fm","spectr","frost","choir","bowed","gendy"],"eng":39,"latch":true,"pages":{"analog":[["FAV",[39,85,86,87]],["LAYER",[39,40,41,42]],["ANALOG 1",[85,86,87,88]],["ANALOG 2",[89,90,91,92]],["ANALOG 3",[93,94,95,96]],["ENV",[43,44,45,46]],["PLAY",[47,48,49,50]],["GATE",[51,52,53,54]],["GATE 2",[55,56,57,58]],["GATENV",[59,60,61,62]],["FEEL",[63,64,-1,-1]],["LFO 1",[65,66,67,68]],["LFO 2",[69,70,71,72]],["BREATH",[73,74,75,76]],["EVOLVE",[77,78,79,80]],["LOOP",[81,82,83,84]]],"fm":[["FAV",[39,97,98,99]],["LAYER",[39,40,41,42]],["FM 1",[97,98,99,100]],["FM 2",[101,102,103,-1]],["ENV",[43,44,45,46]],["PLAY",[47,48,49,50]],["GATE",[51,52,53,54]],["GATE 2",[55,56,57,58]],["GATENV",[59,60,61,62]],["FEEL",[63,64,-1,-1]],["LFO 1",[65,66,67,68]],["LFO 2",[69,70,71,72]],["BREATH",[73,74,75,76]],["EVOLVE",[77,78,79,80]],["LOOP",[81,82,83,84]]],"spectr":[["FAV",[39,104,105,106]],["LAYER",[39,40,41,42]],["SPECTR 1",[104,105,106,107]],["SPECTR 2",[108,109,-1,-1]],["ENV",[43,44,45,46]],["PLAY",[47,48,49,50]],["GATE",[51,52,53,54]],["GATE 2",[55,56,57,58]],["GATENV",[59,60,61,62]],["FEEL",[63,64,-1,-1]],["LFO 1",[65,66,67,68]],["LFO 2",[69,70,71,72]],["BREATH",[73,74,75,76]],["EVOLVE",[77,78,79,80]],["LOOP",[81,82,83,84]]],"frost":[["FAV",[39,110,111,112]],["LAYER",[39,40,41,42]],["FROST 1",[110,111,112,113]],["ENV",[43,44,45,46]],["PLAY",[47,48,49,50]],["GATE",[51,52,53,54]],["GATE 2",[55,56,57,58]],["GATENV",[59,60,61,62]],["FEEL",[63,64,-1,-1]],["LFO 1",[65,66,67,68]],["LFO 2",[69,70,71,72]],["BREATH",[73,74,75,76]],["EVOLVE",[77,78,79,80]],["LOOP",[81,82,83,84]]],"choir":[["FAV",[39,114,115,116]],["LAYER",[39,40,41,42]],["CHOIR 1",[114,115,116,117]],["ENV",[43,44,45,46]],["PLAY",[47,48,49,50]],["GATE",[51,52,53,54]],["GATE 2",[55,56,57,58]],["GATENV",[59,60,61,62]],["FEEL",[63,64,-1,-1]],["LFO 1",[65,66,67,68]],["LFO 2",[69,70,71,72]],["BREATH",[73,74,75,76]],["EVOLVE",[77,78,79,80]],["LOOP",[81,82,83,84]]],"bowed":[["FAV",[39,118,119,120]],["LAYER",[39,40,41,42]],["BOWED 1",[118,119,120,121]],["ENV",[43,44,45,46]],["PLAY",[47,48,49,50]],["GATE",[51,52,53,54]],["GATE 2",[55,56,57,58]],["GATENV",[59,60,61,62]],["FEEL",[63,64,-1,-1]],["LFO 1",[65,66,67,68]],["LFO 2",[69,70,71,72]],["BREATH",[73,74,75,76]],["EVOLVE",[77,78,79,80]],["LOOP",[81,82,83,84]]],"gendy":[["FAV",[39,122,123,124]],["LAYER",[39,40,41,42]],["GENDY 1",[122,123,124,-1]],["ENV",[43,44,45,46]],["PLAY",[47,48,49,50]],["GATE",[51,52,53,54]],["GATE 2",[55,56,57,58]],["GATENV",[59,60,61,62]],["FEEL",[63,64,-1,-1]],["LFO 1",[65,66,67,68]],["LFO 2",[69,70,71,72]],["BREATH",[73,74,75,76]],["EVOLVE",[77,78,79,80]],["LOOP",[81,82,83,84]]]},"targets":{"analog":[85,86,87,88,89,90,91,92,93,94,95,96,41,40,50,43,44,45,46,59,60,61,62,56,63],"fm":[97,98,99,100,101,102,103,41,40,50,43,44,45,46,59,60,61,62,56,63],"spectr":[104,105,106,107,108,109,41,40,50,43,44,45,46,59,60,61,62,56,63],"frost":[110,111,112,113,41,40,50,43,44,45,46,59,60,61,62,56,63],"choir":[114,115,116,117,41,40,50,43,44,45,46,59,60,61,62,56,63],"bowed":[118,119,120,121,41,40,50,43,44,45,46,59,60,61,62,56,63],"gendy":[122,123,124,41,40,50,43,44,45,46,59,60,61,62,56,63]}},{"id":"sub","label":"SUB","short":"Sb","engines":["sine","warm","pulse","fm"],"eng":125,"latch":true,"pages":{"sine":[["FAV",[125,171,172,-1]],["LAYER",[125,126,127,128]],["SINE 1",[171,172,-1,-1]],["ENV",[129,130,131,132]],["PLAY",[133,134,135,136]],["GATE",[137,138,139,140]],["GATE 2",[141,142,143,144]],["GATENV",[145,146,147,148]],["FEEL",[149,150,-1,-1]],["LFO 1",[151,152,153,154]],["LFO 2",[155,156,157,158]],["BREATH",[159,160,161,162]],["EVOLVE",[163,164,165,166]],["LOOP",[167,168,169,170]]],"warm":[["FAV",[125,173,174,-1]],["LAYER",[125,126,127,128]],["WARM 1",[173,174,-1,-1]],["ENV",[129,130,131,132]],["PLAY",[133,134,135,136]],["GATE",[137,138,139,140]],["GATE 2",[141,142,143,144]],["GATENV",[145,146,147,148]],["FEEL",[149,150,-1,-1]],["LFO 1",[151,152,153,154]],["LFO 2",[155,156,157,158]],["BREATH",[159,160,161,162]],["EVOLVE",[163,164,165,166]],["LOOP",[167,168,169,170]]],"pulse":[["FAV",[125,175,176,-1]],["LAYER",[125,126,127,128]],["PULSE 1",[175,176,-1,-1]],["ENV",[129,130,131,132]],["PLAY",[133,134,135,136]],["GATE",[137,138,139,140]],["GATE 2",[141,142,143,144]],["GATENV",[145,146,147,148]],["FEEL",[149,150,-1,-1]],["LFO 1",[151,152,153,154]],["LFO 2",[155,156,157,158]],["BREATH",[159,160,161,162]],["EVOLVE",[163,164,165,166]],["LOOP",[167,168,169,170]]],"fm":[["FAV",[125,177,178,179]],["LAYER",[125,126,127,128]],["FM 1",[177,178,179,180]],["ENV",[129,130,131,132]],["PLAY",[133,134,135,136]],["GATE",[137,138,139,140]],["GATE 2",[141,142,143,144]],["GATENV",[145,146,147,148]],["FEEL",[149,150,-1,-1]],["LFO 1",[151,152,153,154]],["LFO 2",[155,156,157,158]],["BREATH",[159,160,161,162]],["EVOLVE",[163,164,165,166]],["LOOP",[167,168,169,170]]]},"targets":{"sine":[171,172,127,126,136,129,130,131,132,145,146,147,148,142,149],"warm":[173,174,127,126,136,129,130,131,132,145,146,147,148,142,149],"pulse":[175,176,127,126,136,129,130,131,132,145,146,147,148,142,149],"fm":[177,178,179,180,127,126,136,129,130,131,132,145,146,147,148,142,149]}},{"id":"pad","label":"PADS","short":"Pd","engines":["sine","fm","saws","pwm","wave","vox","part","fold","pulsr","sync","cz","choir","vosim","lissa","chip","vector"],"eng":181,"latch":true,"pages":{"sine":[["FAV",[181,231,232,233]],["LAYER",[181,182,183,184]],["SINE 1",[231,232,233,234]],["SINE 2",[235,-1,-1,-1]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"fm":[["FAV",[181,236,237,238]],["LAYER",[181,182,183,184]],["FM 1",[236,237,238,239]],["FM 2",[240,241,-1,-1]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"saws":[["FAV",[181,242,243,244]],["LAYER",[181,182,183,184]],["SAWS 1",[242,243,244,245]],["SAWS 2",[246,247,-1,-1]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"pwm":[["FAV",[181,248,249,250]],["LAYER",[181,182,183,184]],["PWM 1",[248,249,250,251]],["PWM 2",[252,253,-1,-1]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"wave":[["FAV",[181,254,255,256]],["LAYER",[181,182,183,184]],["WAVE 1",[254,255,256,257]],["WAVE 2",[258,-1,-1,-1]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"vox":[["FAV",[181,259,260,261]],["LAYER",[181,182,183,184]],["VOX 1",[259,260,261,262]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"part":[["FAV",[181,263,264,265]],["LAYER",[181,182,183,184]],["PART 1",[263,264,265,266]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"fold":[["FAV",[181,267,268,269]],["LAYER",[181,182,183,184]],["FOLD 1",[267,268,269,270]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"pulsr":[["FAV",[181,271,272,273]],["LAYER",[181,182,183,184]],["PULSR 1",[271,272,273,274]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"sync":[["FAV",[181,275,276,277]],["LAYER",[181,182,183,184]],["SYNC 1",[275,276,277,278]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"cz":[["FAV",[181,279,280,281]],["LAYER",[181,182,183,184]],["CZ 1",[279,280,281,282]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"choir":[["FAV",[181,283,284,285]],["LAYER",[181,182,183,184]],["CHOIR 1",[283,284,285,286]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"vosim":[["FAV",[181,287,288,289]],["LAYER",[181,182,183,184]],["VOSIM 1",[287,288,289,290]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"lissa":[["FAV",[181,291,292,293]],["LAYER",[181,182,183,184]],["LISSA 1",[291,292,293,294]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"chip":[["FAV",[181,295,296,297]],["LAYER",[181,182,183,184]],["CHIP 1",[295,296,297,298]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]],"vector":[["FAV",[181,299,300,301]],["LAYER",[181,182,183,184]],["VECTOR 1",[299,300,301,302]],["VECTOR 2",[303,-1,-1,-1]],["ENV",[185,186,187,188]],["PLAY",[189,190,191,192]],["GATE",[193,194,195,196]],["GATE 2",[197,198,199,200]],["LINES",[201,202,203,204]],["GATENV",[205,206,207,208]],["FEEL",[209,210,-1,-1]],["LFO 1",[211,212,213,214]],["LFO 2",[215,216,217,218]],["BREATH",[219,220,221,222]],["EVOLVE",[223,224,225,226]],["LOOP",[227,228,229,230]]]},"targets":{"sine":[231,232,233,234,235,183,182,192,185,186,187,188,205,206,207,208,198,209],"fm":[236,237,238,239,240,241,183,182,192,185,186,187,188,205,206,207,208,198,209],"saws":[242,243,244,245,246,247,183,182,192,185,186,187,188,205,206,207,208,198,209],"pwm":[248,249,250,251,252,253,183,182,192,185,186,187,188,205,206,207,208,198,209],"wave":[254,255,256,257,258,183,182,192,185,186,187,188,205,206,207,208,198,209],"vox":[259,260,261,262,183,182,192,185,186,187,188,205,206,207,208,198,209],"part":[263,264,265,266,183,182,192,185,186,187,188,205,206,207,208,198,209],"fold":[267,268,269,270,183,182,192,185,186,187,188,205,206,207,208,198,209],"pulsr":[271,272,273,274,183,182,192,185,186,187,188,205,206,207,208,198,209],"sync":[275,276,277,278,183,182,192,185,186,187,188,205,206,207,208,198,209],"cz":[279,280,281,282,183,182,192,185,186,187,188,205,206,207,208,198,209],"choir":[283,284,285,286,183,182,192,185,186,187,188,205,206,207,208,198,209],"vosim":[287,288,289,290,183,182,192,185,186,187,188,205,206,207,208,198,209],"lissa":[291,292,293,294,183,182,192,185,186,187,188,205,206,207,208,198,209],"chip":[295,296,297,298,183,182,192,185,186,187,188,205,206,207,208,198,209],"vector":[299,300,301,302,303,183,182,192,185,186,187,188,205,206,207,208,198,209]}},{"id":"perc1","label":"PERC1","short":"P1","engines":["blip","lpg","bowl","wood","metal","wave"],"eng":304,"latch":false,"pages":{"blip":[["FAV",[304,343,344,345]],["LAYER",[304,305,306,307]],["BLIP 1",[343,344,345,346]],["BLIP 2",[347,348,-1,-1]],["HIT",[308,309,310,311]],["RHYTHM",[312,313,314,315]],["MOTION",[316,317,318,319]],["MOTIF",[320,321,-1,-1]],["FEEL",[322,323,-1,-1]],["LFO 1",[324,325,326,327]],["LFO 2",[328,329,330,331]],["BREATH",[332,333,334,335]],["EVOLVE",[336,337,338,-1]],["LOOP",[339,340,341,342]]],"lpg":[["FAV",[304,349,350,351]],["LAYER",[304,305,306,307]],["LPG 1",[349,350,351,352]],["LPG 2",[353,-1,-1,-1]],["HIT",[308,309,310,311]],["RHYTHM",[312,313,314,315]],["MOTION",[316,317,318,319]],["MOTIF",[320,321,-1,-1]],["FEEL",[322,323,-1,-1]],["LFO 1",[324,325,326,327]],["LFO 2",[328,329,330,331]],["BREATH",[332,333,334,335]],["EVOLVE",[336,337,338,-1]],["LOOP",[339,340,341,342]]],"bowl":[["FAV",[304,354,355,356]],["LAYER",[304,305,306,307]],["BOWL 1",[354,355,356,357]],["HIT",[308,309,310,311]],["RHYTHM",[312,313,314,315]],["MOTION",[316,317,318,319]],["MOTIF",[320,321,-1,-1]],["FEEL",[322,323,-1,-1]],["LFO 1",[324,325,326,327]],["LFO 2",[328,329,330,331]],["BREATH",[332,333,334,335]],["EVOLVE",[336,337,338,-1]],["LOOP",[339,340,341,342]]],"wood":[["FAV",[304,358,359,360]],["LAYER",[304,305,306,307]],["WOOD 1",[358,359,360,-1]],["HIT",[308,309,310,311]],["RHYTHM",[312,313,314,315]],["MOTION",[316,317,318,319]],["MOTIF",[320,321,-1,-1]],["FEEL",[322,323,-1,-1]],["LFO 1",[324,325,326,327]],["LFO 2",[328,329,330,331]],["BREATH",[332,333,334,335]],["EVOLVE",[336,337,338,-1]],["LOOP",[339,340,341,342]]],"metal":[["FAV",[304,361,362,363]],["LAYER",[304,305,306,307]],["METAL 1",[361,362,363,364]],["HIT",[308,309,310,311]],["RHYTHM",[312,313,314,315]],["MOTION",[316,317,318,319]],["MOTIF",[320,321,-1,-1]],["FEEL",[322,323,-1,-1]],["LFO 1",[324,325,326,327]],["LFO 2",[328,329,330,331]],["BREATH",[332,333,334,335]],["EVOLVE",[336,337,338,-1]],["LOOP",[339,340,341,342]]],"wave":[["FAV",[304,365,366,367]],["LAYER",[304,305,306,307]],["WAVE 1",[365,366,367,368]],["HIT",[308,309,310,311]],["RHYTHM",[312,313,314,315]],["MOTION",[316,317,318,319]],["MOTIF",[320,321,-1,-1]],["FEEL",[322,323,-1,-1]],["LFO 1",[324,325,326,327]],["LFO 2",[328,329,330,331]],["BREATH",[332,333,334,335]],["EVOLVE",[336,337,338,-1]],["LOOP",[339,340,341,342]]]},"targets":{"blip":[343,344,345,346,347,348,306,305,317,308,318,309,322],"lpg":[349,350,351,352,353,306,305,317,308,318,309,322],"bowl":[354,355,356,357,306,305,317,308,318,309,322],"wood":[358,359,360,306,305,317,308,318,309,322],"metal":[361,362,363,364,306,305,317,308,318,309,322],"wave":[365,366,367,368,306,305,317,308,318,309,322]}},{"id":"perc2","label":"PERC2","short":"P2","engines":["blip","lpg","bowl","wood","metal","wave"],"eng":369,"latch":false,"pages":{"blip":[["FAV",[369,408,409,410]],["LAYER",[369,370,371,372]],["BLIP 1",[408,409,410,411]],["BLIP 2",[412,413,-1,-1]],["HIT",[373,374,375,376]],["RHYTHM",[377,378,379,380]],["MOTION",[381,382,383,384]],["MOTIF",[385,386,-1,-1]],["FEEL",[387,388,-1,-1]],["LFO 1",[389,390,391,392]],["LFO 2",[393,394,395,396]],["BREATH",[397,398,399,400]],["EVOLVE",[401,402,403,-1]],["LOOP",[404,405,406,407]]],"lpg":[["FAV",[369,414,415,416]],["LAYER",[369,370,371,372]],["LPG 1",[414,415,416,417]],["LPG 2",[418,-1,-1,-1]],["HIT",[373,374,375,376]],["RHYTHM",[377,378,379,380]],["MOTION",[381,382,383,384]],["MOTIF",[385,386,-1,-1]],["FEEL",[387,388,-1,-1]],["LFO 1",[389,390,391,392]],["LFO 2",[393,394,395,396]],["BREATH",[397,398,399,400]],["EVOLVE",[401,402,403,-1]],["LOOP",[404,405,406,407]]],"bowl":[["FAV",[369,419,420,421]],["LAYER",[369,370,371,372]],["BOWL 1",[419,420,421,422]],["HIT",[373,374,375,376]],["RHYTHM",[377,378,379,380]],["MOTION",[381,382,383,384]],["MOTIF",[385,386,-1,-1]],["FEEL",[387,388,-1,-1]],["LFO 1",[389,390,391,392]],["LFO 2",[393,394,395,396]],["BREATH",[397,398,399,400]],["EVOLVE",[401,402,403,-1]],["LOOP",[404,405,406,407]]],"wood":[["FAV",[369,423,424,425]],["LAYER",[369,370,371,372]],["WOOD 1",[423,424,425,-1]],["HIT",[373,374,375,376]],["RHYTHM",[377,378,379,380]],["MOTION",[381,382,383,384]],["MOTIF",[385,386,-1,-1]],["FEEL",[387,388,-1,-1]],["LFO 1",[389,390,391,392]],["LFO 2",[393,394,395,396]],["BREATH",[397,398,399,400]],["EVOLVE",[401,402,403,-1]],["LOOP",[404,405,406,407]]],"metal":[["FAV",[369,426,427,428]],["LAYER",[369,370,371,372]],["METAL 1",[426,427,428,429]],["HIT",[373,374,375,376]],["RHYTHM",[377,378,379,380]],["MOTION",[381,382,383,384]],["MOTIF",[385,386,-1,-1]],["FEEL",[387,388,-1,-1]],["LFO 1",[389,390,391,392]],["LFO 2",[393,394,395,396]],["BREATH",[397,398,399,400]],["EVOLVE",[401,402,403,-1]],["LOOP",[404,405,406,407]]],"wave":[["FAV",[369,430,431,432]],["LAYER",[369,370,371,372]],["WAVE 1",[430,431,432,433]],["HIT",[373,374,375,376]],["RHYTHM",[377,378,379,380]],["MOTION",[381,382,383,384]],["MOTIF",[385,386,-1,-1]],["FEEL",[387,388,-1,-1]],["LFO 1",[389,390,391,392]],["LFO 2",[393,394,395,396]],["BREATH",[397,398,399,400]],["EVOLVE",[401,402,403,-1]],["LOOP",[404,405,406,407]]]},"targets":{"blip":[408,409,410,411,412,413,371,370,382,373,383,374,387],"lpg":[414,415,416,417,418,371,370,382,373,383,374,387],"bowl":[419,420,421,422,371,370,382,373,383,374,387],"wood":[423,424,425,371,370,382,373,383,374,387],"metal":[426,427,428,429,371,370,382,373,383,374,387],"wave":[430,431,432,433,371,370,382,373,383,374,387]}},{"id":"perc3","label":"PERC3","short":"P3","engines":["blip","lpg","bowl","wood","metal","wave"],"eng":434,"latch":false,"pages":{"blip":[["FAV",[434,473,474,475]],["LAYER",[434,435,436,437]],["BLIP 1",[473,474,475,476]],["BLIP 2",[477,478,-1,-1]],["HIT",[438,439,440,441]],["RHYTHM",[442,443,444,445]],["MOTION",[446,447,448,449]],["MOTIF",[450,451,-1,-1]],["FEEL",[452,453,-1,-1]],["LFO 1",[454,455,456,457]],["LFO 2",[458,459,460,461]],["BREATH",[462,463,464,465]],["EVOLVE",[466,467,468,-1]],["LOOP",[469,470,471,472]]],"lpg":[["FAV",[434,479,480,481]],["LAYER",[434,435,436,437]],["LPG 1",[479,480,481,482]],["LPG 2",[483,-1,-1,-1]],["HIT",[438,439,440,441]],["RHYTHM",[442,443,444,445]],["MOTION",[446,447,448,449]],["MOTIF",[450,451,-1,-1]],["FEEL",[452,453,-1,-1]],["LFO 1",[454,455,456,457]],["LFO 2",[458,459,460,461]],["BREATH",[462,463,464,465]],["EVOLVE",[466,467,468,-1]],["LOOP",[469,470,471,472]]],"bowl":[["FAV",[434,484,485,486]],["LAYER",[434,435,436,437]],["BOWL 1",[484,485,486,487]],["HIT",[438,439,440,441]],["RHYTHM",[442,443,444,445]],["MOTION",[446,447,448,449]],["MOTIF",[450,451,-1,-1]],["FEEL",[452,453,-1,-1]],["LFO 1",[454,455,456,457]],["LFO 2",[458,459,460,461]],["BREATH",[462,463,464,465]],["EVOLVE",[466,467,468,-1]],["LOOP",[469,470,471,472]]],"wood":[["FAV",[434,488,489,490]],["LAYER",[434,435,436,437]],["WOOD 1",[488,489,490,-1]],["HIT",[438,439,440,441]],["RHYTHM",[442,443,444,445]],["MOTION",[446,447,448,449]],["MOTIF",[450,451,-1,-1]],["FEEL",[452,453,-1,-1]],["LFO 1",[454,455,456,457]],["LFO 2",[458,459,460,461]],["BREATH",[462,463,464,465]],["EVOLVE",[466,467,468,-1]],["LOOP",[469,470,471,472]]],"metal":[["FAV",[434,491,492,493]],["LAYER",[434,435,436,437]],["METAL 1",[491,492,493,494]],["HIT",[438,439,440,441]],["RHYTHM",[442,443,444,445]],["MOTION",[446,447,448,449]],["MOTIF",[450,451,-1,-1]],["FEEL",[452,453,-1,-1]],["LFO 1",[454,455,456,457]],["LFO 2",[458,459,460,461]],["BREATH",[462,463,464,465]],["EVOLVE",[466,467,468,-1]],["LOOP",[469,470,471,472]]],"wave":[["FAV",[434,495,496,497]],["LAYER",[434,435,436,437]],["WAVE 1",[495,496,497,498]],["HIT",[438,439,440,441]],["RHYTHM",[442,443,444,445]],["MOTION",[446,447,448,449]],["MOTIF",[450,451,-1,-1]],["FEEL",[452,453,-1,-1]],["LFO 1",[454,455,456,457]],["LFO 2",[458,459,460,461]],["BREATH",[462,463,464,465]],["EVOLVE",[466,467,468,-1]],["LOOP",[469,470,471,472]]]},"targets":{"blip":[473,474,475,476,477,478,436,435,447,438,448,439,452],"lpg":[479,480,481,482,483,436,435,447,438,448,439,452],"bowl":[484,485,486,487,436,435,447,438,448,439,452],"wood":[488,489,490,436,435,447,438,448,439,452],"metal":[491,492,493,494,436,435,447,438,448,439,452],"wave":[495,496,497,498,436,435,447,438,448,439,452]}},{"id":"perc4","label":"PERC4","short":"P4","engines":["blip","lpg","bowl","wood","metal","wave"],"eng":499,"latch":false,"pages":{"blip":[["FAV",[499,538,539,540]],["LAYER",[499,500,501,502]],["BLIP 1",[538,539,540,541]],["BLIP 2",[542,543,-1,-1]],["HIT",[503,504,505,506]],["RHYTHM",[507,508,509,510]],["MOTION",[511,512,513,514]],["MOTIF",[515,516,-1,-1]],["FEEL",[517,518,-1,-1]],["LFO 1",[519,520,521,522]],["LFO 2",[523,524,525,526]],["BREATH",[527,528,529,530]],["EVOLVE",[531,532,533,-1]],["LOOP",[534,535,536,537]]],"lpg":[["FAV",[499,544,545,546]],["LAYER",[499,500,501,502]],["LPG 1",[544,545,546,547]],["LPG 2",[548,-1,-1,-1]],["HIT",[503,504,505,506]],["RHYTHM",[507,508,509,510]],["MOTION",[511,512,513,514]],["MOTIF",[515,516,-1,-1]],["FEEL",[517,518,-1,-1]],["LFO 1",[519,520,521,522]],["LFO 2",[523,524,525,526]],["BREATH",[527,528,529,530]],["EVOLVE",[531,532,533,-1]],["LOOP",[534,535,536,537]]],"bowl":[["FAV",[499,549,550,551]],["LAYER",[499,500,501,502]],["BOWL 1",[549,550,551,552]],["HIT",[503,504,505,506]],["RHYTHM",[507,508,509,510]],["MOTION",[511,512,513,514]],["MOTIF",[515,516,-1,-1]],["FEEL",[517,518,-1,-1]],["LFO 1",[519,520,521,522]],["LFO 2",[523,524,525,526]],["BREATH",[527,528,529,530]],["EVOLVE",[531,532,533,-1]],["LOOP",[534,535,536,537]]],"wood":[["FAV",[499,553,554,555]],["LAYER",[499,500,501,502]],["WOOD 1",[553,554,555,-1]],["HIT",[503,504,505,506]],["RHYTHM",[507,508,509,510]],["MOTION",[511,512,513,514]],["MOTIF",[515,516,-1,-1]],["FEEL",[517,518,-1,-1]],["LFO 1",[519,520,521,522]],["LFO 2",[523,524,525,526]],["BREATH",[527,528,529,530]],["EVOLVE",[531,532,533,-1]],["LOOP",[534,535,536,537]]],"metal":[["FAV",[499,556,557,558]],["LAYER",[499,500,501,502]],["METAL 1",[556,557,558,559]],["HIT",[503,504,505,506]],["RHYTHM",[507,508,509,510]],["MOTION",[511,512,513,514]],["MOTIF",[515,516,-1,-1]],["FEEL",[517,518,-1,-1]],["LFO 1",[519,520,521,522]],["LFO 2",[523,524,525,526]],["BREATH",[527,528,529,530]],["EVOLVE",[531,532,533,-1]],["LOOP",[534,535,536,537]]],"wave":[["FAV",[499,560,561,562]],["LAYER",[499,500,501,502]],["WAVE 1",[560,561,562,563]],["HIT",[503,504,505,506]],["RHYTHM",[507,508,509,510]],["MOTION",[511,512,513,514]],["MOTIF",[515,516,-1,-1]],["FEEL",[517,518,-1,-1]],["LFO 1",[519,520,521,522]],["LFO 2",[523,524,525,526]],["BREATH",[527,528,529,530]],["EVOLVE",[531,532,533,-1]],["LOOP",[534,535,536,537]]]},"targets":{"blip":[538,539,540,541,542,543,501,500,512,503,513,504,517],"lpg":[544,545,546,547,548,501,500,512,503,513,504,517],"bowl":[549,550,551,552,501,500,512,503,513,504,517],"wood":[553,554,555,501,500,512,503,513,504,517],"metal":[556,557,558,559,501,500,512,503,513,504,517],"wave":[560,561,562,563,501,500,512,503,513,504,517]}},{"id":"cloud","label":"CLOUD","short":"Cl","engines":["grains"],"eng":564,"latch":false,"pages":{"grains":[["FAV",[583,584,585,586]],["LAYER",[564,565,566,567]],["GRAINS 1",[583,584,585,586]],["GRAINS 2",[587,588,589,590]],["LFO 1",[568,569,570,571]],["LFO 2",[572,573,574,575]],["BREATH",[576,577,578,579]],["EVOLVE",[580,581,582,-1]]]},"targets":{"grains":[583,584,585,586,587,588,589,590,566,565]}}],"fav0":[39,85,86,87,39,97,98,99,39,104,105,106,39,110,111,112,39,114,115,116,39,118,119,120,39,122,123,124,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,125,171,172,-1,125,173,174,-1,125,175,176,-1,125,177,178,179,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,181,231,232,233,181,236,237,238,181,242,243,244,181,248,249,250,181,254,255,256,181,259,260,261,181,263,264,265,181,267,268,269,181,271,272,273,181,275,276,277,181,279,280,281,181,283,284,285,181,287,288,289,181,291,292,293,181,295,296,297,181,299,300,301,304,343,344,345,304,349,350,351,304,354,355,356,304,358,359,360,304,361,362,363,304,365,366,367,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,369,408,409,410,369,414,415,416,369,419,420,421,369,423,424,425,369,426,427,428,369,430,431,432,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,434,473,474,475,434,479,480,481,434,484,485,486,434,488,489,490,434,491,492,493,434,495,496,497,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,499,538,539,540,499,544,545,546,499,549,550,551,499,553,554,555,499,556,557,558,499,560,561,562,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,583,584,585,586,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],"latch0":[1,1,1,0,0,0,0,0],"in0":[1,1,1,1,0,0,0,0],"gpages":[["MAIN",[0,1,2,3],[-1,-1,-1,-1]],["LAYERS",[39,125,181,590],[0,1,2,7]],["LANES",[304,369,434,499],[3,4,5,6]],["PIECE",[4,5,6],[-1,-1,-1]],["INPUT",[7,8,9],[-1,-1,-1]],["STORY",[10,11,12,13],[-1,-1,-1,-1]],["SYNC",[14,15],[-1,-1]],["MIDI",[16,17,18,19],[-1,-1,-1,-1]],["MIDI 2",[20,21],[-1,-1]],["PERFRM",[22,23,24,25],[-1,-1,-1,-1]],["HARMNY",[26,27,28],[-1,-1,-1]],["ROAD",[29,30,31,32],[-1,-1,-1,-1]],["ROAD 2",[33,34],[-1,-1]],["SECTN",[35,36,37,38],[-1,-1,-1,-1]],["MIX 1",[40,126,182,565],[0,1,2,7]],["MIX 2",[305,370,435,500],[3,4,5,6]],["MIX 3",[24],[-1]]],"rhythm":[{"layer":0,"steps":53,"patt":51,"tapped":2},{"layer":1,"steps":139,"patt":137,"tapped":2},{"layer":2,"steps":195,"patt":193,"tapped":2},{"layer":3,"steps":313,"patt":319,"tapped":1},{"layer":4,"steps":378,"patt":384,"tapped":1},{"layer":5,"steps":443,"patt":449,"tapped":1},{"layer":6,"steps":508,"patt":514,"tapped":1}],"layout":{"nslots":591,"nl":8,"maxeng":16,"latch":591,"inn":599,"fav":607,"favn":512,"tap":1119,"tapn":112,"snap":1231,"piece":1280,"maxsec":12,"pieces":8,"saves":16,"saveLines":18},"modeSlot":3,"scaleSlot":2,"scaleModes":[["ionian","dorian","phrygian","lydian","mixolyd","aeolian","locrian"],["harmin","locr#6","ion#5","dor#4","phrdom","lyd#2","altbb7"],["melmin","dorb2","lydaug","lyddom","mixob6","locr#2","altered"],["majpent","suspent","mangong","ritusen","minpent"]],"key":0,"tempo":1,"roles":["emerge","establish","develop","intensify","climax","break","return","dissolve"],"arcs":["arch","build","waves","twin","journey"],"arcRoles":[[0,1,2,3,4,2,7],[0,1,2,2,3,3,4,7],[0,2,5,2,3,5,4,7],[0,3,4,5,3,4,7],[0,1,2,5,3,4,6,7]],"weights":[1,1,1.5,1,1,0.7,1,1],"tension":[0.6,0.8,1.0,1.2,1.4,0.9,0.8,0.5],"masks":[[1,1,3],[7,7,15],[135,143,159],[15,63,127],[143,191,255],[129,133,149],[7,15,47],[1,129,133]],"pools":[[20,22,24,0,4,21,28,29],[0,15,16,17,27,26,7,1],[25,30,31,32,33,13,12,34]],"stories":["modal","home","descend","circle","pedal","rise","still","axis","canon","ii-V-I","circle7","plagal","andalus","epic","minor4","dorvamp","mixvamp","lydfloat","phrvamp","aeolvmp","float","gymno","suspend","newage","still6","mediant","diamed","minimal","planing","sus","neoriem","hexaton","thirds","octaton","tritone","quartal","wholetn","own"],"llabels":["DRONE","SUB","PADS","PERC1","PERC2","PERC3","PERC4","CLOUD"],"short":["Dr","Sb","Pd","P1","P2","P3","P4","Cl"]};
+
+const C = (() => {
+  const Y = D.layout;
+  const q = v => Math.abs(v) < 5e-7 ? "0" : String(+(+v).toPrecision(6));
+  const lix = {}; D.layers.forEach((l, i) => lix[l.id] = i);
+  function defaults(kind) {
+    const r = new Array(kind === "piece" ? Y.piece : Y.snap).fill(0);
+    D.slots.forEach((s, i) => r[i] = s.d);
+    D.latch0.forEach((v, i) => r[Y.latch + i] = v);
+    D.in0.forEach((v, i) => r[Y.inn + i] = v);
+    D.fav0.forEach((v, i) => r[Y.fav + i] = v);
+    return r;
+  }
+  // a file: a record a line (Pd: 'write -c' - a line each, maybe blank lines between); '-1' an empty slot
+  function parse(text, len) {
+    return text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => {
+      const a = l.split(/\s+/).map(Number);
+      return a.length === len && a.every(Number.isFinite) ? a : null;
+    });
+  }
+  function kindOf(text) {
+    const lens = text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => l.split(/\s+/).length);
+    if (lens.includes(Y.piece)) return "piece";
+    if (lens.includes(Y.snap)) return "snap";
+    return null;
+  }
+  function write(recs) { return recs.map(r => r ? r.map(q).join(" ") : "-1").join("\n") + "\n"; }
+  function asPiece(r) {
+    const p = defaults("piece");
+    r.forEach((v, i) => { if (i < Y.piece) p[i] = v; });
+    return p;
+  }
+  const asSnap = r => r.slice(0, Y.snap);
+  // values, as the patch reads them
+  const layerOf = s => D.slots[s].L === "g" ? -1 : lix[D.slots[s].L];
+  function count(s, rec) {
+    if (s === D.modeSlot) return D.scaleModes[optIndex(D.scaleSlot, rec)].length;
+    return D.slots[s].o.length;
+  }
+  function optIndex(s, rec) { const n = count(s, rec); return Math.min(n - 1, Math.floor(rec[s] * n)); }
+  const engine = (rec, li) => D.layers[li].engines[optIndex(D.layers[li].eng, rec)];
+  const targets = (rec, li) => D.layers[li].targets[engine(rec, li)];
+  function targetIndex(s, rec) { const t = targets(rec, layerOf(s)); return Math.min(t.length, Math.floor(rec[s] * (t.length + 1))); }
+  function choices(s, rec) {
+    const sl = D.slots[s];
+    if (s === D.modeSlot) return D.scaleModes[optIndex(D.scaleSlot, rec)];
+    if (sl.t === "opt") return sl.o;
+    if (sl.t === "tgt") return ["off", ...targets(rec, layerOf(s)).map(name)];
+    return null;
+  }
+  function name(s) { const sl = D.slots[s]; return sl.e ? `${sl.n} (${sl.e})` : sl.n; }
+  function index(s, rec) { return D.slots[s].t === "tgt" ? targetIndex(s, rec) : optIndex(s, rec); }
+  function number(s, rec) {
+    const sl = D.slots[s];
+    return sl.t === "num" ? Math.trunc(sl.lo + rec[s] * (sl.hi - sl.lo) + 0.5) : Math.trunc(rec[s] * 100 + 0.5);
+  }
+  function text(s, rec) { const c = choices(s, rec); return c ? c[index(s, rec)] : String(number(s, rec)); }
+  function setIndex(s, rec, i) {
+    const n = D.slots[s].t === "tgt" ? targets(rec, layerOf(s)).length + 1 : count(s, rec);
+    rec[s] = +((i + 0.5) / n).toFixed(6);
+  }
+  function setNumber(s, rec, x) {
+    const sl = D.slots[s];
+    rec[s] = sl.t === "num" ? +((x - sl.lo) / (sl.hi - sl.lo)).toFixed(6) : +(x / 100).toFixed(6);
+  }
+  // the FAV page of a layer with an engine: 4 slots (-1: none)
+  const favAt = (li, ei, k) => Y.fav + (li * Y.maxeng + ei) * 4 + k;
+  // a piece's roadmap: its sections
+  function road(rec) {
+    const n = Math.max(0, Math.min(Y.maxsec, Math.trunc(rec[Y.snap] || 0))), b = Y.snap + 1, out = [];
+    for (let i = 0; i < n; i++)
+      out.push({ bars: rec[b + i], story: rec[b + Y.maxsec + i], mask: rec[b + 2 * Y.maxsec + i], role: rec[b + 3 * Y.maxsec + i] });
+    return out;
+  }
+  function setRoad(rec, secs) {
+    const b = Y.snap + 1;
+    rec[Y.snap] = secs.length;
+    for (let i = 0; i < Y.maxsec; i++) {
+      const s = secs[i] || { bars: 0, story: 0, mask: 0, role: 0 };
+      rec[b + i] = s.bars; rec[b + Y.maxsec + i] = s.story; rec[b + 2 * Y.maxsec + i] = s.mask; rec[b + 3 * Y.maxsec + i] = s.role;
+    }
+  }
+  return { Y, defaults, parse, kindOf, write, asPiece, asSnap, layerOf, engine, targets, choices, name, index, number,
+           text, setIndex, setNumber, favAt, road, setRoad, optIndex };
+})();
+
 const $ = id => document.getElementById(id);
-let secs = [], sel = 0;
-const int = x => Math.trunc(x);
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+const Y = C.Y;
+let lib = { pieces: new Array(Y.pieces).fill(null), saves: new Array(Y.saveLines).fill(null) };
+let cur = { kind: "piece", idx: 0 }, tab = "g", sel = 0, example = false, pending = null;
 
-D.arcs.forEach((a, i) => $("arc").add(new Option(a, i)));
+const rec = () => cur.kind === "piece" ? lib.pieces[cur.idx] : lib.saves[cur.idx];
+function setRec(r) { if (cur.kind === "piece") lib.pieces[cur.idx] = r; else lib.saves[cur.idx] = r; }
 
-// the patch's own rule (roadmap.py, al-rgen)
-function build() {
-  const mins = +$("mins").value, tempo = +$("tempo").value, a = +$("arc").value;
-  const tens = $("tens").value / 100, dens = $("dens").value / 100, v = +$("varia").value;
-  const roles = D.arcRoles[a], tot = mins * tempo / 4;
-  const sw = roles.reduce((s, r) => s + D.weights[r], 0), dt = Math.min(2, int(dens * 2.99));
-  secs = roles.map((r, i) => ({
-    role: r,
-    bars: Math.max(4, int(tot * D.weights[r] / sw / 4 + 0.5) * 4),
-    mask: D.masks[r][dt],
-    story: D.pools[Math.min(2, int(tens * D.tension[r] * 2.2))][(v * 5 + i * 3 + a) % 8],
-  }));
-  sel = 0; render(); save();
+// ---- persistence (this browser only)
+function store() { try { localStorage.setItem("al-lib", JSON.stringify({ lib, cur, tab })); } catch (e) {} }
+function restore() {
+  try {
+    const s = JSON.parse(localStorage.getItem("al-lib") || "null");
+    if (s && s.lib && s.lib.pieces.length === Y.pieces && s.lib.saves.length === Y.saveLines &&
+        [...s.lib.pieces, ...s.lib.saves].every(r => r === null || r.length === Y.piece || r.length === Y.snap)) {
+      lib = s.lib; cur = s.cur || cur; tab = s.tab || tab; return true;
+    }
+  } catch (e) {}
+  return false;
 }
 
-function render() {
-  const tempo = +$("tempo").value || 84, total = secs.reduce((s, x) => s + x.bars, 0);
-  const tl = $("timeline"); tl.replaceChildren();
+// ---- library
+function keys() {
+  const mk = (box, kind, n) => {
+    box.replaceChildren();
+    for (let i = 0; i < n; i++) {
+      const full = !!(kind === "piece" ? lib.pieces[i] : lib.saves[i]), on = cur.kind === kind && cur.idx === i;
+      const b = el("button", { type: "button", className: "key" + (full ? " full" : "") + (on ? " cur" : ""), textContent: i + 1,
+        title: `${kind === "piece" ? "Piece" : "Snapshot"} ${i + 1}${full ? "" : " (empty)"}` });
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.onclick = () => { cur = { kind, idx: i }; sel = 0; if (tab === "road" && kind !== "piece") tab = "g"; render(); };
+      box.append(b);
+    }
+  };
+  mk($("kp"), "piece", Y.pieces); mk($("ks"), "snap", Y.saves);
+}
+
+function load(text, fname) {
+  const k = C.kindOf(text) || (/save/i.test(fname || "") ? "snap" : /piece/i.test(fname || "") ? "piece" : null);
+  if (!k) { $("libstatus").textContent = "That file holds no piece or snapshot. Open pieces.txt or saves.txt from the AmbleLite folder."; return; }
+  const recs = C.parse(text, k === "piece" ? Y.piece : Y.snap);
+  if (k === "piece") { lib.pieces = Array.from({ length: Y.pieces }, (_, i) => recs[i] || null); cur = { kind: "piece", idx: Math.max(0, lib.pieces.findIndex(Boolean)) }; }
+  else { lib.saves = Array.from({ length: Y.saveLines }, (_, i) => recs[i] || null); cur = { kind: "snap", idx: Math.max(0, lib.saves.findIndex((r, i) => r && i < Y.saves)) }; }
+  example = false;
+  const n = (k === "piece" ? lib.pieces.slice(0, Y.pieces) : lib.saves.slice(0, Y.saves)).filter(Boolean).length;
+  $("libstatus").textContent = `Loaded ${k === "piece" ? "pieces.txt" : "saves.txt"}: ${n} ${k === "piece" ? "pieces" : "snapshots"}.`;
+  sel = 0; if (tab === "road" && k !== "piece") tab = "g"; render();
+}
+$("file").onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => load(r.result, f.name); r.readAsText(f); e.target.value = ""; };
+$("loadpaste").onclick = () => load($("paste").value, "");
+
+// ---- the editor
+function tabs() {
+  const r = rec(), bar = el("div", { className: "tabs", role: "tablist" });
+  const list = [["g", "GLOBAL"], ...D.layers.map((l, i) => [String(i), l.label]), ["rh", "RHYTHMS"]];
+  if (cur.kind === "piece") list.push(["road", "ROADMAP"]);
+  list.forEach(([id, txt]) => {
+    const b = el("button", { type: "button", className: "tab", textContent: txt, id: `tab-${id}` });
+    b.setAttribute("role", "tab"); b.setAttribute("aria-selected", tab === id ? "true" : "false");
+    if (/^\d+$/.test(id) && r && !r[Y.inn + +id]) { b.classList.add("out"); b.title = "Out of the mix"; }
+    b.onclick = () => { tab = id; sel = 0; render(); };
+    bar.append(b);
+  });
+  return bar;
+}
+
+function knob(s, label) {
+  const r = rec();
+  if (s < 0) return el("div", { className: "knob empty" }, el("span", { className: "nm", textContent: "—" }));
+  const sl = D.slots[s], ch = C.choices(s, r), id = `k-${s}`;
+  const nm = el("label", { className: "nm", htmlFor: id, textContent: label || sl.n, title: label || C.name(s) });
+  if (ch) {
+    const se = el("select", { id });
+    ch.forEach((c, i) => se.add(new Option(c, i)));
+    se.value = C.index(s, r);
+    se.onchange = () => { C.setIndex(s, r, +se.value); changed(sl.n === "Engine" || s === D.scaleSlot || s === D.layers[C.layerOf(s)]?.eng); };
+    return el("div", { className: "knob" }, nm, se);
+  }
+  const lo = sl.t === "num" ? sl.lo : 0, hi = sl.t === "num" ? sl.hi : 100;
+  const rg = el("input", { type: "range", id, min: lo, max: hi, step: 1, value: C.number(s, r) });
+  const val = el("output", { className: "val", textContent: C.number(s, r) });
+  rg.oninput = () => { C.setNumber(s, r, +rg.value); val.textContent = C.number(s, r); changed(false); };
+  return el("div", { className: "knob" }, nm, rg, val);
+}
+
+function page(title, slots, labels, extra) {
+  const p = el("div", { className: "page" }, el("h3", { textContent: title }));
+  if (extra) p.querySelector("h3").append(el("span", { textContent: extra }));
+  slots.forEach((s, k) => p.append(knob(s, labels ? labels[k] : null)));
+  return p;
+}
+
+function favPage(li) {
+  const r = rec(), L = D.layers[li], ei = C.optIndex(L.eng, r), e = L.engines[ei];
+  const cand = [...(L.engines.length > 1 ? [L.eng] : []), ...L.targets[e]];
+  const p = el("div", { className: "page" }, el("h3", { textContent: "FAV" }, el("span", { textContent: "your four" })));
+  for (let k = 0; k < 4; k++) {
+    const at = C.favAt(li, ei, k), id = `fav-${li}-${k}`;
+    const se = el("select", { id });
+    se.add(new Option("—", -1));
+    cand.forEach(s => se.add(new Option(s === L.eng ? "Engine" : C.name(s), s)));
+    se.value = cand.includes(r[at]) ? r[at] : -1;
+    se.onchange = () => { r[at] = +se.value; changed(false); };
+    p.append(el("div", { className: "knob" }, el("label", { className: "nm", htmlFor: id, textContent: `Knob ${k + 1}` }), se));
+  }
+  return p;
+}
+
+function layerTab(li) {
+  const r = rec(), L = D.layers[li], box = el("div", { style: "display:grid;gap:14px" });
+  const bar = el("div", { className: "layerbar" });
+  const inn = el("input", { type: "checkbox", id: `in-${li}`, checked: !!r[Y.inn + li] });
+  inn.onchange = () => { r[Y.inn + li] = inn.checked ? 1 : 0; changed(true); };
+  bar.append(el("label", { className: "toggle", htmlFor: `in-${li}` }, inn, "In the mix"));
+  if (L.latch) {
+    const la = el("input", { type: "checkbox", id: `latch-${li}`, checked: !!r[Y.latch + li] });
+    la.onchange = () => { r[Y.latch + li] = la.checked ? 1 : 0; changed(false); };
+    bar.append(el("label", { className: "toggle", htmlFor: `latch-${li}` }, la, "Latched (holds its notes)"));
+  }
+  bar.append(el("span", { className: "summary", textContent: `engine: ${C.engine(r, li)}` }));
+  box.append(bar);
+  const grid = el("div", { className: "pages" });
+  D.layers[li].pages[C.engine(r, li)].forEach(([n, sl], i) => grid.append(i === 0 ? favPage(li) : page(n, sl)));
+  box.append(grid);
+  return box;
+}
+
+function globalTab() {
+  const r = rec(), grid = el("div", { className: "pages" });
+  D.gpages.forEach(([n, sl, lab]) => grid.append(page(n, sl, sl.map((s, k) => lab[k] >= 0 ? `${D.short[lab[k]]} ${D.slots[s].n}` : null))));
+  return grid;
+}
+
+function rhythmTab() {
+  const r = rec(), box = el("div", { className: "rh" });
+  box.append(el("p", { className: "note", textContent: "Tapped rhythms: a lane plays its own when MOTION > Patt is 'tapped'; the drone, sub and pads when GATE > Gate is 'tapped'. Steps past the layer's Steps are ignored." }));
+  D.rhythm.forEach((h, ri) => {
+    const n = C.number(h.steps, r), on = C.index(h.patt, r) === h.tapped, row = el("div", { className: "steps" });
+    for (let k = 0; k < 16; k++) {
+      const at = Y.tap + ri * 16 + k, b = el("button", { type: "button", className: "step" + (r[at] ? " on" : "") + (k >= n ? " off" : ""), title: `Step ${k + 1}` });
+      b.setAttribute("aria-pressed", r[at] ? "true" : "false");
+      b.onclick = () => { r[at] = r[at] ? 0 : 1; changed(true); };
+      row.append(b);
+    }
+    const lab = el("div", {}, el("b", { textContent: D.llabels[h.layer] }), el("div", { className: "summary", textContent: on ? "tapped" : C.text(h.patt, r) }));
+    box.append(el("div", { className: "rhrow" }, lab, row));
+  });
+  return box;
+}
+
+// ---- the roadmap (the patch's own rule: roadmap.py, al-rgen)
+const int = x => Math.trunc(x);
+const fmt = sec => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
+function roadTab() {
+  const r = rec(), secs = C.road(r), tempo = C.number(D.tempo, r), box = el("div", { style: "display:grid;gap:14px" });
+  const setup = el("div", { className: "setup" });
+  const f = (lab, input) => el("label", { className: "field" }, el("span", { className: "label", textContent: lab }), input);
+  const mins = el("input", { type: "number", id: "mins", min: 4, max: 30, value: 12 });
+  const arc = el("select", { id: "arc" }); D.arcs.forEach((a, i) => arc.add(new Option(a, i)));
+  const tens = el("input", { type: "range", id: "tens", min: 0, max: 100, value: 40 });
+  const dens = el("input", { type: "range", id: "dens", min: 0, max: 100, value: 50 });
+  const varia = el("input", { type: "number", id: "varia", min: 0, max: 15, value: 0 });
+  setup.append(f("Minutes", mins), f("Arc", arc), f("Tension", tens), f("Density", dens), f("Variation", varia));
+  const build = el("button", { type: "button", className: "primary", textContent: "Build roadmap" });
+  build.onclick = () => {
+    const a = +arc.value, roles = D.arcRoles[a], tot = +mins.value * tempo / 4, t = tens.value / 100, d = dens.value / 100, v = +varia.value;
+    const sw = roles.reduce((s, x) => s + D.weights[x], 0), dt = Math.min(2, int(d * 2.99));
+    C.setRoad(r, roles.map((ro, i) => ({ role: ro, bars: Math.max(4, int(tot * D.weights[ro] / sw / 4 + 0.5) * 4), mask: D.masks[ro][dt],
+      story: D.pools[Math.min(2, int(t * D.tension[ro] * 2.2))][(v * 5 + i * 3 + a) % 8] })));
+    sel = 0; changed(true);
+  };
+  const total = secs.reduce((s, x) => s + x.bars, 0);
+  box.append(setup, el("div", { className: "row" }, build, el("span", { className: "summary", textContent: secs.length ? `${secs.length} sections, ${total} bars, ${fmt(total * 4 * 60 / tempo)} at ${tempo} bpm` : "No roadmap in this piece yet." })));
+  if (!secs.length) return box;
+  const save = () => { C.setRoad(r, secs); changed(true); };
+  const tl = el("div", { className: "timeline", role: "list" });
   secs.forEach((s, i) => {
-    const d = document.createElement("div");
-    d.className = "seg" + (i === sel ? " sel" : ""); d.setAttribute("role", "listitem"); d.tabIndex = 0;
-    d.style.flexGrow = s.bars; d.style.background = `var(--r${s.role})`;
-    d.innerHTML = `<b>${D.roles[s.role]}</b><span>${s.bars} bars</span>`;
+    const d = el("div", { className: "seg" + (i === sel ? " sel" : ""), tabIndex: 0 });
+    d.setAttribute("role", "listitem"); d.style.flexGrow = s.bars; d.style.background = `var(--r${s.role})`;
+    d.append(el("b", { textContent: D.roles[s.role] }), el("span", { textContent: `${s.bars} bars` }));
     d.onclick = () => { sel = i; render(); };
     d.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sel = i; render(); } };
     tl.append(d);
   });
-  const tb = $("rows"); tb.replaceChildren();
+  const add = el("button", { type: "button", textContent: "Add section", disabled: secs.length >= Y.maxsec });
+  add.onclick = () => { secs.splice(sel + 1, 0, { ...secs[sel] }); sel++; save(); };
+  const del = el("button", { type: "button", textContent: "Remove selected", disabled: secs.length <= 1 });
+  del.onclick = () => { secs.splice(sel, 1); sel = Math.max(0, sel - 1); save(); };
+  const tb = el("tbody");
   secs.forEach((s, i) => {
-    const tr = document.createElement("tr"); if (i === sel) tr.className = "sel";
+    const tr = el("tr", { className: i === sel ? "sel" : "" });
     tr.onclick = e => { if (e.target === tr || e.target.tagName === "TD") { sel = i; render(); } };
-    const td = () => tr.appendChild(document.createElement("td"));
-    let c = td(); c.className = "num"; c.textContent = i + 1;
-    c = td(); const rs = document.createElement("select"); rs.id = `role-${i}`;
-    D.roles.forEach((r, k) => rs.add(new Option(r, k))); rs.value = s.role;
-    rs.onchange = () => { s.role = +rs.value; render(); save(); };
-    const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = `var(--r${s.role})`;
-    c.append(dot, rs);
-    c = td(); const b = document.createElement("input"); b.type = "number"; b.min = 4; b.max = 64; b.step = 4; b.value = s.bars; b.id = `bars-${i}`;
-    b.onchange = () => { s.bars = Math.max(4, Math.min(64, +b.value || 4)); render(); save(); };
-    c.append(b);
-    c = td(); c.className = "num"; c.textContent = fmt(s.bars * 4 * 60 / tempo);
-    c = td(); const st = document.createElement("select"); st.id = `story-${i}`;
-    D.stories.forEach((n, k) => st.add(new Option(n, k))); st.value = s.story;
+    const rs = el("select", { id: `role-${i}` }); D.roles.forEach((x, k) => rs.add(new Option(x, k))); rs.value = s.role;
+    rs.onchange = () => { s.role = +rs.value; save(); };
+    const dot = el("span", { className: "dot" }); dot.style.background = `var(--r${s.role})`;
+    const b = el("input", { type: "number", id: `bars-${i}`, min: 4, max: 64, step: 4, value: s.bars });
+    b.onchange = () => { s.bars = Math.max(4, Math.min(64, +b.value || 4)); save(); };
+    const st = el("select", { id: `story-${i}` }); D.stories.forEach((n, k) => st.add(new Option(n, k))); st.value = s.story;
     st.onchange = () => { s.story = +st.value; save(); };
-    c.append(st);
-    c = td(); const ch = document.createElement("div"); ch.className = "chips";
+    const ch = el("div", { className: "chips" });
     D.short.forEach((n, k) => {
-      const t = document.createElement("button"); t.type = "button";
-      const on = (s.mask >> k) & 1; t.className = "chip" + (on ? " on" : ""); t.textContent = n;
-      t.title = D.layers[k] + (on ? " in" : " out"); t.setAttribute("aria-pressed", on ? "true" : "false");
-      t.onclick = () => { s.mask ^= (1 << k); render(); save(); };
+      const on = (s.mask >> k) & 1, t = el("button", { type: "button", className: "chip" + (on ? " on" : ""), textContent: n, title: D.llabels[k] + (on ? " in" : " out") });
+      t.setAttribute("aria-pressed", on ? "true" : "false");
+      t.onclick = () => { s.mask ^= (1 << k); save(); };
       ch.append(t);
     });
-    c.append(ch);
+    tr.append(el("td", { className: "num", textContent: i + 1 }), el("td", {}, dot, rs), el("td", {}, b),
+              el("td", { className: "num", textContent: fmt(s.bars * 4 * 60 / tempo) }), el("td", {}, st), el("td", {}, ch));
     tb.append(tr);
   });
-  $("summary").textContent = `${secs.length} sections, ${total} bars, ${fmt(total * 4 * 60 / tempo)} at ${tempo} bpm`;
-  $("txt").textContent = secs.map(s => `${s.bars} ${s.story} ${s.mask} ${s.role};`).join("\n");
-  $("add").disabled = secs.length >= D.maxSec; $("del").disabled = secs.length <= 1;
+  const head = el("tr"); ["#", "Role", "Bars", "Time", "Story", "Layers in"].forEach(h => head.append(el("th", { textContent: h })));
+  box.append(tl, el("div", { className: "row" }, add, del));
+  box.append(el("div", { className: "tablewrap" }, el("table", {}, el("thead", {}, head), tb)));
+  const txt = secs.map(s => `${s.bars} ${s.story} ${s.mask} ${s.role};`).join("\n");
+  const cp = el("button", { type: "button", textContent: "Copy as roadmap.txt" });
+  cp.onclick = () => copy(txt, null, "Copied roadmap.txt.");
+  box.append(el("details", {}, el("summary", { textContent: "This roadmap as roadmap.txt (for the patch's ROAD pages without a piece)" }),
+    el("div", { style: "display:grid;gap:8px;margin-top:8px" }, el("textarea", { className: "out", readOnly: true, value: txt }), el("div", { className: "row" }, cp))));
+  return box;
 }
-const fmt = sec => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
 
-function parse(text) {
-  const out = [];
-  text.split(";").map(l => l.trim()).filter(Boolean).forEach(l => {
-    const [bars, story, mask, role] = l.split(/\s+/).map(Number);
-    if ([bars, story, mask, role].every(Number.isFinite)) out.push({ bars, story, mask, role });
-  });
-  return out.slice(0, D.maxSec);
+// ---- one render for everything
+function render() {
+  keys();
+  const r = rec(), name = `${cur.kind === "piece" ? "Piece" : "Snapshot"} ${cur.idx + 1}`;
+  $("h-ed").textContent = name + (r ? "" : " (empty)");
+  $("sum").textContent = r ? `${C.text(D.key, r)} ${C.text(D.modeSlot, r)} · ${C.number(D.tempo, r)} bpm · in: ${D.layers.filter((l, i) => r[Y.inn + i]).map(l => l.short).join(" ")}` +
+    (example ? " · example: the patch's defaults" : "") : "";
+  $("fresh").textContent = r ? "Reset to defaults" : "Start from defaults";
+  $("clear").disabled = !r;
+  const ct = $("copyto"); ct.replaceChildren();
+  for (let i = 0; i < Y.pieces; i++) ct.add(new Option(`Piece ${i + 1}${lib.pieces[i] ? "" : " (empty)"}`, `piece:${i}`));
+  for (let i = 0; i < Y.saves; i++) ct.add(new Option(`Snapshot ${i + 1}${lib.saves[i] ? "" : " (empty)"}`, `snap:${i}`));
+  $("copygo").disabled = !r;
+  const ed = $("editor"); ed.replaceChildren();
+  if (!r) {
+    ed.append(el("p", { className: "note", textContent: `${name} is empty. Start it from the patch's defaults, or copy another piece or snapshot into it.` }));
+  } else {
+    ed.append(tabs(), el("div", { style: "margin-top:14px" }, tab === "g" ? globalTab() : tab === "rh" ? rhythmTab() : tab === "road" ? roadTab() : layerTab(+tab)));
+  }
+  files();
 }
-function save() { try { localStorage.setItem("al-road", $("txt").textContent); } catch (e) {} }
 
-$("build").onclick = build;
-["tens", "dens"].forEach(id => $(id).oninput = () => $(id + "O").textContent = $(id).value);
-$("tempo").onchange = render;
-$("add").onclick = () => { if (secs.length < D.maxSec) { secs.splice(sel + 1, 0, { ...secs[sel] }); sel++; render(); save(); } };
-$("del").onclick = () => { if (secs.length > 1) { secs.splice(sel, 1); sel = Math.max(0, sel - 1); render(); save(); } };
-$("copy").onclick = () => {
-  const t = $("txt").textContent;
-  navigator.clipboard.writeText(t).then(() => $("status").textContent = "Copied.", () => {
-    const r = document.createRange(); r.selectNodeContents($("txt"));
-    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
-    $("status").textContent = "Selected: copy it with your keyboard.";
+function changed(redraw) { example = false; if (redraw) render(); else { files(); $("sum").textContent = $("sum").textContent.replace(" · example: the patch's defaults", ""); } store(); }
+function files() { $("outp").value = C.write(lib.pieces); $("outs").value = C.write(lib.saves); }
+
+// slot actions, with a confirmation in the page for anything that replaces a slot
+function ask(msg, go) {
+  const c = $("confirm"); c.replaceChildren(msg + " ");
+  const yes = el("button", { type: "button", textContent: "Replace" }), no = el("button", { type: "button", textContent: "Keep" });
+  yes.onclick = () => { c.hidden = true; go(); }; no.onclick = () => { c.hidden = true; };
+  c.append(yes, " ", no); c.hidden = false;
+}
+$("fresh").onclick = () => {
+  const go = () => { setRec(C.defaults(cur.kind)); changed(true); };
+  rec() ? ask("Reset every setting in this slot to the patch's defaults?", go) : go();
+};
+$("clear").onclick = () => ask("Empty this slot? It saves as empty (-1).", () => { setRec(null); tab = "g"; changed(true); });
+$("copygo").onclick = () => {
+  const [kind, i] = $("copyto").value.split(":"), idx = +i, r = rec();
+  const go = () => {
+    const out = kind === "piece" ? C.asPiece(r.slice()) : C.asSnap(r);
+    if (kind === "piece") lib.pieces[idx] = out; else lib.saves[idx] = out;
+    cur = { kind, idx }; if (tab === "road" && kind !== "piece") tab = "g"; changed(true);
+  };
+  const full = kind === "piece" ? lib.pieces[idx] : lib.saves[idx];
+  full ? ask(`${kind === "piece" ? "Piece" : "Snapshot"} ${idx + 1} holds a sound. Replace it?`, go) : go();
+};
+
+function copy(text, area, done) {
+  navigator.clipboard.writeText(text).then(() => $("filestatus").textContent = done, () => {
+    if (area) { area.focus(); area.select(); }
+    $("filestatus").textContent = "Selected: copy it with your keyboard.";
   });
-};
-$("load").onclick = () => {
-  const p = parse($("paste").value);
-  if (p.length) { secs = p; sel = 0; render(); save(); $("status").textContent = `Loaded ${p.length} sections.`; }
-  else $("status").textContent = "No sections found: each line should read bars story layers role;";
-};
-$("file").onchange = e => {
-  const f = e.target.files[0]; if (!f) return;
-  const r = new FileReader(); r.onload = () => { $("paste").value = r.result; $("load").onclick(); }; r.readAsText(f);
-};
+}
+function download(text, name) {
+  const a = el("a", { href: URL.createObjectURL(new Blob([text], { type: "text/plain" })), download: name });
+  document.body.append(a); a.click(); a.remove();
+  $("filestatus").textContent = `Downloading ${name}. If nothing happens here, use Copy.`;
+}
+$("cpp").onclick = () => copy($("outp").value, $("outp"), "Copied pieces.txt.");
+$("cps").onclick = () => copy($("outs").value, $("outs"), "Copied saves.txt.");
+$("dlp").onclick = () => download($("outp").value, "pieces.txt");
+$("dls").onclick = () => download($("outs").value, "saves.txt");
 
-let saved = null; try { saved = localStorage.getItem("al-road"); } catch (e) {}
-const p0 = saved ? parse(saved) : [];
-if (p0.length) { secs = p0; render(); } else build();
+if (!restore()) { lib.pieces[0] = C.defaults("piece"); example = true; }
+render();
 </script>

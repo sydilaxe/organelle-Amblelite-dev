@@ -684,8 +684,15 @@ def story():
           P("A plan of sections built from a few settings (ROAD page: minutes, arc, tension, density) - each section "
             "a length, a role, a chord story and which layers play. Aux + top A builds it; ROAD 2: off, guide (the "
             "screen says what is next) or auto (it happens: aux + low F# holds a section, aux + top B moves on). "
-            "SECTN edits a section: its length, story and role, and the layer keys toggle its layers. The "
-            "planner web page builds and edits roadmaps on a computer; a piece keeps its roadmap.")]
+            "SECTN edits a section: its length, story and role, and the layer keys toggle its layers. A piece "
+            "keeps its roadmap.")]
+    # ---- the web editor
+    s += [P("The web editor", H1),
+          P("Amble Lite Editor (docs/planner.html, also published as a web page) opens pieces.txt and saves.txt from "
+            "the AmbleLite folder and edits any piece or snapshot page by page, as on the Organelle: every parameter "
+            "of every layer and engine, the layers in, the latches, the FAV pages, the tapped rhythms and a piece's "
+            "roadmap. Copy the file back over the one in the AmbleLite folder (keep a copy of the old one); the patch "
+            "reads it when it loads.")]
     # ---- the input
     s += [P("Audio input", H1), P(esc(DESC["g:INPUT:Mode"])), P(esc("Amount: " + DESC["g:INPUT:Amount"])),
           P("Off by default: the input is ignored and costs nothing until a mode is chosen.")]

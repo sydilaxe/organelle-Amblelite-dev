@@ -1,6 +1,10 @@
-"""The web planner: docs/planner.html, a page to build and edit a roadmap on a computer, from the same tables as the
-patch (model.py, roadmap.py) so its plans are the ones the Organelle builds. It writes roadmap.txt's lines, to copy
-into the patch folder.  python3 planner.py [out.html]"""
+"""The web editor: docs/planner.html, a page to load, edit and save Amble Lite's pieces (pieces.txt) and snapshots
+(saves.txt) on a computer, page by page as on the Organelle - every parameter of every layer and engine, the layers in,
+the latches, the FAV pages, the tapped rhythms and (a piece's) roadmap. Built from the same tables as the patch
+(model.py, features.py, roadmap.py), so the files it writes are the ones the patch reads: one line a slot, the numbers
+the patch keeps (each parameter 0..1), '-1' for an empty slot.  python3 planner.py [out.html]
+
+CORE (the files and values, no page) is kept apart so check.py can run it in node against files Pd wrote."""
 import json
 import os
 import sys
@@ -15,23 +19,145 @@ ARC_NAMES = ["arch", "build", "waves", "twin", "journey"]
 
 
 def data():
+    import features as F
+    from control import IN_AT_START, FIRST_LANE, MODE_SLOT, SCALE_SLOT
+    ks, _, _ = M.knob_table()
+    nl = len(M.LAYERS)
+    slots = []
+    for key, p in M.SLOTS:
+        t = "tgt" if p.target else "opt" if p.opts else "num" if p.lo is not None else "pct"
+        slots.append(dict(n=p.name, t=t, o=p.opts or None, lo=p.lo, hi=p.hi, d=round(p.default, 6), L=key[0], e=key[1]))
+    layers = []
+    for li, L in enumerate(M.LAYERS):
+        engs = [e for e, _ in M.engines(L)]
+        layers.append(dict(id=L, label=M.LAYER_LABEL[L], short=M.SHORT[L], engines=engs, eng=M.S(L, None, "Engine"),
+                           latch=li < FIRST_LANE, pages={e: [[n, s] for n, s in M.pages(L, e)] for e in engs},
+                           targets={e: M.targets(L, e) for e in engs}))
+    fav0 = [ks[((li * M.MAXENG + ei) * M.MAXPAGES) * 4 + k] for li in range(nl) for ei in range(M.MAXENG)
+            for k in range(4)]
+    gpages = [[n, [M.global_slot(p) for p in ps], [M.global_label(p) for p in ps]] for n, ps in M.GLOBAL_PAGES]
+    gpages += [[n, [M.S(L, None, k) for L, k in refs], [M.LAYERS.index(L) if L != "g" else -1 for L, _ in refs]]
+               for n, refs in M.MIX_PAGES]
+    rhythm = []
+    for L in M.NOTE_LAYERS:
+        lane = L in M.LANES
+        ps = M.S(L, None, "Patt") if lane else M.S(L, None, "Gate")
+        rhythm.append(dict(layer=M.LAYERS.index(L), steps=M.S(L, None, "Steps"), patt=ps, tapped=1 if lane else 2))
     names = [n for n, _, _ in M.STORIES]
+    nslots = M.NSLOTS
+    lay = dict(nslots=nslots, nl=nl, maxeng=M.MAXENG, latch=nslots, inn=nslots + nl, fav=nslots + 2 * nl,
+               favn=F.FAVN, tap=nslots + 2 * nl + F.FAVN, tapn=F.TAPN, snap=F.SNAP, piece=F.PIECE, maxsec=M.MAXSEC,
+               pieces=F.PIECES, saves=F.SAVE_SLOTS, saveLines=F.SCRATCH + 2)
+    assert lay["tap"] + lay["tapn"] == F.SNAP and F.SNAP + 1 + 4 * M.MAXSEC == F.PIECE
     return dict(
+        slots=slots, layers=layers, fav0=fav0, latch0=[1 if li < FIRST_LANE else 0 for li in range(nl)],
+        in0=[1 if L in IN_AT_START else 0 for L in M.LAYERS], gpages=gpages, rhythm=rhythm, layout=lay,
+        modeSlot=MODE_SLOT, scaleSlot=SCALE_SLOT, scaleModes=[[n for n, _ in ms] for _, ms in M.SCALES],
+        key=M.S("g", None, "Key"), tempo=M.S("g", None, "Tempo"),
         roles=ROLE_NAMES, arcs=ARC_NAMES, arcRoles=[M.ARC_ROLES[a] for a in M.ARCS], weights=R.WEIGHTS,
         tension=R.TENSION, masks=R.MASKS, pools=[[names.index(n) for n in p] for p in R.POOLS], stories=names,
-        layers=[M.LAYER_LABEL[L] for L in M.LAYERS], short=[M.SHORT[L] for L in M.LAYERS], maxSec=M.MAXSEC)
+        llabels=[M.LAYER_LABEL[L] for L in M.LAYERS], short=[M.SHORT[L] for L in M.LAYERS])
 
 
-PAGE = r"""<title>Amble Lite Roadmap Planner</title>
+# ---- the files and values (no page): parse / write the patch's text files, read and set parameters as the patch
+# shows them. Runs in the page and, for the checks, in node.
+CORE = r"""
+const C = (() => {
+  const Y = D.layout;
+  const q = v => Math.abs(v) < 5e-7 ? "0" : String(+(+v).toPrecision(6));
+  const lix = {}; D.layers.forEach((l, i) => lix[l.id] = i);
+  function defaults(kind) {
+    const r = new Array(kind === "piece" ? Y.piece : Y.snap).fill(0);
+    D.slots.forEach((s, i) => r[i] = s.d);
+    D.latch0.forEach((v, i) => r[Y.latch + i] = v);
+    D.in0.forEach((v, i) => r[Y.inn + i] = v);
+    D.fav0.forEach((v, i) => r[Y.fav + i] = v);
+    return r;
+  }
+  // a file: a record a line (Pd: 'write -c' - a line each, maybe blank lines between); '-1' an empty slot
+  function parse(text, len) {
+    return text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => {
+      const a = l.split(/\s+/).map(Number);
+      return a.length === len && a.every(Number.isFinite) ? a : null;
+    });
+  }
+  function kindOf(text) {
+    const lens = text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => l.split(/\s+/).length);
+    if (lens.includes(Y.piece)) return "piece";
+    if (lens.includes(Y.snap)) return "snap";
+    return null;
+  }
+  function write(recs) { return recs.map(r => r ? r.map(q).join(" ") : "-1").join("\n") + "\n"; }
+  function asPiece(r) {
+    const p = defaults("piece");
+    r.forEach((v, i) => { if (i < Y.piece) p[i] = v; });
+    return p;
+  }
+  const asSnap = r => r.slice(0, Y.snap);
+  // values, as the patch reads them
+  const layerOf = s => D.slots[s].L === "g" ? -1 : lix[D.slots[s].L];
+  function count(s, rec) {
+    if (s === D.modeSlot) return D.scaleModes[optIndex(D.scaleSlot, rec)].length;
+    return D.slots[s].o.length;
+  }
+  function optIndex(s, rec) { const n = count(s, rec); return Math.min(n - 1, Math.floor(rec[s] * n)); }
+  const engine = (rec, li) => D.layers[li].engines[optIndex(D.layers[li].eng, rec)];
+  const targets = (rec, li) => D.layers[li].targets[engine(rec, li)];
+  function targetIndex(s, rec) { const t = targets(rec, layerOf(s)); return Math.min(t.length, Math.floor(rec[s] * (t.length + 1))); }
+  function choices(s, rec) {
+    const sl = D.slots[s];
+    if (s === D.modeSlot) return D.scaleModes[optIndex(D.scaleSlot, rec)];
+    if (sl.t === "opt") return sl.o;
+    if (sl.t === "tgt") return ["off", ...targets(rec, layerOf(s)).map(name)];
+    return null;
+  }
+  function name(s) { const sl = D.slots[s]; return sl.e ? `${sl.n} (${sl.e})` : sl.n; }
+  function index(s, rec) { return D.slots[s].t === "tgt" ? targetIndex(s, rec) : optIndex(s, rec); }
+  function number(s, rec) {
+    const sl = D.slots[s];
+    return sl.t === "num" ? Math.trunc(sl.lo + rec[s] * (sl.hi - sl.lo) + 0.5) : Math.trunc(rec[s] * 100 + 0.5);
+  }
+  function text(s, rec) { const c = choices(s, rec); return c ? c[index(s, rec)] : String(number(s, rec)); }
+  function setIndex(s, rec, i) {
+    const n = D.slots[s].t === "tgt" ? targets(rec, layerOf(s)).length + 1 : count(s, rec);
+    rec[s] = +((i + 0.5) / n).toFixed(6);
+  }
+  function setNumber(s, rec, x) {
+    const sl = D.slots[s];
+    rec[s] = sl.t === "num" ? +((x - sl.lo) / (sl.hi - sl.lo)).toFixed(6) : +(x / 100).toFixed(6);
+  }
+  // the FAV page of a layer with an engine: 4 slots (-1: none)
+  const favAt = (li, ei, k) => Y.fav + (li * Y.maxeng + ei) * 4 + k;
+  // a piece's roadmap: its sections
+  function road(rec) {
+    const n = Math.max(0, Math.min(Y.maxsec, Math.trunc(rec[Y.snap] || 0))), b = Y.snap + 1, out = [];
+    for (let i = 0; i < n; i++)
+      out.push({ bars: rec[b + i], story: rec[b + Y.maxsec + i], mask: rec[b + 2 * Y.maxsec + i], role: rec[b + 3 * Y.maxsec + i] });
+    return out;
+  }
+  function setRoad(rec, secs) {
+    const b = Y.snap + 1;
+    rec[Y.snap] = secs.length;
+    for (let i = 0; i < Y.maxsec; i++) {
+      const s = secs[i] || { bars: 0, story: 0, mask: 0, role: 0 };
+      rec[b + i] = s.bars; rec[b + Y.maxsec + i] = s.story; rec[b + 2 * Y.maxsec + i] = s.mask; rec[b + 3 * Y.maxsec + i] = s.role;
+    }
+  }
+  return { Y, defaults, parse, kindOf, write, asPiece, asSnap, layerOf, engine, targets, choices, name, index, number,
+           text, setIndex, setNumber, favAt, road, setRoad, optIndex };
+})();
+"""
+
+PAGE = r"""<title>Amble Lite Editor</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: a hardware-panel tool - setup controls as a top strip, the roadmap as a timeline, the sections as a
-   table beneath, roadmap.txt at the foot. Colours: an OLED-ink dark / paper light pair, one cool accent, a
-   muted hue per role. */
+/* Layout: a hardware-panel tool - the library of slots as a strip of numbered keys, then the open piece or snapshot as
+   the Organelle's own pages (four knobs each) under layer tabs, the files at the foot. Colours: an OLED-ink dark /
+   paper light pair, one cool accent, a muted hue per roadmap role. */
 :root {
   --bg: #f3f4f1; --panel: #ffffff; --ink: #1b1f1d; --muted: #5d6762; --line: #d5dad6; --accent: #1f6f78;
-  --accent-ink: #ffffff; --chip: #e6ebe8;
+  --accent-ink: #ffffff; --chip: #e6ebe8; --warn: #9a5a12;
   --r0: #9db6c3; --r1: #8fb39a; --r2: #b8c68a; --r3: #d8b46a; --r4: #d98a6a; --r5: #a9a1c7; --r6: #8fb3b0; --r7: #b3a99c;
   --display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
   --body: "Inter", "Helvetica Neue", Arial, sans-serif;
@@ -39,34 +165,71 @@ PAGE = r"""<title>Amble Lite Roadmap Planner</title>
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0f1312; --panel: #171c1b; --ink: #e4ebe7; --muted: #93a19a; --line: #2a3331; --accent: #5cc3cc;
-  --accent-ink: #0f1312; --chip: #222a28;
+  --accent-ink: #0f1312; --chip: #222a28; --warn: #e0a458;
   --r0: #4d6a78; --r1: #4b6e55; --r2: #6c7a3e; --r3: #8b6b2c; --r4: #8f4f37; --r5: #5f5883; --r6: #456e6a; --r7: #6b6257;
   color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #0f1312; --panel: #171c1b; --ink: #e4ebe7; --muted: #93a19a; --line: #2a3331; --accent: #5cc3cc;
-  --accent-ink: #0f1312; --chip: #222a28;
+  --accent-ink: #0f1312; --chip: #222a28; --warn: #e0a458;
   --r0: #4d6a78; --r1: #4b6e55; --r2: #6c7a3e; --r3: #8b6b2c; --r4: #8f4f37; --r5: #5f5883; --r6: #456e6a; --r7: #6b6257;
   color-scheme: dark }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); line-height: 1.5; }
-.wrap { max-width: 1080px; margin: 0 auto; padding-block: 28px 48px;
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 28px 48px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   display: grid; gap: 22px; }
 h1 { font-family: var(--display); font-weight: 600; font-size: 1.7rem; margin: 0; text-wrap: balance; }
-h2 { font-family: var(--display); font-weight: 600; font-size: 1.05rem; margin: 0; }
-.lede { color: var(--muted); margin: 4px 0 0; max-width: 65ch; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.05rem; margin: 0; text-wrap: balance; }
+h3 { font-family: var(--display); font-weight: 600; font-size: .85rem; letter-spacing: .06em; margin: 0; }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 68ch; }
 .label { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
-.setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px 18px; align-items: end; }
 .field { display: grid; gap: 6px; min-width: 0; }
-.field output { font-family: var(--mono); font-size: .85rem; }
 input[type=number], select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
 button { font: 500 .9rem var(--body); border-radius: 6px; padding: 8px 14px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); cursor: pointer; }
 button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .chip:focus-visible, .seg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .seg:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.between { justify-content: space-between; }
 .summary { font-family: var(--mono); font-size: .85rem; color: var(--muted); }
-.timeline { display: flex; gap: 3px; height: 64px; }
+.note { color: var(--muted); font-size: .85rem; max-width: 72ch; margin: 0; }
+.status { font-size: .85rem; color: var(--accent); min-height: 1.2em; }
+.warn { color: var(--warn); }
+/* library: numbered slot keys */
+.lib { display: grid; gap: 12px; }
+.keys { display: flex; flex-wrap: wrap; gap: 6px; }
+.key { font: 500 .85rem var(--mono); width: 40px; height: 40px; padding: 0; border-radius: 6px; background: transparent; color: var(--muted); border: 1px dashed var(--line); font-variant-numeric: tabular-nums; }
+.key.full { background: var(--chip); color: var(--ink); border-style: solid; }
+.key.cur { border: 2px solid var(--accent); color: var(--ink); }
+/* editor */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.tab { font: 600 .75rem var(--display); letter-spacing: .06em; padding: 7px 10px; background: transparent; border-color: transparent; color: var(--muted); }
+.tab[aria-selected="true"] { background: var(--chip); color: var(--ink); border-color: var(--line); }
+.tab.out { text-decoration: line-through; text-decoration-color: var(--muted); }
+.pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.page { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.page h3 { display: flex; justify-content: space-between; gap: 8px; }
+.page h3 span { font: .7rem var(--mono); color: var(--muted); letter-spacing: 0; }
+.knob { display: grid; grid-template-columns: 64px 1fr 44px; gap: 8px; align-items: center; min-width: 0; }
+.knob .nm { font-size: .8rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.knob .val { font: .8rem var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.knob select { grid-column: 2 / 4; font-size: .85rem; padding: 4px 6px; }
+.knob.empty .nm { opacity: .4; }
+.layerbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.toggle { display: inline-flex; gap: 8px; align-items: center; font-size: .9rem; }
+.toggle input { accent-color: var(--accent); width: 18px; height: 18px; }
+/* rhythms */
+.rh { display: grid; gap: 8px; }
+.rhrow { display: grid; grid-template-columns: 70px 1fr; gap: 10px; align-items: center; }
+.steps { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px; max-width: 560px; }
+.step { height: 28px; padding: 0; border-radius: 4px; background: transparent; }
+.step.on { background: var(--accent); border-color: var(--accent); }
+.step.off { opacity: .35; }
+.step:nth-child(4n+1) { border-color: var(--muted); }
+/* roadmap */
+.setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px 18px; align-items: end; }
+.timeline { display: flex; gap: 3px; height: 56px; }
 .seg { border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between; padding: 6px; min-width: 0; overflow: hidden; color: var(--ink); border: 2px solid transparent; cursor: pointer; }
 .seg.sel { border-color: var(--accent); }
 .seg b { font: 600 .75rem var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -82,169 +245,359 @@ td input[type=number] { width: 72px; }
 .chip { font: 500 .75rem var(--mono); width: 28px; height: 26px; border-radius: 5px; border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 0; }
 .chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
-pre { font-family: var(--mono); font-size: .85rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin: 0; overflow-x: auto; white-space: pre; }
-textarea { width: 100%; box-sizing: border-box; font-family: var(--mono); font-size: .85rem; min-height: 90px; }
-.note { color: var(--muted); font-size: .85rem; max-width: 70ch; margin: 0; }
-.status { font-size: .85rem; color: var(--accent); min-height: 1.2em; }
+/* files */
+.files { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+textarea { width: 100%; box-sizing: border-box; font-family: var(--mono); font-size: .75rem; min-height: 90px; }
+textarea.out { height: 120px; white-space: pre; overflow: auto; }
+details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
 @media (prefers-reduced-motion: no-preference) { .seg { transition: flex-grow .2s ease; } }
+@media (max-width: 480px) { .knob { grid-template-columns: 56px 1fr 40px; } .rhrow { grid-template-columns: 1fr; } }
 </style>
 
 <div class="wrap">
   <header>
-    <h1>Roadmap Planner</h1>
-    <p class="lede">Plan an Amble Lite piece as sections: build one from a few settings, as the Organelle does with aux + top C#, then change any section. The text at the bottom is the roadmap.txt the patch reads.</p>
+    <h1>Amble Lite Editor</h1>
+    <p class="lede">Open your pieces.txt or saves.txt from the AmbleLite folder, edit any piece or snapshot page by page as on the Organelle, then copy the file back. Pieces also hold their roadmap.</p>
   </header>
 
-  <section class="panel" aria-labelledby="h-setup">
-    <h2 id="h-setup">Build</h2>
-    <div class="setup">
-      <label class="field"><span class="label">Minutes</span><input id="mins" type="number" min="4" max="30" value="12"></label>
-      <label class="field"><span class="label">Tempo (bpm)</span><input id="tempo" type="number" min="30" max="200" value="84"></label>
-      <label class="field"><span class="label">Arc</span><select id="arc"></select></label>
-      <label class="field"><span class="label">Tension <output id="tensO">40</output></span><input id="tens" type="range" min="0" max="100" value="40"></label>
-      <label class="field"><span class="label">Density <output id="densO">50</output></span><input id="dens" type="range" min="0" max="100" value="50"></label>
-      <label class="field"><span class="label">Variation</span><input id="varia" type="number" min="0" max="15" value="0"></label>
+  <section class="panel" aria-labelledby="h-lib">
+    <div class="row between"><h2 id="h-lib">Library</h2>
+      <label class="toggle" for="file"><span class="label">Open pieces.txt or saves.txt</span><input id="file" type="file" accept=".txt,text/plain"></label></div>
+    <div class="lib">
+      <div class="field"><span class="label">Pieces (pieces.txt)</span><div class="keys" id="kp"></div></div>
+      <div class="field"><span class="label">Snapshots (saves.txt)</span><div class="keys" id="ks"></div></div>
     </div>
-    <div class="row"><button class="primary" id="build" type="button">Build roadmap</button><span class="summary" id="summary"></span></div>
-  </section>
-
-  <section class="panel" aria-labelledby="h-road">
-    <div class="row" style="justify-content:space-between"><h2 id="h-road">Roadmap</h2>
-      <div class="row"><button id="add" type="button">Add section</button><button id="del" type="button">Remove selected</button></div></div>
-    <div class="timeline" id="timeline" role="list"></div>
-    <div class="tablewrap"><table>
-      <thead><tr><th>#</th><th>Role</th><th>Bars</th><th>Time</th><th>Story</th><th>Layers in</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table></div>
-  </section>
-
-  <section class="panel" aria-labelledby="h-file">
-    <h2 id="h-file">roadmap.txt</h2>
-    <p class="note">Copy this into a file named roadmap.txt in the AmbleLite folder on the Organelle's card, replacing the one there. Set Road to auto (or guide) on the ROAD 2 page and press Start. Each line is one section: bars, story, layers, role.</p>
-    <pre id="txt"></pre>
-    <div class="row"><button class="primary" id="copy" type="button">Copy roadmap.txt</button><span class="status" id="status" role="status"></span></div>
-    <details><summary>Load a roadmap.txt</summary>
+    <details><summary>Paste a file's text instead</summary>
       <div style="display:grid;gap:10px;margin-top:10px">
-        <textarea id="paste" placeholder="Paste a roadmap.txt here"></textarea>
-        <div class="row"><button id="load" type="button">Load pasted text</button><input id="file" type="file" accept=".txt,text/plain"></div>
+        <textarea id="paste" placeholder="Paste the text of pieces.txt or saves.txt here"></textarea>
+        <div class="row"><button id="loadpaste" type="button">Load pasted text</button></div>
       </div></details>
+    <p class="status" id="libstatus" role="status"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-ed">
+    <div class="row between"><div><h2 id="h-ed">—</h2><div class="summary" id="sum"></div></div>
+      <div class="row">
+        <button id="fresh" type="button">Reset to defaults</button>
+        <button id="clear" type="button">Empty this slot</button>
+        <label class="toggle"><span class="label">Copy to</span><select id="copyto"></select></label>
+        <button id="copygo" type="button">Copy</button>
+      </div></div>
+    <p class="note warn" id="confirm" hidden></p>
+    <div id="editor"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-files">
+    <h2 id="h-files">Save to the Organelle</h2>
+    <p class="note">Copy a file's text and save it over the file of the same name in the AmbleLite folder on the Organelle (keep a copy of the old one). The patch reads both when it loads. Download works when this page is opened from the repository's docs folder.</p>
+    <div class="files">
+      <div class="field"><span class="label">pieces.txt</span><textarea class="out" id="outp" readonly></textarea>
+        <div class="row"><button class="primary" id="cpp" type="button">Copy pieces.txt</button><button id="dlp" type="button">Download</button></div></div>
+      <div class="field"><span class="label">saves.txt</span><textarea class="out" id="outs" readonly></textarea>
+        <div class="row"><button class="primary" id="cps" type="button">Copy saves.txt</button><button id="dls" type="button">Download</button></div></div>
+    </div>
+    <p class="status" id="filestatus" role="status"></p>
   </section>
 </div>
 
 <script>
 const D = __DATA__;
+__CORE__
 const $ = id => document.getElementById(id);
-let secs = [], sel = 0;
-const int = x => Math.trunc(x);
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+const Y = C.Y;
+let lib = { pieces: new Array(Y.pieces).fill(null), saves: new Array(Y.saveLines).fill(null) };
+let cur = { kind: "piece", idx: 0 }, tab = "g", sel = 0, example = false, pending = null;
 
-D.arcs.forEach((a, i) => $("arc").add(new Option(a, i)));
+const rec = () => cur.kind === "piece" ? lib.pieces[cur.idx] : lib.saves[cur.idx];
+function setRec(r) { if (cur.kind === "piece") lib.pieces[cur.idx] = r; else lib.saves[cur.idx] = r; }
 
-// the patch's own rule (roadmap.py, al-rgen)
-function build() {
-  const mins = +$("mins").value, tempo = +$("tempo").value, a = +$("arc").value;
-  const tens = $("tens").value / 100, dens = $("dens").value / 100, v = +$("varia").value;
-  const roles = D.arcRoles[a], tot = mins * tempo / 4;
-  const sw = roles.reduce((s, r) => s + D.weights[r], 0), dt = Math.min(2, int(dens * 2.99));
-  secs = roles.map((r, i) => ({
-    role: r,
-    bars: Math.max(4, int(tot * D.weights[r] / sw / 4 + 0.5) * 4),
-    mask: D.masks[r][dt],
-    story: D.pools[Math.min(2, int(tens * D.tension[r] * 2.2))][(v * 5 + i * 3 + a) % 8],
-  }));
-  sel = 0; render(); save();
+// ---- persistence (this browser only)
+function store() { try { localStorage.setItem("al-lib", JSON.stringify({ lib, cur, tab })); } catch (e) {} }
+function restore() {
+  try {
+    const s = JSON.parse(localStorage.getItem("al-lib") || "null");
+    if (s && s.lib && s.lib.pieces.length === Y.pieces && s.lib.saves.length === Y.saveLines &&
+        [...s.lib.pieces, ...s.lib.saves].every(r => r === null || r.length === Y.piece || r.length === Y.snap)) {
+      lib = s.lib; cur = s.cur || cur; tab = s.tab || tab; return true;
+    }
+  } catch (e) {}
+  return false;
 }
 
-function render() {
-  const tempo = +$("tempo").value || 84, total = secs.reduce((s, x) => s + x.bars, 0);
-  const tl = $("timeline"); tl.replaceChildren();
+// ---- library
+function keys() {
+  const mk = (box, kind, n) => {
+    box.replaceChildren();
+    for (let i = 0; i < n; i++) {
+      const full = !!(kind === "piece" ? lib.pieces[i] : lib.saves[i]), on = cur.kind === kind && cur.idx === i;
+      const b = el("button", { type: "button", className: "key" + (full ? " full" : "") + (on ? " cur" : ""), textContent: i + 1,
+        title: `${kind === "piece" ? "Piece" : "Snapshot"} ${i + 1}${full ? "" : " (empty)"}` });
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.onclick = () => { cur = { kind, idx: i }; sel = 0; if (tab === "road" && kind !== "piece") tab = "g"; render(); };
+      box.append(b);
+    }
+  };
+  mk($("kp"), "piece", Y.pieces); mk($("ks"), "snap", Y.saves);
+}
+
+function load(text, fname) {
+  const k = C.kindOf(text) || (/save/i.test(fname || "") ? "snap" : /piece/i.test(fname || "") ? "piece" : null);
+  if (!k) { $("libstatus").textContent = "That file holds no piece or snapshot. Open pieces.txt or saves.txt from the AmbleLite folder."; return; }
+  const recs = C.parse(text, k === "piece" ? Y.piece : Y.snap);
+  if (k === "piece") { lib.pieces = Array.from({ length: Y.pieces }, (_, i) => recs[i] || null); cur = { kind: "piece", idx: Math.max(0, lib.pieces.findIndex(Boolean)) }; }
+  else { lib.saves = Array.from({ length: Y.saveLines }, (_, i) => recs[i] || null); cur = { kind: "snap", idx: Math.max(0, lib.saves.findIndex((r, i) => r && i < Y.saves)) }; }
+  example = false;
+  const n = (k === "piece" ? lib.pieces.slice(0, Y.pieces) : lib.saves.slice(0, Y.saves)).filter(Boolean).length;
+  $("libstatus").textContent = `Loaded ${k === "piece" ? "pieces.txt" : "saves.txt"}: ${n} ${k === "piece" ? "pieces" : "snapshots"}.`;
+  sel = 0; if (tab === "road" && k !== "piece") tab = "g"; render();
+}
+$("file").onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => load(r.result, f.name); r.readAsText(f); e.target.value = ""; };
+$("loadpaste").onclick = () => load($("paste").value, "");
+
+// ---- the editor
+function tabs() {
+  const r = rec(), bar = el("div", { className: "tabs", role: "tablist" });
+  const list = [["g", "GLOBAL"], ...D.layers.map((l, i) => [String(i), l.label]), ["rh", "RHYTHMS"]];
+  if (cur.kind === "piece") list.push(["road", "ROADMAP"]);
+  list.forEach(([id, txt]) => {
+    const b = el("button", { type: "button", className: "tab", textContent: txt, id: `tab-${id}` });
+    b.setAttribute("role", "tab"); b.setAttribute("aria-selected", tab === id ? "true" : "false");
+    if (/^\d+$/.test(id) && r && !r[Y.inn + +id]) { b.classList.add("out"); b.title = "Out of the mix"; }
+    b.onclick = () => { tab = id; sel = 0; render(); };
+    bar.append(b);
+  });
+  return bar;
+}
+
+function knob(s, label) {
+  const r = rec();
+  if (s < 0) return el("div", { className: "knob empty" }, el("span", { className: "nm", textContent: "—" }));
+  const sl = D.slots[s], ch = C.choices(s, r), id = `k-${s}`;
+  const nm = el("label", { className: "nm", htmlFor: id, textContent: label || sl.n, title: label || C.name(s) });
+  if (ch) {
+    const se = el("select", { id });
+    ch.forEach((c, i) => se.add(new Option(c, i)));
+    se.value = C.index(s, r);
+    se.onchange = () => { C.setIndex(s, r, +se.value); changed(sl.n === "Engine" || s === D.scaleSlot || s === D.layers[C.layerOf(s)]?.eng); };
+    return el("div", { className: "knob" }, nm, se);
+  }
+  const lo = sl.t === "num" ? sl.lo : 0, hi = sl.t === "num" ? sl.hi : 100;
+  const rg = el("input", { type: "range", id, min: lo, max: hi, step: 1, value: C.number(s, r) });
+  const val = el("output", { className: "val", textContent: C.number(s, r) });
+  rg.oninput = () => { C.setNumber(s, r, +rg.value); val.textContent = C.number(s, r); changed(false); };
+  return el("div", { className: "knob" }, nm, rg, val);
+}
+
+function page(title, slots, labels, extra) {
+  const p = el("div", { className: "page" }, el("h3", { textContent: title }));
+  if (extra) p.querySelector("h3").append(el("span", { textContent: extra }));
+  slots.forEach((s, k) => p.append(knob(s, labels ? labels[k] : null)));
+  return p;
+}
+
+function favPage(li) {
+  const r = rec(), L = D.layers[li], ei = C.optIndex(L.eng, r), e = L.engines[ei];
+  const cand = [...(L.engines.length > 1 ? [L.eng] : []), ...L.targets[e]];
+  const p = el("div", { className: "page" }, el("h3", { textContent: "FAV" }, el("span", { textContent: "your four" })));
+  for (let k = 0; k < 4; k++) {
+    const at = C.favAt(li, ei, k), id = `fav-${li}-${k}`;
+    const se = el("select", { id });
+    se.add(new Option("—", -1));
+    cand.forEach(s => se.add(new Option(s === L.eng ? "Engine" : C.name(s), s)));
+    se.value = cand.includes(r[at]) ? r[at] : -1;
+    se.onchange = () => { r[at] = +se.value; changed(false); };
+    p.append(el("div", { className: "knob" }, el("label", { className: "nm", htmlFor: id, textContent: `Knob ${k + 1}` }), se));
+  }
+  return p;
+}
+
+function layerTab(li) {
+  const r = rec(), L = D.layers[li], box = el("div", { style: "display:grid;gap:14px" });
+  const bar = el("div", { className: "layerbar" });
+  const inn = el("input", { type: "checkbox", id: `in-${li}`, checked: !!r[Y.inn + li] });
+  inn.onchange = () => { r[Y.inn + li] = inn.checked ? 1 : 0; changed(true); };
+  bar.append(el("label", { className: "toggle", htmlFor: `in-${li}` }, inn, "In the mix"));
+  if (L.latch) {
+    const la = el("input", { type: "checkbox", id: `latch-${li}`, checked: !!r[Y.latch + li] });
+    la.onchange = () => { r[Y.latch + li] = la.checked ? 1 : 0; changed(false); };
+    bar.append(el("label", { className: "toggle", htmlFor: `latch-${li}` }, la, "Latched (holds its notes)"));
+  }
+  bar.append(el("span", { className: "summary", textContent: `engine: ${C.engine(r, li)}` }));
+  box.append(bar);
+  const grid = el("div", { className: "pages" });
+  D.layers[li].pages[C.engine(r, li)].forEach(([n, sl], i) => grid.append(i === 0 ? favPage(li) : page(n, sl)));
+  box.append(grid);
+  return box;
+}
+
+function globalTab() {
+  const r = rec(), grid = el("div", { className: "pages" });
+  D.gpages.forEach(([n, sl, lab]) => grid.append(page(n, sl, sl.map((s, k) => lab[k] >= 0 ? `${D.short[lab[k]]} ${D.slots[s].n}` : null))));
+  return grid;
+}
+
+function rhythmTab() {
+  const r = rec(), box = el("div", { className: "rh" });
+  box.append(el("p", { className: "note", textContent: "Tapped rhythms: a lane plays its own when MOTION > Patt is 'tapped'; the drone, sub and pads when GATE > Gate is 'tapped'. Steps past the layer's Steps are ignored." }));
+  D.rhythm.forEach((h, ri) => {
+    const n = C.number(h.steps, r), on = C.index(h.patt, r) === h.tapped, row = el("div", { className: "steps" });
+    for (let k = 0; k < 16; k++) {
+      const at = Y.tap + ri * 16 + k, b = el("button", { type: "button", className: "step" + (r[at] ? " on" : "") + (k >= n ? " off" : ""), title: `Step ${k + 1}` });
+      b.setAttribute("aria-pressed", r[at] ? "true" : "false");
+      b.onclick = () => { r[at] = r[at] ? 0 : 1; changed(true); };
+      row.append(b);
+    }
+    const lab = el("div", {}, el("b", { textContent: D.llabels[h.layer] }), el("div", { className: "summary", textContent: on ? "tapped" : C.text(h.patt, r) }));
+    box.append(el("div", { className: "rhrow" }, lab, row));
+  });
+  return box;
+}
+
+// ---- the roadmap (the patch's own rule: roadmap.py, al-rgen)
+const int = x => Math.trunc(x);
+const fmt = sec => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
+function roadTab() {
+  const r = rec(), secs = C.road(r), tempo = C.number(D.tempo, r), box = el("div", { style: "display:grid;gap:14px" });
+  const setup = el("div", { className: "setup" });
+  const f = (lab, input) => el("label", { className: "field" }, el("span", { className: "label", textContent: lab }), input);
+  const mins = el("input", { type: "number", id: "mins", min: 4, max: 30, value: 12 });
+  const arc = el("select", { id: "arc" }); D.arcs.forEach((a, i) => arc.add(new Option(a, i)));
+  const tens = el("input", { type: "range", id: "tens", min: 0, max: 100, value: 40 });
+  const dens = el("input", { type: "range", id: "dens", min: 0, max: 100, value: 50 });
+  const varia = el("input", { type: "number", id: "varia", min: 0, max: 15, value: 0 });
+  setup.append(f("Minutes", mins), f("Arc", arc), f("Tension", tens), f("Density", dens), f("Variation", varia));
+  const build = el("button", { type: "button", className: "primary", textContent: "Build roadmap" });
+  build.onclick = () => {
+    const a = +arc.value, roles = D.arcRoles[a], tot = +mins.value * tempo / 4, t = tens.value / 100, d = dens.value / 100, v = +varia.value;
+    const sw = roles.reduce((s, x) => s + D.weights[x], 0), dt = Math.min(2, int(d * 2.99));
+    C.setRoad(r, roles.map((ro, i) => ({ role: ro, bars: Math.max(4, int(tot * D.weights[ro] / sw / 4 + 0.5) * 4), mask: D.masks[ro][dt],
+      story: D.pools[Math.min(2, int(t * D.tension[ro] * 2.2))][(v * 5 + i * 3 + a) % 8] })));
+    sel = 0; changed(true);
+  };
+  const total = secs.reduce((s, x) => s + x.bars, 0);
+  box.append(setup, el("div", { className: "row" }, build, el("span", { className: "summary", textContent: secs.length ? `${secs.length} sections, ${total} bars, ${fmt(total * 4 * 60 / tempo)} at ${tempo} bpm` : "No roadmap in this piece yet." })));
+  if (!secs.length) return box;
+  const save = () => { C.setRoad(r, secs); changed(true); };
+  const tl = el("div", { className: "timeline", role: "list" });
   secs.forEach((s, i) => {
-    const d = document.createElement("div");
-    d.className = "seg" + (i === sel ? " sel" : ""); d.setAttribute("role", "listitem"); d.tabIndex = 0;
-    d.style.flexGrow = s.bars; d.style.background = `var(--r${s.role})`;
-    d.innerHTML = `<b>${D.roles[s.role]}</b><span>${s.bars} bars</span>`;
+    const d = el("div", { className: "seg" + (i === sel ? " sel" : ""), tabIndex: 0 });
+    d.setAttribute("role", "listitem"); d.style.flexGrow = s.bars; d.style.background = `var(--r${s.role})`;
+    d.append(el("b", { textContent: D.roles[s.role] }), el("span", { textContent: `${s.bars} bars` }));
     d.onclick = () => { sel = i; render(); };
     d.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sel = i; render(); } };
     tl.append(d);
   });
-  const tb = $("rows"); tb.replaceChildren();
+  const add = el("button", { type: "button", textContent: "Add section", disabled: secs.length >= Y.maxsec });
+  add.onclick = () => { secs.splice(sel + 1, 0, { ...secs[sel] }); sel++; save(); };
+  const del = el("button", { type: "button", textContent: "Remove selected", disabled: secs.length <= 1 });
+  del.onclick = () => { secs.splice(sel, 1); sel = Math.max(0, sel - 1); save(); };
+  const tb = el("tbody");
   secs.forEach((s, i) => {
-    const tr = document.createElement("tr"); if (i === sel) tr.className = "sel";
+    const tr = el("tr", { className: i === sel ? "sel" : "" });
     tr.onclick = e => { if (e.target === tr || e.target.tagName === "TD") { sel = i; render(); } };
-    const td = () => tr.appendChild(document.createElement("td"));
-    let c = td(); c.className = "num"; c.textContent = i + 1;
-    c = td(); const rs = document.createElement("select"); rs.id = `role-${i}`;
-    D.roles.forEach((r, k) => rs.add(new Option(r, k))); rs.value = s.role;
-    rs.onchange = () => { s.role = +rs.value; render(); save(); };
-    const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = `var(--r${s.role})`;
-    c.append(dot, rs);
-    c = td(); const b = document.createElement("input"); b.type = "number"; b.min = 4; b.max = 64; b.step = 4; b.value = s.bars; b.id = `bars-${i}`;
-    b.onchange = () => { s.bars = Math.max(4, Math.min(64, +b.value || 4)); render(); save(); };
-    c.append(b);
-    c = td(); c.className = "num"; c.textContent = fmt(s.bars * 4 * 60 / tempo);
-    c = td(); const st = document.createElement("select"); st.id = `story-${i}`;
-    D.stories.forEach((n, k) => st.add(new Option(n, k))); st.value = s.story;
+    const rs = el("select", { id: `role-${i}` }); D.roles.forEach((x, k) => rs.add(new Option(x, k))); rs.value = s.role;
+    rs.onchange = () => { s.role = +rs.value; save(); };
+    const dot = el("span", { className: "dot" }); dot.style.background = `var(--r${s.role})`;
+    const b = el("input", { type: "number", id: `bars-${i}`, min: 4, max: 64, step: 4, value: s.bars });
+    b.onchange = () => { s.bars = Math.max(4, Math.min(64, +b.value || 4)); save(); };
+    const st = el("select", { id: `story-${i}` }); D.stories.forEach((n, k) => st.add(new Option(n, k))); st.value = s.story;
     st.onchange = () => { s.story = +st.value; save(); };
-    c.append(st);
-    c = td(); const ch = document.createElement("div"); ch.className = "chips";
+    const ch = el("div", { className: "chips" });
     D.short.forEach((n, k) => {
-      const t = document.createElement("button"); t.type = "button";
-      const on = (s.mask >> k) & 1; t.className = "chip" + (on ? " on" : ""); t.textContent = n;
-      t.title = D.layers[k] + (on ? " in" : " out"); t.setAttribute("aria-pressed", on ? "true" : "false");
-      t.onclick = () => { s.mask ^= (1 << k); render(); save(); };
+      const on = (s.mask >> k) & 1, t = el("button", { type: "button", className: "chip" + (on ? " on" : ""), textContent: n, title: D.llabels[k] + (on ? " in" : " out") });
+      t.setAttribute("aria-pressed", on ? "true" : "false");
+      t.onclick = () => { s.mask ^= (1 << k); save(); };
       ch.append(t);
     });
-    c.append(ch);
+    tr.append(el("td", { className: "num", textContent: i + 1 }), el("td", {}, dot, rs), el("td", {}, b),
+              el("td", { className: "num", textContent: fmt(s.bars * 4 * 60 / tempo) }), el("td", {}, st), el("td", {}, ch));
     tb.append(tr);
   });
-  $("summary").textContent = `${secs.length} sections, ${total} bars, ${fmt(total * 4 * 60 / tempo)} at ${tempo} bpm`;
-  $("txt").textContent = secs.map(s => `${s.bars} ${s.story} ${s.mask} ${s.role};`).join("\n");
-  $("add").disabled = secs.length >= D.maxSec; $("del").disabled = secs.length <= 1;
+  const head = el("tr"); ["#", "Role", "Bars", "Time", "Story", "Layers in"].forEach(h => head.append(el("th", { textContent: h })));
+  box.append(tl, el("div", { className: "row" }, add, del));
+  box.append(el("div", { className: "tablewrap" }, el("table", {}, el("thead", {}, head), tb)));
+  const txt = secs.map(s => `${s.bars} ${s.story} ${s.mask} ${s.role};`).join("\n");
+  const cp = el("button", { type: "button", textContent: "Copy as roadmap.txt" });
+  cp.onclick = () => copy(txt, null, "Copied roadmap.txt.");
+  box.append(el("details", {}, el("summary", { textContent: "This roadmap as roadmap.txt (for the patch's ROAD pages without a piece)" }),
+    el("div", { style: "display:grid;gap:8px;margin-top:8px" }, el("textarea", { className: "out", readOnly: true, value: txt }), el("div", { className: "row" }, cp))));
+  return box;
 }
-const fmt = sec => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
 
-function parse(text) {
-  const out = [];
-  text.split(";").map(l => l.trim()).filter(Boolean).forEach(l => {
-    const [bars, story, mask, role] = l.split(/\s+/).map(Number);
-    if ([bars, story, mask, role].every(Number.isFinite)) out.push({ bars, story, mask, role });
-  });
-  return out.slice(0, D.maxSec);
+// ---- one render for everything
+function render() {
+  keys();
+  const r = rec(), name = `${cur.kind === "piece" ? "Piece" : "Snapshot"} ${cur.idx + 1}`;
+  $("h-ed").textContent = name + (r ? "" : " (empty)");
+  $("sum").textContent = r ? `${C.text(D.key, r)} ${C.text(D.modeSlot, r)} · ${C.number(D.tempo, r)} bpm · in: ${D.layers.filter((l, i) => r[Y.inn + i]).map(l => l.short).join(" ")}` +
+    (example ? " · example: the patch's defaults" : "") : "";
+  $("fresh").textContent = r ? "Reset to defaults" : "Start from defaults";
+  $("clear").disabled = !r;
+  const ct = $("copyto"); ct.replaceChildren();
+  for (let i = 0; i < Y.pieces; i++) ct.add(new Option(`Piece ${i + 1}${lib.pieces[i] ? "" : " (empty)"}`, `piece:${i}`));
+  for (let i = 0; i < Y.saves; i++) ct.add(new Option(`Snapshot ${i + 1}${lib.saves[i] ? "" : " (empty)"}`, `snap:${i}`));
+  $("copygo").disabled = !r;
+  const ed = $("editor"); ed.replaceChildren();
+  if (!r) {
+    ed.append(el("p", { className: "note", textContent: `${name} is empty. Start it from the patch's defaults, or copy another piece or snapshot into it.` }));
+  } else {
+    ed.append(tabs(), el("div", { style: "margin-top:14px" }, tab === "g" ? globalTab() : tab === "rh" ? rhythmTab() : tab === "road" ? roadTab() : layerTab(+tab)));
+  }
+  files();
 }
-function save() { try { localStorage.setItem("al-road", $("txt").textContent); } catch (e) {} }
 
-$("build").onclick = build;
-["tens", "dens"].forEach(id => $(id).oninput = () => $(id + "O").textContent = $(id).value);
-$("tempo").onchange = render;
-$("add").onclick = () => { if (secs.length < D.maxSec) { secs.splice(sel + 1, 0, { ...secs[sel] }); sel++; render(); save(); } };
-$("del").onclick = () => { if (secs.length > 1) { secs.splice(sel, 1); sel = Math.max(0, sel - 1); render(); save(); } };
-$("copy").onclick = () => {
-  const t = $("txt").textContent;
-  navigator.clipboard.writeText(t).then(() => $("status").textContent = "Copied.", () => {
-    const r = document.createRange(); r.selectNodeContents($("txt"));
-    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
-    $("status").textContent = "Selected: copy it with your keyboard.";
+function changed(redraw) { example = false; if (redraw) render(); else { files(); $("sum").textContent = $("sum").textContent.replace(" · example: the patch's defaults", ""); } store(); }
+function files() { $("outp").value = C.write(lib.pieces); $("outs").value = C.write(lib.saves); }
+
+// slot actions, with a confirmation in the page for anything that replaces a slot
+function ask(msg, go) {
+  const c = $("confirm"); c.replaceChildren(msg + " ");
+  const yes = el("button", { type: "button", textContent: "Replace" }), no = el("button", { type: "button", textContent: "Keep" });
+  yes.onclick = () => { c.hidden = true; go(); }; no.onclick = () => { c.hidden = true; };
+  c.append(yes, " ", no); c.hidden = false;
+}
+$("fresh").onclick = () => {
+  const go = () => { setRec(C.defaults(cur.kind)); changed(true); };
+  rec() ? ask("Reset every setting in this slot to the patch's defaults?", go) : go();
+};
+$("clear").onclick = () => ask("Empty this slot? It saves as empty (-1).", () => { setRec(null); tab = "g"; changed(true); });
+$("copygo").onclick = () => {
+  const [kind, i] = $("copyto").value.split(":"), idx = +i, r = rec();
+  const go = () => {
+    const out = kind === "piece" ? C.asPiece(r.slice()) : C.asSnap(r);
+    if (kind === "piece") lib.pieces[idx] = out; else lib.saves[idx] = out;
+    cur = { kind, idx }; if (tab === "road" && kind !== "piece") tab = "g"; changed(true);
+  };
+  const full = kind === "piece" ? lib.pieces[idx] : lib.saves[idx];
+  full ? ask(`${kind === "piece" ? "Piece" : "Snapshot"} ${idx + 1} holds a sound. Replace it?`, go) : go();
+};
+
+function copy(text, area, done) {
+  navigator.clipboard.writeText(text).then(() => $("filestatus").textContent = done, () => {
+    if (area) { area.focus(); area.select(); }
+    $("filestatus").textContent = "Selected: copy it with your keyboard.";
   });
-};
-$("load").onclick = () => {
-  const p = parse($("paste").value);
-  if (p.length) { secs = p; sel = 0; render(); save(); $("status").textContent = `Loaded ${p.length} sections.`; }
-  else $("status").textContent = "No sections found: each line should read bars story layers role;";
-};
-$("file").onchange = e => {
-  const f = e.target.files[0]; if (!f) return;
-  const r = new FileReader(); r.onload = () => { $("paste").value = r.result; $("load").onclick(); }; r.readAsText(f);
-};
+}
+function download(text, name) {
+  const a = el("a", { href: URL.createObjectURL(new Blob([text], { type: "text/plain" })), download: name });
+  document.body.append(a); a.click(); a.remove();
+  $("filestatus").textContent = `Downloading ${name}. If nothing happens here, use Copy.`;
+}
+$("cpp").onclick = () => copy($("outp").value, $("outp"), "Copied pieces.txt.");
+$("cps").onclick = () => copy($("outs").value, $("outs"), "Copied saves.txt.");
+$("dlp").onclick = () => download($("outp").value, "pieces.txt");
+$("dls").onclick = () => download($("outs").value, "saves.txt");
 
-let saved = null; try { saved = localStorage.getItem("al-road"); } catch (e) {}
-const p0 = saved ? parse(saved) : [];
-if (p0.length) { secs = p0; render(); } else build();
+if (!restore()) { lib.pieces[0] = C.defaults("piece"); example = true; }
+render();
 </script>
 """
 
 
 def main(out=OUT):
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    open(out, "w").write(PAGE.replace("__DATA__", json.dumps(data())))
+    open(out, "w").write(PAGE.replace("__DATA__", json.dumps(data(), separators=(",", ":"))).replace("__CORE__", CORE))
     return out
 
 
