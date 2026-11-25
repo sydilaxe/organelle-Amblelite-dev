@@ -18,6 +18,8 @@ WHAT = {**{f"al-sel-{L}": f"show the {M.LAYER_LABEL[L]} pages" for L in M.LAYERS
         "al-sugaccept": "the HARMNY page's suggestion: played now, added to your own story",
         "al-ownclear": "clear your own story", "al-rgen": "build the roadmap (the ROAD page's settings)",
         "al-rhold": "hold the roadmap's section (again: let it go)",
+        "al-vis": "the visualizer: an oscilloscope, each layer a shape moved by its own waveform (aux tap: home)",
+        "al-panic": "PANIC: everything fades out (1.5 s), the clock stops, every note is released; silent until Start",
         "al-taprec": "tapped rhythm: arm the shown layer's (next bar; again: at once), each cycle takes what you play, a press: play", "al-rnext": "the roadmap's next section"}
 
 

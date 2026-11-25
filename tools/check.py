@@ -523,6 +523,26 @@ def main():
     check("your wavetables load from waves/ (and play)", uf == [["4", "1", "0"]] and H.rms_db(seg(a, 1.5, 2.5)) > -40,
           f"frames {uf[0] if uf else '-'}, user2 plays at {H.rms_db(seg(a, 1.5, 2.5)):.0f} dB")
 
+    # ---- the visualizer (aux + low C#): its frames come, each with the scope and the drone's circle; aux tap: home.
+    # PANIC (aux + low D#): the sound fades out and the clock stops, every note released
+    def vq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "expr alview*10 + alrun"), 0, c.obj("print VW", 900, 760), 0)
+    ev = [(20 + i, f"al-inset {i} 1") for i in range(len(M.LAYERS))] + [START, (1000, "aux 1"), (1050, "notesRaw 61 100"),
+                                                                       (1100, "notesRaw 61 0"), (1150, "aux 0"),
+                                                                       (2500, "h-q bang"), (2600, "aux 1"), (2650, "aux 0"),
+                                                                       (2700, "h-q bang"), (3000, "aux 1"), (3050, "notesRaw 63 100"),
+                                                                       (3100, "notesRaw 63 0"), (3150, "aux 0"), (5500, "h-q bang")]
+    log, a = H.run(ev, 6, d=d, keep=True, extra=vq, prints=("oscOut",))
+    vw = [l.split()[-1] for l in log.splitlines() if l.startswith("VW")]
+    osc = log.splitlines()
+    waves = sum("gWaveform" in l for l in osc)
+    lines = sum("gLine 3" in l for l in osc)
+    check("visualizer: frames with the scope and the layers' waveform shapes; aux tap: home", vw[:2] == ["31", "1"] and
+          waves >= 10 and lines >= 20 * waves, f"view {vw[:2]}, {waves} scope frames, {lines / max(1, waves):.0f} lines a frame")
+    check("panic: fades out, stops, releases everything", vw[2:3] == ["0"] and H.rms_db(seg(a, 5.0, 5.9)) < -70
+          and H.rms_db(seg(a, 2.0, 2.9)) > -40, f"running {vw[2:3]} (0: stopped), level {H.rms_db(seg(a, 2.0, 2.9)):.0f} -> "
+                                                f"{H.rms_db(seg(a, 5.0, 5.9)):.0f} dB")
+
     # ---- the looper's flow (the sub, Len 1 bar): armed until the bar line, the first pass, then overdub; a press:
     # play. Aux held over the start of a pass erases the A there while the D played meanwhile replaces it
     BARMS = 96 * 60000 / (84 * 24)

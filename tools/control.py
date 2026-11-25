@@ -360,7 +360,7 @@ AUX_KEYS = {**{k: f"al-sel-{L}" for k, L in LAYER_KEYS.items()}, KEY["notes"]: "
             KEY["start"]: "al-startstop", KEY["pgprev"]: "al-pgprev", KEY["pgnext"]: "al-pgnext",
             KEY["loop"]: "al-loop", KEY["loopstop"]: "al-taprec", KEY["loopclear"]: "al-loopclear",
             KEY["chordprev"]: "al-ownclear", KEY["chordnext"]: "al-sugaccept", KEY["latch"]: "al-rgen",
-            KEY["clear"]: "al-rnext", KEY["pattern"]: "al-rhold"}
+            KEY["clear"]: "al-rnext", KEY["pattern"]: "al-rhold", KEY["home"]: "al-vis", KEY["mix"]: "al-panic"}
 
 
 def rec_any():
@@ -528,7 +528,13 @@ def transport(c):
                       Call("al-lanes"), Call("al-gates"), Call("al-loops"), Call("al-lines"), Call("al-tapclock"),
                       If("alc24 % 3 == 0", [Call("al-tick")])])
     proc(c, "al-startstop", [If("alrun", [Call("al-stop")], [Call("al-start")])])
+    # PANIC (aux + low D#): everything fades out over 1.5 s, then the clock stops and every note is released
+    # (latched ones too); silent until the next Start (the cloud's grains too), which brings the level back. Loops kept.
+    proc(c, "al-panic", [SendL("al-panicg", ["0", "1500"]), Arm("al-panic2", "1550", stop="al-panicstop")])
+    proc(c, "al-panic2", [Call("al-stop"), Loop(str(NL), "alj", [T("allatch", "alj", "0")]), Call("al-prelall"),
+                          SendL("al-drone-g", ["0", "0", "0"]), SendL("al-sub-g", ["0", "0", "0"])])
     proc(c, "al-start", [If("alrun == 0", [
+        Send("al-panicstop"), SendL("al-panicg", ["1", "300"]),
         V("alrun", "1"), V("altick", "-1"), V("alc24", "-1"), V("alstep", "0"), Call("al-rstart"),
         Loop("4", "alj", [T("allane", "alj", "-1"), T("allrot", "alj", "0")]), Call("al-chord"),
         If(f"{opt(clk)} == 1", [Send("al-midibyte", "250")]),
@@ -787,6 +793,8 @@ def build(c):
     import lines
     import userwaves
     import audioin
+    import vis
+    GLOBALS.update(vis.GLOBALS)
     for g in (features.GLOBALS, midi.GLOBALS, harmony.GLOBALS, roadmap.GLOBALS, lines.GLOBALS, userwaves.GLOBALS,
               audioin.GLOBALS):
         for k, v in g.items():

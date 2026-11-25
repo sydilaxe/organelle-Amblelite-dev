@@ -26,6 +26,10 @@ class Oled:
             for i in range(x, min(128, x + w)):
                 for j in range(y, min(64, y + h)): self.img.putpixel((i, j), 1 - self.img.getpixel((i, j)))
         elif cmd == "gClear": self.d.rectangle([0, 0, 127, 63], fill=0)
+        elif cmd == "gLine": x1, y1, x2, y2, c = a[:5]; self.d.line([x1, y1, x2, y2], fill=c)
+        elif cmd == "gCircle": x, y, r, c = a[:4]; self.d.ellipse([x - r, y - r, x + r, y + r], outline=c)
+        elif cmd == "gFilledCircle": x, y, r, c = a[:4]; self.d.ellipse([x - r, y - r, x + r, y + r], fill=c)
+        elif cmd == "gSetPixel": x, y, c = a[:3]; self.d.point([x, y], fill=c)
         elif cmd == "gWaveform":          # [screen, y0..y127]: a polyline across the width
             ys = a[1:]
             for i in range(len(ys) - 1):
