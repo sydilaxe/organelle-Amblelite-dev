@@ -67,6 +67,12 @@ STORIES = [("modal", "deg", None), ("home", "deg", [0, 3, 0, 4]), ("descend", "d
            # ---- your own: the suggestions you accept (aux + top E), up to 8 (harmony.py)
            ("own", "chr", [(0, "maj")])]
 OWN_STORY = len(STORIES) - 1
+# the roadmap: arcs (the roles of their sections), roles, and how many sections it holds at most
+ROLES = ["emerge", "establ", "develp", "intens", "climax", "break", "return", "dissol"]
+ARCS = ["arch", "build", "waves", "twin", "journy"]
+ARC_ROLES = {"arch": [0, 1, 2, 3, 4, 2, 7], "build": [0, 1, 2, 2, 3, 3, 4, 7], "waves": [0, 2, 5, 2, 3, 5, 4, 7],
+             "twin": [0, 3, 4, 5, 3, 4, 7], "journy": [0, 1, 2, 5, 3, 4, 6, 7]}
+MAXSEC = 12
 STORY_LEN = 8          # a story is stored as 8 chords (repeated to fill)
 
 
@@ -273,7 +279,14 @@ GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opt
                 # adds it to your own story), which kind, and listening (held notes pull the next chord)
                 ("HARMNY", [Param("Sugg", 0, opts=["1", "2", "3", "4"], key="Sugg"),
                             Param("Group", 3, opts=["mode", "borrow", "moves", "all"]),
-                            Param("Listen", 0, opts=ONOFF)])]
+                            Param("Listen", 0, opts=ONOFF)]),
+                # the roadmap (roadmap.py): what it is built from (aux + top C# builds it), how it runs, a section
+                ("ROAD", [Param("Mins", 12, lo=4, hi=30), Param("Arc", 0, opts=ARCS), Param("Tensn", 0.4),
+                          Param("Densty", 0.5, key="RDens")]),
+                ("ROAD 2", [Param("Road", 0, opts=["off", "guide", "auto"]), Param("Varia", 0, lo=0, hi=15)]),
+                ("SECTN", [Param("Sect", 1, lo=1, hi=MAXSEC), Param("Bars", 16, lo=4, hi=64, key="SBars"),
+                           Param("Story", 0, opts=[n for n, _, _ in STORIES], key="SStory"),
+                           Param("Role", 0, opts=ROLES, key="SRole")])]
 # the MIX view's pages: existing slots (layer, name)
 MIX_PAGES = [("MIX 1", [("drone", "Level"), ("sub", "Level"), ("pad", "Level"), ("cloud", "Level")]),
              ("MIX 2", [(L, "Level") for L in LANES]), ("MIX 3", [("g", "Volume")])]

@@ -90,6 +90,10 @@ def main_patch():
     hm = Canvas("harmony", w=2600)
     harmony.build(hm)
     m.sub(hm, 690, 250)
+    import roadmap
+    rd = Canvas("roadmap", w=2600)
+    roadmap.build(rd)
+    m.sub(rd, 780, 250)
     import midi
     mi = Canvas("midi", w=1600)
     midi.build(mi)
@@ -123,6 +127,9 @@ def build(out=OUT):
     import midi
     midi.write_profiles(out)
     # the snapshots: kept across builds (an update keeps your saves); 18 empty lines the first time
+    rm = os.path.join(out, "roadmap.txt")        # (the roadmap: kept across builds too)
+    if not os.path.exists(rm):
+        open(rm, "w").write("")
     sv = os.path.join(out, "saves.txt")
     if not os.path.exists(sv):
         open(sv, "w").write("-1;\n" * (features.SCRATCH + 2))

@@ -17,7 +17,7 @@ Fade time; out, a loop keeps its place, silent). Held (400 ms): its parameter pa
 THE OTHER KEYS (one press each): the low black keys the views, the top octave playing
   low C#   the play view (back from MIX / pattern / pages)
   low D#   the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)
-  low F#   the pattern view on / off: every gate and lane as steps
+  low F#   the pattern view (every gate and lane as steps), then the roadmap view, then neither
   low G#   the MAIN / STORY / SYNC / PERFRM pages (again: the next one)
   low A#   page forward
   top C    start / stop
@@ -43,9 +43,12 @@ AUX held + key
   low A#   page back
   low B    show the PERC4 pages
   top C    start / stop
+  top C#   build the roadmap (the ROAD page's settings)
   top D    clear your own story
   top E    the HARMNY page's suggestion: played now, added to your own story
+  top F#   hold the roadmap's section (again: let it go)
   top G    show the CLOUD pages
+  top G#   the roadmap's next section
   top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
   aux tap  page forward
   aux held + a knob: ASSIGN - that knob's place on the FAV page takes a

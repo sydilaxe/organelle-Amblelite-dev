@@ -90,6 +90,11 @@ OFF["toast"] = len(LINES)
 LINES += TOASTS
 OFF["loopst"] = len(LINES)
 LINES += ["+", "R", "P", "O", "s"]          # a layer's loop: none, recording, playing, overdub, stopped
+for _w in ("road", "hold", "next"):
+    OFF[_w] = len(LINES)
+    LINES.append({"road": "ROAD", "hold": "HOLD", "next": "next:"}[_w])
+OFF["role"] = len(LINES)
+LINES += M.ROLES
 OFF["lanes"] = len(LINES)
 LINES += ["".join(str(i + 1) if b & (1 << i) else "." for i in range(len(M.LANES))) + ("c" if b & 16 else "")
           for b in range(2 ** (len(M.LANES) + 1))]
@@ -231,10 +236,41 @@ def build(c):
         If(row_on("alpr"), [SendL(OSC, [f"{PAT_X} + {cur}*{PAT_W}", "alpr*9 + 7"],
                                   f"/oled/gFillArea 3 $1 $2 {PAT_W - 1} 1 1")])]),
         Send(OSC, "/oled/gFlip 3")]
-    proc(c, "al-patmark", [If("alpatv && alpop == 0 && altick % 2 == 0", mark)])
+    proc(c, "al-patmark", [If("alpatv == 1 && alpop == 0 && altick % 2 == 0", mark)])
+    roadv = road_view(c)
     proc(c, "al-draw", [Fill(0, 0, 128, 64, 0),
-                        If("alpop", lay, [If(f"alview == 2", mixv, [If("alpatv", patv, play)])]),
+                        If("alpop", lay, [If(f"alview == 2", mixv, [If("alpatv == 1", patv,
+                                                                       [If("alpatv == 2", roadv, play)])])]),
                         Send(OSC, "/oled/gFlip 3")])
+
+
+def road_view(c):
+    """the roadmap: section n/count and its role (HOLD while held); its story and the bar within it; the sections as
+    a strip (widths by their bars, the current one filled, a playhead); the layers in it; the next one's role"""
+    from pdlib import V, Loop
+    st = S("g", None, "Story")
+    row(c, "al-r-road", 0, 0, [("w", str(OFF["road"])), ("w", f"{OFF['frac']} + max(0, alrn - 1)*{M.MAXPAGES} + alrc"),
+                               ("w", f"{OFF['role']} + alrsR[alrc]"), ("w", f"if(alrhold, {OFF['hold']}, {OFF['plus']})")])
+    row(c, "al-r-road2", 0, 11, [("w", f"{OFF['opt']} + alob[{st}] + alrsS[alrc]"),
+                                 ("n", "max(0, altick/32 - alrb0) + 1", "%d"), ("n", "alrsL[alrc]", "/%d")])
+    row(c, "al-r-road3", 0, 54, [("w", str(OFF["next"])), ("w", f"{OFF['role']} + alrsR[min(alrc + 1, alrn - 1)]")])
+    steps = [If("alrn == 0", [Send(OSC, "/oled/gPrintln 3 0 0 8 1 ROAD: aux + top C#")], [
+        Call("al-r-road"), Call("al-r-road2"),
+        V("alrtot", "0"), Loop("alrn", "alri", [V("alrtot", "alrtot + alrsL[alri]")]), V("alrsw", "0"),
+        Loop("alrn", "alri", [
+            If("alri == alrc", [SendL(OSC, ["int(alrsw*127/alrtot)", "max(2, int(alrsL[alri]*127/alrtot))"],
+                                      "/oled/gFillArea 3 $1 24 $2 10 1")],
+               [SendL(OSC, ["int(alrsw*127/alrtot)", "max(2, int(alrsL[alri]*127/alrtot))"],
+                      "/oled/gBox 3 $1 24 $2 10 1")]),
+            V("alrsw", "alrsw + alrsL[alri]")])])]
+    for li, L in enumerate(LAYERS):
+        x = 1 + 16 * li
+        lab = M.SHORT[L][1] if M.kind(L) == "perc" else M.SHORT[L][0]
+        steps.append(If(f"alrn > 0 && int(alrsM[alrc]/{2 ** li}) % 2",
+                        [Fill(x, 38, 11, 10, 1), Send(OSC, f"/oled/gPrintln 3 {x + 3} 39 8 0 {lab}")],
+                        [If("alrn > 0", [Send(OSC, f"/oled/gPrintln 3 {x + 3} 39 8 1 {lab}")])]))
+    steps.append(If("alrn > 1", [Call("al-r-road3")]))
+    return steps
 
 
 def pick_clocks(slot_expr):

@@ -11,12 +11,13 @@ WHAT = {**{f"al-sel-{L}": f"show the {M.LAYER_LABEL[L]} pages" for L in M.LAYERS
         "al-chordprev": "previous chord", "al-chordnext": "next chord",
         "al-layerview": "the play view (back from MIX / pattern / pages)",
         "al-mix": "the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)",
-        "al-patview": "the pattern view on / off: every gate and lane as steps",
+        "al-patview": "the pattern view (every gate and lane as steps), then the roadmap view, then neither",
         "al-loop": "the shown layer's looper: record, then play, overdub, play ...",
         "al-loopstop": "the shown layer's loop: stop / play", "al-loopclear": "clear the shown layer's loop",
         "al-notesmode": "notes mode: the Organelle keys play the shown layer (again: back to functions)",
         "al-sugaccept": "the HARMNY page's suggestion: played now, added to your own story",
-        "al-ownclear": "clear your own story"}
+        "al-ownclear": "clear your own story", "al-rgen": "build the roadmap (the ROAD page's settings)",
+        "al-rhold": "hold the roadmap's section (again: let it go)", "al-rnext": "the roadmap's next section"}
 
 
 def key(k):

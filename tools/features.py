@@ -110,7 +110,8 @@ def assign(c):
 
 
 # ---------------------------------------------------------------------------------------------- toasts
-TOASTS = ["SAVED", "LOADED", "EMPTY", "COMPARE", "BACK", "REC", "PLAY", "DUB", "STOPPED", "CLEARED", "ASSIGN"]
+TOASTS = ["SAVED", "LOADED", "EMPTY", "COMPARE", "BACK", "REC", "PLAY", "DUB", "STOPPED", "CLEARED", "ASSIGN",
+          "ROAD", "NEXT", "SECTION", "HOLD"]
 
 
 def toast(name, number=None):

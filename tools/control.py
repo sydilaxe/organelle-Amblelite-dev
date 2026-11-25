@@ -11,6 +11,7 @@ NL = len(LAYERS)
 LX = {"drone": "d", "sub": "s"}
 FIRST_LANE = LAYERS.index(LANES[0])
 VIEW_LAYER, VIEW_GLOBAL, VIEW_MIX = 0, 1, 2
+SECTN_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("SECTN")
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
 GLOBALS = dict(allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
@@ -233,7 +234,10 @@ def layer_switches(c):
     rt = c.ch(c.recv("al-inset-do"), "t b", "expr alil", "route " + " ".join(str(i) for i in range(NL)))
     for li, L in enumerate(LAYERS):
         c.c((rt, li), 0, c.obj(f"s al-inset-{L}"), 0)
-        proc(c, f"al-tog-{L}", [SendL("al-inset", [str(li), f"1 - alin[{li}]"])])
+        # (while the SECTN page shows, the key edits the section instead: roadmap.py)
+        proc(c, f"al-tog-{L}", [If(f"alview == {VIEW_GLOBAL} && alpage == {SECTN_PAGE}",
+                                   [V("alrq", str(li)), Call("al-rtog")],
+                                   [SendL("al-inset", [str(li), f"1 - alin[{li}]"])])])
         # (the level's fade: 'in fade_ms' to the mix)
         proc(c, f"al-inset-{L}", [
             If(f"aliv != alin[{li}]", [
@@ -277,7 +281,8 @@ def pages(c):
                           [V("alview", str(VIEW_MIX)), V("alpage", "0")]), V("alpop", "0"), Call("al-pickreset")])
     proc(c, "al-layerview", [V("alview", "0"), V("alpage", "0"), V("alpop", "0"), V("alpatv", "0"),
                              Call("al-pickreset")])
-    proc(c, "al-patview", [V("alpatv", "1 - alpatv"), V("alview", "if(alview == 2, 0, alview)"), V("alpop", "0"),
+    # (low F#: the pattern view, then the roadmap view, then neither)
+    proc(c, "al-patview", [V("alpatv", "(alpatv + 1) % 3"), V("alview", "if(alview == 2, 0, alview)"), V("alpop", "0"),
                            Call("al-pickreset")])
     proc(c, "al-latch", [If(f"allayer < {FIRST_LANE}", [T("allatch", "allayer", "1 - allatch[allayer]")]),
                          If("allatch[allayer] == 0", [Call("al-unlatch")]), Call("al-redraw")])
@@ -307,7 +312,7 @@ KEYS = {61: "al-layerview", 63: "al-mix", 66: "al-patview", 68: "al-global", 70:
 SLOT_KEY = 82          # held: the keys from low C to top D# recall a snapshot (with aux: save); tapped: COMPARE
 # aux held + a layer key: its pages at once (in notes mode too); aux + a few others
 AUX_KEYS = {**{k: f"al-sel-{L}" for k, L in LAYER_KEYS.items()}, 70: "al-pgprev", 72: "al-startstop",
-            74: "al-ownclear", 76: "al-sugaccept", 83: "al-notesmode"}
+            73: "al-rgen", 74: "al-ownclear", 76: "al-sugaccept", 78: "al-rhold", 80: "al-rnext", 83: "al-notesmode"}
 
 
 def organelle(c):
@@ -449,7 +454,7 @@ def transport(c):
                       If("alc24 % 3 == 0", [Call("al-tick")])])
     proc(c, "al-startstop", [If("alrun", [Call("al-stop")], [Call("al-start")])])
     proc(c, "al-start", [If("alrun == 0", [
-        V("alrun", "1"), V("altick", "-1"), V("alc24", "-1"), V("alstep", "0"),
+        V("alrun", "1"), V("altick", "-1"), V("alc24", "-1"), V("alstep", "0"), Call("al-rstart"),
         Loop("4", "alj", [T("allane", "alj", "-1"), T("allrot", "alj", "0")]), Call("al-chord"),
         If(f"{opt(clk)} == 1", [Send("al-midibyte", "250")]),
         If(f"{opt(sync)} == 0", [Send("al-clock", "1")]), Call("al-redraw")])])
@@ -465,6 +470,7 @@ def transport(c):
         If(f"{opt(bars)} > 0 && altick > 0 && altick % (32*{nb}) == 0", [Call("al-chordnext")]),
         # each bar: the lanes with a Phase move one step against the others (Reich's phasing, in steps)
         If("altick > 0 && altick % 32 == 0", [Call("al-phase")]),
+        If("altick % 32 == 0", [Call("al-rbar")]),
         If("alpatv", [Call("al-patmark")])])
     proc(c, "al-phase", [If(f"{opt(S(L, None, 'Phase'))} > 0 && (altick/32) % "
                             f"{pick(M.PHASE_BARS, opt(S(L, None, 'Phase')))} == 0",
@@ -668,7 +674,8 @@ def build(c):
     import features
     import midi
     import harmony
-    for g in (features.GLOBALS, midi.GLOBALS, harmony.GLOBALS):
+    import roadmap
+    for g in (features.GLOBALS, midi.GLOBALS, harmony.GLOBALS, roadmap.GLOBALS):
         for k, v in g.items():
             assert k not in GLOBALS, k
         GLOBALS.update(g)

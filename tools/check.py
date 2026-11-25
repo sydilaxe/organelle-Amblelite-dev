@@ -352,6 +352,24 @@ def main():
     e = any(has(t, 329.63 * r) for r in (0.5, 1, 2))
     check("listening: the next chord holds the note held", e, f"peaks {sorted(round(x) for x in t)[:12]}")
 
+    # ---- the roadmap: built (aux + top C#) at 200 bpm from 4 minutes - its first section 'emerge' brings only the
+    # drone; 4 bars later (4.8 s) 'establish' brings the sub and pads in. On the SECTN page a layer key edits the
+    # section (the file roadmap.txt)
+    import os
+    g = lambda k: M.S("g", None, k)
+    gpages = [n for n, _ in M.GLOBAL_PAGES]
+    rd = [(50, f"al-set {g('Road')} 0.9"), (51, f"al-set {g('Mins')} 0"), (52, f"al-set {g('Tempo')} 1"),
+          (100, "aux 1"), (150, "notesRaw 73 100"), (160, "notesRaw 73 0"), (200, "aux 0"), START]
+    # (the first section shortened to 4 bars on the SECTN page: Bars, for the section Sect shows)
+    log, _ = H.run(rd + [(300, f"al-set {g('SBars')} 0")], 9, d=d, keep=True, prints=("al-inset",))
+    ins = [l for l in log.splitlines() if l.startswith("al-inset")]
+    check("the roadmap runs its sections (auto)", ins[:3] == ["al-inset: 1 0", "al-inset: 2 0", "al-inset: 3 0"] and
+          "al-inset: 1 1" in ins and "al-inset: 2 1" in ins, " ".join(i.split(": ")[1] for i in ins))
+    keys = [(400 + 100 * i, "notesRaw 68 100") for i in range(gpages.index("SECTN") + 1)]
+    log, _ = H.run(rd[:-1] + keys + [(2000, "notesRaw 71 100"), (2050, "notesRaw 71 0")], 3, d=d, keep=True)
+    line1 = open(os.path.join(d, "roadmap.txt")).read().splitlines()[0]
+    check("a layer key edits the section on the SECTN page", line1.split()[2] == str(1 + 64), f"section 1: {line1}")
+
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()
     run(on + [(25, f"al-inset {M.LAYERS.index('cloud')} 1"), START], 30)        # (all four lanes and the cloud in)
