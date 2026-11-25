@@ -253,9 +253,11 @@ def build(c):
     roadv = road_view(c)
     # (the MIX view, after its first frame: only the header and the columns cleared and drawn - its labels stay)
     mixing = "alpop == 0 && alview == 2"
+    import vis
+    VIS, visv = vis.VIEW_VIS, vis.frame()
     proc(c, "al-draw", [If(f"{mixing} && almixok", [Fill(0, 0, 128, 55, 0)], [Fill(0, 0, 128, 64, 0), V("almixok", "0")]),
-                        If("alpop", lay, [If(f"alview == 2", mixv, [If("alpatv == 1", patv,
-                                                                       [If("alpatv == 2", roadv, play)])])]),
+                        If("alpop", lay, [If(f"alview == 2", mixv, [If(f"alview == {VIS}", visv, [If("alpatv == 1", patv,
+                                                                       [If("alpatv == 2", roadv, play)])])])]),
                         If(f"({mixing}) == 0", [V("almixok", "0")]),
                         Send(OSC, "/oled/gFlip 3")])
 

@@ -42,7 +42,9 @@ def main():
     # the roadmap view: built (aux + top C#), auto, then low F# twice
     ev += [(19000, f"al-set {S('g', None, 'Road')} 0.9"), (19100, "aux 1"), (19200, "notesRaw 81 100"),
            (19250, "notesRaw 81 0"), (19300, "aux 0")] + tap(21000, 66) + tap(21200, 66) + [(23000, "h-snap 10-roadmap")]
-    log, _ = run(ev, 24, prints=("oscOut",), extra=snap)
+    # the visualizer: aux + low C#
+    ev += tap(23200, 66) + [(23400, "aux 1")] + tap(23450, 61) + [(23600, "aux 0"), (25000, "h-snap 11-visual")]
+    log, _ = run(ev, 25.5, prints=("oscOut",), extra=snap)
     saved = oledemu.render(log, OUT)
     # a contact sheet
     ims = [Image.open(p) for p in saved]

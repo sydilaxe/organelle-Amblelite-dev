@@ -97,6 +97,8 @@ def mix():
             import audioin
             cL, cR = audioin.pad_morph(c, [cL, cR])
         oL, oR = mul(c, cL, bl), mul(c, cR, br)
+        import vis
+        vis.taps(c, li, L, oL, oR)
         c.c(oL, 0, mL, 0)
         c.c(oR, 0, mR, 0)
         if L != "cloud":            # (what the cloud records: every other layer, after its level)
@@ -107,6 +109,10 @@ def mix():
     c.c(c.obj("catch~ al-input-L"), 0, mL, 0)
     c.c(c.obj("catch~ al-input-R"), 0, mR, 0)
     vol = c.ch(c.recv(f"al-s{M.S('g', None, 'Volume')}"), "expr $f1*$f1*2", "pack f 30", "line~")
+    # (PANIC, aux + low D#: everything fades out over 1.5 s - control.panic - then back up)
+    pg = c.ch(c.recv("al-panicg"), "line~")
+    c.c(c.m(c.recv("al-init"), "1"), 0, pg, 0)
+    vol = mul(c, vol, pg)
     for x, o in ((mL, "outL"), (mR, "outR")):
         # (a soft limit above 0.8: the excess e eased to 0.2 e / (0.2 + |e|), so it never passes 1)
         y0 = c.ch(mul(c, x, vol), "hip~ 5")
@@ -114,6 +120,7 @@ def mix():
         e = sub(c, y0, lin)
         y = add(c, lin, div(c, c.to(e, "*~ 0.2"), c.ch(e, "abs~", "+~ 0.2")))
         c.c(y, 0, c.obj("throw~ " + o), 0)
+        c.c(y, 0, c.obj(f"s~ {o}-vis"), 0)           # (the visualizer's scope)
     return c
 
 
@@ -144,6 +151,10 @@ def main_patch():
     ai = Canvas("input", w=1600)
     audioin.build(ai)
     m.sub(ai, 730, 250)
+    import vis
+    vc = Canvas("visualizer", w=1600)
+    vis.build(vc)
+    m.sub(vc, 840, 250)
     import userwaves
     uw = Canvas("userwaves", w=1600)
     userwaves.build(uw)

@@ -39,7 +39,9 @@ THE OTHER KEYS (one press each): the low black keys the views, the top octave pl
 
 AUX held + key
   low C    show the DRONE pages
+  low C#   the visualizer: an oscilloscope, each layer a shape moved by its own waveform (aux tap: home)
   low D    show the SUB pages
+  low D#   PANIC: everything fades out (1.5 s), the clock stops, every note is released; silent until Start
   low E    show the PADS pages
   low F    show the PERC1 pages
   low F#   hold the roadmap's section (again: let it go)
