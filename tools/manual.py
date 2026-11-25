@@ -644,7 +644,7 @@ def story():
           table([["", "Snapshots", "Pieces"],
                  ["How many", "16 (saves.txt)", "8 (pieces.txt)"],
                  ["What they hold", "everything: every parameter (key, tempo, scale, mode, engines), the layers in, "
-                                    "FAV pages, tapped rhythms", "the same, and the roadmap"],
+                                    "FAV pages, tapped rhythms", "the same, the roadmap and every layer's loop (loops.txt)"],
                  ["Save", "hold top A#, hold aux, press a key (low C .. top D#)", "PIECE page: aux + top A#"],
                  ["Load", "hold top A#, press the key - it glides over Morph", "PIECE page: top A# - at once"],
                  ["For", "quick changes while playing", "a whole composition, ready to play"]], [1.1, 3.1, 3.0]),
@@ -688,11 +688,12 @@ def story():
             "keeps its roadmap.")]
     # ---- the web editor
     s += [P("The web editor", H1),
-          P("Amble Lite Editor (docs/planner.html, also published as a web page) opens pieces.txt and saves.txt from "
-            "the AmbleLite folder and edits any piece or snapshot page by page, as on the Organelle: every parameter "
-            "of every layer and engine, the layers in, the latches, the FAV pages, the tapped rhythms and a piece's "
-            "roadmap. Copy the file back over the one in the AmbleLite folder (keep a copy of the old one); the patch "
-            "reads it when it loads.")]
+          P("Amble Lite Editor (docs/planner.html, also published as a web page) opens pieces.txt, saves.txt and "
+            "loops.txt from the AmbleLite folder and edits any piece or snapshot page by page, as on the Organelle: "
+            "every parameter of every layer and engine, the layers in, the latches, the FAV pages, the tapped rhythms, "
+            "a piece's roadmap and its loops (shown as notes; each can be stopped, started or cleared). Copy the files "
+            "back over the ones in the AmbleLite folder (keep copies of the old ones); the patch reads them when it "
+            "loads.")]
     # ---- the input
     s += [P("Audio input", H1), P(esc(DESC["g:INPUT:Mode"])), P(esc("Amount: " + DESC["g:INPUT:Amount"])),
           P("Off by default: the input is ignored and costs nothing until a mode is chosen.")]
@@ -711,6 +712,7 @@ def story():
           table([["File", "Holds", "Kept over an update"],
                  ["saves.txt", "the 16 snapshots", "yes (not in the release zip)"],
                  ["pieces.txt", "the 8 pieces", "yes"],
+                 ["loops.txt", "the pieces' loops (a line a piece and layer)", "yes"],
                  ["roadmap.txt", "the roadmap", "yes"],
                  ["controllers/", "controller profiles (user.txt: yours)", "user.txt yes"],
                  ["waves/", "the factory bank (waves/factory) and your WAVs: user1-8, in name order - frames of 2048 "

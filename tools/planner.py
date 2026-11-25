@@ -47,7 +47,8 @@ def data():
     nslots = M.NSLOTS
     lay = dict(nslots=nslots, nl=nl, maxeng=M.MAXENG, latch=nslots, inn=nslots + nl, fav=nslots + 2 * nl,
                favn=F.FAVN, tap=nslots + 2 * nl + F.FAVN, tapn=F.TAPN, snap=F.SNAP, piece=F.PIECE, maxsec=M.MAXSEC,
-               pieces=F.PIECES, saves=F.SAVE_SLOTS, saveLines=F.SCRATCH + 2)
+               pieces=F.PIECES, saves=F.SAVE_SLOTS, saveLines=F.SCRATCH + 2, loopLayers=F.LOOP_LAYERS,
+               maxev=F.MAXEV, maxclk=F.MAXCLK, bar=F.BAR)
     assert lay["tap"] + lay["tapn"] == F.SNAP and F.SNAP + 1 + 4 * M.MAXSEC == F.PIECE
     return dict(
         slots=slots, layers=layers, fav0=fav0, latch0=[1 if li < FIRST_LANE else 0 for li in range(nl)],
@@ -81,12 +82,12 @@ const C = (() => {
       return a.length === len && a.every(Number.isFinite) ? a : null;
     });
   }
-  function kindOf(text) {
+  let kindOf = function (text) {
     const lens = text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => l.split(/\s+/).length);
     if (lens.includes(Y.piece)) return "piece";
     if (lens.includes(Y.snap)) return "snap";
     return null;
-  }
+  };
   function write(recs) { return recs.map(r => r ? r.map(q).join(" ") : "-1").join("\n") + "\n"; }
   function asPiece(r) {
     const p = defaults("piece");
@@ -143,7 +144,24 @@ const C = (() => {
       rec[b + i] = s.bars; rec[b + Y.maxsec + i] = s.story; rec[b + 2 * Y.maxsec + i] = s.mask; rec[b + 3 * Y.maxsec + i] = s.role;
     }
   }
-  return { Y, defaults, parse, kindOf, write, asPiece, asSnap, layerOf, engine, targets, choices, name, index, number,
+  // loops.txt: a line a piece and layer: state length count, times, notes, velocities, roots (count each), the
+  // breath line's length and values
+  const okLoop = a => a.length >= 4 && a.every(Number.isFinite) && a[2] >= 0 && a.length === 4 + 4 * a[2] + (a[3 + 4 * a[2]] || 0);
+  function parseLoops(text) {
+    const lines = text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => l.split(/\s+/).map(Number));
+    return Array.from({ length: Y.pieces * Y.loopLayers }, (_, i) => lines[i] && okLoop(lines[i]) ? lines[i] : [0, 0, 0, 0]);
+  }
+  function isLoops(text) {
+    const lines = text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => l.split(/\s+/).map(Number));
+    return lines.length > 0 && lines.every(okLoop);
+  }
+  function loop(a) {
+    const n = a[2], bn = a[3 + 4 * n] || 0, at = k => a.slice(3 + k * n, 3 + (k + 1) * n);
+    return { state: a[0], len: a[1], n, t: at(0), note: at(1), vel: at(2), root: at(3), bn, breath: a.slice(4 + 4 * n, 4 + 4 * n + bn) };
+  }
+  const _kind = kindOf;
+  kindOf = text => _kind(text) || (isLoops(text) ? "loops" : null);
+  return { Y, defaults, parse, kindOf, write, parseLoops, loop, asPiece, asSnap, layerOf, engine, targets, choices, name, index, number,
            text, setIndex, setNumber, favAt, road, setRoad, optIndex };
 })();
 """
@@ -257,12 +275,12 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
 <div class="wrap">
   <header>
     <h1>Amble Lite Editor</h1>
-    <p class="lede">Open your pieces.txt or saves.txt from the AmbleLite folder, edit any piece or snapshot page by page as on the Organelle, then copy the file back. Pieces also hold their roadmap.</p>
+    <p class="lede">Open your pieces.txt, saves.txt and loops.txt from the AmbleLite folder, edit any piece or snapshot page by page as on the Organelle, then copy the files back. A piece also holds its roadmap and its loops.</p>
   </header>
 
   <section class="panel" aria-labelledby="h-lib">
     <div class="row between"><h2 id="h-lib">Library</h2>
-      <label class="toggle" for="file"><span class="label">Open pieces.txt or saves.txt</span><input id="file" type="file" accept=".txt,text/plain"></label></div>
+      <label class="toggle" for="file"><span class="label">Open pieces.txt, saves.txt or loops.txt</span><input id="file" type="file" accept=".txt,text/plain" multiple></label></div>
     <div class="lib">
       <div class="field"><span class="label">Pieces (pieces.txt)</span><div class="keys" id="kp"></div></div>
       <div class="field"><span class="label">Snapshots (saves.txt)</span><div class="keys" id="ks"></div></div>
@@ -295,6 +313,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
         <div class="row"><button class="primary" id="cpp" type="button">Copy pieces.txt</button><button id="dlp" type="button">Download</button></div></div>
       <div class="field"><span class="label">saves.txt</span><textarea class="out" id="outs" readonly></textarea>
         <div class="row"><button class="primary" id="cps" type="button">Copy saves.txt</button><button id="dls" type="button">Download</button></div></div>
+      <div class="field"><span class="label">loops.txt</span><textarea class="out" id="outl" readonly></textarea>
+        <div class="row"><button class="primary" id="cpl" type="button">Copy loops.txt</button><button id="dll" type="button">Download</button></div></div>
     </div>
     <p class="status" id="filestatus" role="status"></p>
   </section>
@@ -306,7 +326,8 @@ __CORE__
 const $ = id => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
 const Y = C.Y;
-let lib = { pieces: new Array(Y.pieces).fill(null), saves: new Array(Y.saveLines).fill(null) };
+let lib = { pieces: new Array(Y.pieces).fill(null), saves: new Array(Y.saveLines).fill(null), loops: null };
+const noLoops = () => Array.from({ length: Y.pieces * Y.loopLayers }, () => [0, 0, 0, 0]);
 let cur = { kind: "piece", idx: 0 }, tab = "g", sel = 0, example = false, pending = null;
 
 const rec = () => cur.kind === "piece" ? lib.pieces[cur.idx] : lib.saves[cur.idx];
@@ -319,7 +340,8 @@ function restore() {
     const s = JSON.parse(localStorage.getItem("al-lib") || "null");
     if (s && s.lib && s.lib.pieces.length === Y.pieces && s.lib.saves.length === Y.saveLines &&
         [...s.lib.pieces, ...s.lib.saves].every(r => r === null || r.length === Y.piece || r.length === Y.snap)) {
-      lib = s.lib; cur = s.cur || cur; tab = s.tab || tab; return true;
+      lib = s.lib; if (!Array.isArray(lib.loops) || lib.loops.length !== Y.pieces * Y.loopLayers) lib.loops = null;
+      cur = s.cur || cur; tab = s.tab || tab; return true;
     }
   } catch (e) {}
   return false;
@@ -334,7 +356,7 @@ function keys() {
       const b = el("button", { type: "button", className: "key" + (full ? " full" : "") + (on ? " cur" : ""), textContent: i + 1,
         title: `${kind === "piece" ? "Piece" : "Snapshot"} ${i + 1}${full ? "" : " (empty)"}` });
       b.setAttribute("aria-pressed", on ? "true" : "false");
-      b.onclick = () => { cur = { kind, idx: i }; sel = 0; if (tab === "road" && kind !== "piece") tab = "g"; render(); };
+      b.onclick = () => { cur = { kind, idx: i }; sel = 0; if ((tab === "road" || tab === "loops") && kind !== "piece") tab = "g"; render(); };
       box.append(b);
     }
   };
@@ -342,24 +364,34 @@ function keys() {
 }
 
 function load(text, fname) {
-  const k = C.kindOf(text) || (/save/i.test(fname || "") ? "snap" : /piece/i.test(fname || "") ? "piece" : null);
-  if (!k) { $("libstatus").textContent = "That file holds no piece or snapshot. Open pieces.txt or saves.txt from the AmbleLite folder."; return; }
+  const k = C.kindOf(text) || (/save/i.test(fname || "") ? "snap" : /piece/i.test(fname || "") ? "piece" : /loop/i.test(fname || "") ? "loops" : null);
+  if (!k) { $("libstatus").textContent = "That file holds no pieces, snapshots or loops. Open pieces.txt, saves.txt or loops.txt from the AmbleLite folder."; return; }
+  if (k === "loops") {
+    lib.loops = C.parseLoops(text);
+    const n = lib.loops.filter(a => a[0] > 0).length;
+    $("libstatus").textContent = `Loaded loops.txt: ${n} loop${n === 1 ? "" : "s"} across the pieces.`;
+    if (cur.kind === "piece") tab = "loops";
+    render(); store(); return;
+  }
   const recs = C.parse(text, k === "piece" ? Y.piece : Y.snap);
   if (k === "piece") { lib.pieces = Array.from({ length: Y.pieces }, (_, i) => recs[i] || null); cur = { kind: "piece", idx: Math.max(0, lib.pieces.findIndex(Boolean)) }; }
   else { lib.saves = Array.from({ length: Y.saveLines }, (_, i) => recs[i] || null); cur = { kind: "snap", idx: Math.max(0, lib.saves.findIndex((r, i) => r && i < Y.saves)) }; }
   example = false;
   const n = (k === "piece" ? lib.pieces.slice(0, Y.pieces) : lib.saves.slice(0, Y.saves)).filter(Boolean).length;
   $("libstatus").textContent = `Loaded ${k === "piece" ? "pieces.txt" : "saves.txt"}: ${n} ${k === "piece" ? "pieces" : "snapshots"}.`;
-  sel = 0; if (tab === "road" && k !== "piece") tab = "g"; render();
+  sel = 0; if ((tab === "road" || tab === "loops") && k !== "piece") tab = "g"; render();
 }
-$("file").onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => load(r.result, f.name); r.readAsText(f); e.target.value = ""; };
+$("file").onchange = e => {
+  [...e.target.files].forEach(f => { const r = new FileReader(); r.onload = () => load(r.result, f.name); r.readAsText(f); });
+  e.target.value = "";
+};
 $("loadpaste").onclick = () => load($("paste").value, "");
 
 // ---- the editor
 function tabs() {
   const r = rec(), bar = el("div", { className: "tabs", role: "tablist" });
   const list = [["g", "GLOBAL"], ...D.layers.map((l, i) => [String(i), l.label]), ["rh", "RHYTHMS"]];
-  if (cur.kind === "piece") list.push(["road", "ROADMAP"]);
+  if (cur.kind === "piece") list.push(["loops", "LOOPS"], ["road", "ROADMAP"]);
   list.forEach(([id, txt]) => {
     const b = el("button", { type: "button", className: "tab", textContent: txt, id: `tab-${id}` });
     b.setAttribute("role", "tab"); b.setAttribute("aria-selected", tab === id ? "true" : "false");
@@ -454,6 +486,58 @@ function rhythmTab() {
   return box;
 }
 
+// ---- a piece's loops (loops.txt): each layer's, drawn as notes over the cycle
+const STATES = { 0: "none", 2: "playing", 4: "stopped" };
+function loopsTab() {
+  const box = el("div", { style: "display:grid;gap:12px" });
+  if (!lib.loops) {
+    box.append(el("p", { className: "note", textContent: "Open loops.txt from the AmbleLite folder to see this piece's loops. Without it, pieces.txt still saves everything else; the loops already on the Organelle stay as they are." }));
+    return box;
+  }
+  box.append(el("p", { className: "note", textContent: "Loops are recorded on the Organelle. Here you can see them, stop or start them for when the piece loads, and clear them." }));
+  for (let li = 0; li < Y.loopLayers; li++) {
+    const at = cur.idx * Y.loopLayers + li, lp = C.loop(lib.loops[at]);
+    const row = el("div", { className: "rhrow" });
+    const head = el("div", {}, el("b", { textContent: D.llabels[li] }),
+      el("div", { className: "summary", textContent: lp.state ? `${STATES[lp.state] || lp.state} · ${+(lp.len / Y.bar).toFixed(2)} bars · ${lp.n} events` : "no loop" }));
+    const right = el("div", { style: "display:grid;gap:6px;min-width:0" });
+    if (lp.state) {
+      right.append(roll(lp));
+      const st = el("select", { id: `lstate-${li}` }); st.add(new Option("plays when loaded", 2)); st.add(new Option("stopped when loaded", 4));
+      st.value = lp.state === 4 ? 4 : 2;
+      st.onchange = () => { lib.loops[at][0] = +st.value; changed(true); };
+      const clr = el("button", { type: "button", textContent: "Clear loop" });
+      clr.onclick = () => { lib.loops[at] = [0, 0, 0, 0]; changed(true); };
+      right.append(el("div", { className: "row" }, st, clr));
+    }
+    row.append(head, right);
+    box.append(row);
+  }
+  return box;
+}
+function roll(lp) {
+  const ns = "http://www.w3.org/2000/svg", len = Math.max(1, lp.len), on = [];
+  const notes = lp.note.filter((_, i) => lp.vel[i] > 0), lo = Math.min(...notes, 127), hi = Math.max(...notes, 0), span = Math.max(12, hi - lo + 1);
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", `0 0 ${len} ${span}`); svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("role", "img"); svg.setAttribute("aria-label", `${notes.length} notes over ${+(len / Y.bar).toFixed(2)} bars`);
+  svg.style.cssText = "width:100%;height:56px;background:var(--bg);border:1px solid var(--line);border-radius:4px";
+  for (let b = Y.bar; b < len; b += Y.bar) {
+    const l = document.createElementNS(ns, "line");
+    l.setAttribute("x1", b); l.setAttribute("x2", b); l.setAttribute("y1", 0); l.setAttribute("y2", span);
+    l.setAttribute("stroke", "var(--line)"); l.setAttribute("vector-effect", "non-scaling-stroke"); svg.append(l);
+  }
+  lp.t.forEach((t, i) => {
+    if (lp.vel[i] <= 0) return;
+    let end = len;
+    for (let j = 1; j <= lp.n; j++) { const k = (i + j) % lp.n; if (lp.note[k] === lp.note[i] && lp.vel[k] <= 0) { end = lp.t[k] >= t ? lp.t[k] : lp.t[k] + len; break; } }
+    const r = document.createElementNS(ns, "rect");
+    r.setAttribute("x", t); r.setAttribute("y", hi - lp.note[i]); r.setAttribute("width", Math.max(2, Math.min(end, len) - t)); r.setAttribute("height", 1);
+    r.setAttribute("fill", "var(--accent)"); r.setAttribute("opacity", 0.4 + 0.6 * lp.vel[i]); svg.append(r);
+  });
+  return svg;
+}
+
 // ---- the roadmap (the patch's own rule: roadmap.py, al-rgen)
 const int = x => Math.trunc(x);
 const fmt = sec => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
@@ -542,13 +626,17 @@ function render() {
   if (!r) {
     ed.append(el("p", { className: "note", textContent: `${name} is empty. Start it from the patch's defaults, or copy another piece or snapshot into it.` }));
   } else {
-    ed.append(tabs(), el("div", { style: "margin-top:14px" }, tab === "g" ? globalTab() : tab === "rh" ? rhythmTab() : tab === "road" ? roadTab() : layerTab(+tab)));
+    ed.append(tabs(), el("div", { style: "margin-top:14px" }, tab === "g" ? globalTab() : tab === "rh" ? rhythmTab() : tab === "road" ? roadTab() : tab === "loops" ? loopsTab() : layerTab(+tab)));
   }
   files();
 }
 
 function changed(redraw) { example = false; if (redraw) render(); else { files(); $("sum").textContent = $("sum").textContent.replace(" · example: the patch's defaults", ""); } store(); }
-function files() { $("outp").value = C.write(lib.pieces); $("outs").value = C.write(lib.saves); }
+function files() {
+  $("outp").value = C.write(lib.pieces); $("outs").value = C.write(lib.saves);
+  $("outl").value = lib.loops ? C.write(lib.loops) : "(open loops.txt to edit the loops: until then, keep the one on the Organelle)";
+  $("cpl").disabled = $("dll").disabled = !lib.loops;
+}
 
 // slot actions, with a confirmation in the page for anything that replaces a slot
 function ask(msg, go) {
@@ -558,16 +646,19 @@ function ask(msg, go) {
   c.append(yes, " ", no); c.hidden = false;
 }
 $("fresh").onclick = () => {
-  const go = () => { setRec(C.defaults(cur.kind)); changed(true); };
+  const go = () => { setRec(C.defaults(cur.kind)); noLoopsHere(); changed(true); };
   rec() ? ask("Reset every setting in this slot to the patch's defaults?", go) : go();
 };
-$("clear").onclick = () => ask("Empty this slot? It saves as empty (-1).", () => { setRec(null); tab = "g"; changed(true); });
+function noLoopsHere() { if (cur.kind === "piece" && lib.loops) for (let li = 0; li < Y.loopLayers; li++) lib.loops[cur.idx * Y.loopLayers + li] = [0, 0, 0, 0]; }
+$("clear").onclick = () => ask("Empty this slot? It saves as empty (-1), and a piece's loops go too.", () => { setRec(null); noLoopsHere(); tab = "g"; changed(true); });
 $("copygo").onclick = () => {
   const [kind, i] = $("copyto").value.split(":"), idx = +i, r = rec();
   const go = () => {
     const out = kind === "piece" ? C.asPiece(r.slice()) : C.asSnap(r);
     if (kind === "piece") lib.pieces[idx] = out; else lib.saves[idx] = out;
-    cur = { kind, idx }; if (tab === "road" && kind !== "piece") tab = "g"; changed(true);
+    if (kind === "piece" && lib.loops) for (let li = 0; li < Y.loopLayers; li++)
+      lib.loops[idx * Y.loopLayers + li] = cur.kind === "piece" ? lib.loops[cur.idx * Y.loopLayers + li].slice() : [0, 0, 0, 0];
+    cur = { kind, idx }; if ((tab === "road" || tab === "loops") && kind !== "piece") tab = "g"; changed(true);
   };
   const full = kind === "piece" ? lib.pieces[idx] : lib.saves[idx];
   full ? ask(`${kind === "piece" ? "Piece" : "Snapshot"} ${idx + 1} holds a sound. Replace it?`, go) : go();
@@ -588,6 +679,8 @@ $("cpp").onclick = () => copy($("outp").value, $("outp"), "Copied pieces.txt.");
 $("cps").onclick = () => copy($("outs").value, $("outs"), "Copied saves.txt.");
 $("dlp").onclick = () => download($("outp").value, "pieces.txt");
 $("dls").onclick = () => download($("outs").value, "saves.txt");
+$("cpl").onclick = () => copy($("outl").value, $("outl"), "Copied loops.txt.");
+$("dll").onclick = () => download($("outl").value, "loops.txt");
 
 if (!restore()) { lib.pieces[0] = C.defaults("piece"); example = true; }
 render();

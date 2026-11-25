@@ -641,6 +641,51 @@ def main():
     check("a tapped rhythm becomes the lane's pattern", gaps == [2, 3, 3] and between == 6,
           f"steps {tsteps} (gaps {gaps}), {between} hits in 2 cycles")
 
+    # ---- a piece keeps its loops (loops.txt), even on a fresh install (no pieces.txt, no loops.txt: each file is
+    # filled out to all its slots when it loads, so piece 3 saves to piece 3's lines): a loop recorded, saved with
+    # piece 3, cleared - silent - then piece 3 loaded: it plays again
+    import shutil as _sh
+    dl = d.rstrip("/") + "-loops"
+    _sh.rmtree(dl, ignore_errors=True)
+    _sh.copytree(d, dl)
+    for f in ("loops.txt", "pieces.txt"):
+        os.remove(os.path.join(dl, f))
+    ev = [(50, f"al-set {M.S('g', None, 'Piece')} {(2 + 0.5) / 8}"), (200, "notesRaw 72 100"), (210, "notesRaw 72 0"),
+          (998, "notesRaw 77 100"), (999, "notesRaw 77 0"), (1000, "notesRaw 77 100"), (1001, "notesRaw 77 0"),
+          (1010, "al-midi 45 100 1"), (1300, "al-midi 45 0 1"), (1600, "al-midi 52 90 1"), (1900, "al-midi 52 0 1"),
+          (3800, "notesRaw 77 100"), (3801, "notesRaw 77 0"), (3810, "notesRaw 77 100"), (3811, "notesRaw 77 0"),
+          (6300, "al-psave bang"), (6600, "al-loopclear bang"), (7000, "h-mark B"), (9000, "h-mark C"),
+          (9100, "al-pload bang"), (13000, "h-mark D")]
+
+    def marks(c):
+        c.c(c.obj("r h-mark", 900, 700), 0, c.obj("print MARK", 900, 730), 0)
+    log, _ = H.run(ev, 13.2, d=dl, keep=True, prints=("al-in-drone",), extra=marks)
+    cur, seen = "start", {}
+    for l in log.splitlines():
+        if l.startswith("MARK"):
+            cur = l.split()[-1]
+        elif l.startswith("al-in-drone"):
+            seen[cur] = seen.get(cur, 0) + 1
+    lines = [l for l in open(os.path.join(dl, "loops.txt")).read().split("\n") if l.strip()]
+    kept = len(lines) == 56 and lines[14].split()[:3] == ["2", "96", "4"]
+    check("a piece keeps its loops (fresh install too)", kept and seen.get("B", 0) == 0 and seen.get("C", 0) >= 4,
+          f"loops.txt line 15: {lines[14][:24] if len(lines) > 14 else '-'}; notes after clearing {seen.get('B', 0)}, "
+          f"after loading {seen.get('C', 0)}")
+
+    # ... and the web editor reads that loops.txt (the loop: 4 events, playing) and writes it back the same
+    import shutil as _sh2
+    if _sh2.which("node"):
+        import json as _js
+        import subprocess as _sp
+        import planner as _pl
+        open(os.path.join(dl, "tl.js"), "w").write("const D = " + _js.dumps(_pl.data()) + ";\n" + _pl.CORE + r"""
+const fs = require("fs"), t = fs.readFileSync(process.argv[2] + "/loops.txt", "utf8");
+const a = C.parseLoops(t), b = C.parseLoops(C.write(a)), lp = C.loop(a[14]);
+console.log(JSON.stringify({ kind: C.kindOf(t), n: lp.n, state: lp.state, bars: lp.len / C.Y.bar, same: JSON.stringify(a) === JSON.stringify(b) }));
+""")
+        o = _js.loads(_sp.run(["node", os.path.join(dl, "tl.js"), dl], capture_output=True, text=True).stdout)
+        check("web editor: reads and writes loops.txt", o == dict(kind="loops", n=4, state=2, bars=1, same=True), str(o))
+
     # ---- the web editor (planner.py) reads what the patch saves and writes what it loads: Pd saves its defaults (a
     # piece, a snapshot) - the page's own defaults must be them; the page edits the piece and writes pieces.txt - Pd
     # loads it and saves it again, unchanged (but the SECTN knobs, which show the roadmap's first section)
