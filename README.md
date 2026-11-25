@@ -3,10 +3,13 @@
 A stripped-back, performance-focused patch for the Critter & Guitari **Organelle M**, built from
 [Amble](https://github.com/sydilaxe/organelle-Amble-dev): drone, sub, pads and percussion, played in real time.
 
-**Status: milestone 3 (playable core; lanes, gates, chord library, Evolve; LFOs, looper, snapshots).** It builds and passes its offline checks in Pure Data. It has not been run on
-an Organelle yet.
+**Status:** playable and in testing on the Organelle M - every layer and engine, lanes and gates (Euclidean or
+tapped), the looper, LFOs, Evolve, snapshots with COMPARE, pieces, the chord library and scales, the assistant and
+the roadmap, MIDI / MPE / breath. Audio input modes and the user wavetable folder are next.
 
-- Install: copy `patches/AmbleLite` into the Organelle's `Patches` folder. How to play: `patches/AmbleLite/README.txt`.
+- **Manual:** [`docs/AmbleLite-manual.pdf`](docs/AmbleLite-manual.pdf) - **key chart:** [`docs/AmbleLite-keys.pdf`](docs/AmbleLite-keys.pdf)
+  (both built from the patch's own tables by `tools/manual.py`; also in each release).
+- Install: copy `patches/AmbleLite` into the Organelle's `Patches` folder. Quick reference: `patches/AmbleLite/README.txt`.
 - Roadmap planner (a web page): `docs/planner.html` - build a roadmap on a computer, copy its roadmap.txt to the patch folder.
 - Design: `docs/DESIGN.md` (decisions), `docs/PARAMETERS.md`, `docs/WAVETABLES.md`, `docs/ROADMAP.md`.
 

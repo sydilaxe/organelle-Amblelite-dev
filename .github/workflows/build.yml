@@ -28,8 +28,10 @@ jobs:
       - name: Install Pure Data and Python packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends puredata-core python3-numpy zip
+          sudo apt-get install -y --no-install-recommends puredata-core python3-numpy python3-pip zip
           pd -version
+          # (the manual and key chart: built at every run - a control without a description fails it)
+          pip3 install --break-system-packages reportlab==5.0.1
 
       - name: Version
         id: v
@@ -70,5 +72,5 @@ jobs:
             echo "::error::Release $v already exists - choose a new version"
             exit 1
           fi
-          gh release create "$v" dist/*.zip --target "$GITHUB_SHA" --title "Amble Lite $v" --notes-file notes.md \
+          gh release create "$v" dist/*.zip dist/*.pdf --target "$GITHUB_SHA" --title "Amble Lite $v" --notes-file notes.md \
             --generate-notes $pre
