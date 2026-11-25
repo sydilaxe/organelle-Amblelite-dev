@@ -65,8 +65,10 @@ def lfo(c):
     nr = len(M.LFO_RATES)
     r = f"min({nr - 1}, int(alp[allfR[allq]]*{nr}))"
     # 'loop': the layer's loop, or its pattern's cycle (steps x the step's clocks)
-    pat = (f"max(1, int(2 + alp[alrs[{li}]]*14 + 0.5)*"
-           f"{pick(M.RATE_CLOCKS, f'min({len(M.RATE_CLOCKS) - 1}, int(alp[alrr[{li}]]*{len(M.RATE_CLOCKS)}))')})")
+    # (the pattern rows: the 7 note layers - the cloud, which has none, reads the last)
+    lr = f"min({len(M.NOTE_LAYERS) - 1}, {li})"
+    pat = (f"max(1, int(2 + alp[alrs[{lr}]]*14 + 0.5)*"
+           f"{pick(M.RATE_CLOCKS, f'min({len(M.RATE_CLOCKS) - 1}, int(alp[alrr[{lr}]]*{len(M.RATE_CLOCKS)}))')})")
     cyc = f"if(allpl[{li}] > 0, allpl[{li}], {pat})"
     ph = (f"if({r} == 0, max(0, alc24)/{cyc}, if({r} < 8, max(0, alc24)/(24*allfbeats[{r}]), "
           f"altime/allfsecs[{r} - 8] + 0.13*allq))")

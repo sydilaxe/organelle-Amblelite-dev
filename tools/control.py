@@ -136,7 +136,9 @@ def tables(c):
                 ew[(li * MAXENG + ei) * M.EVOLVE_MAX + k] = w
     rows.update(alfo=[x for f in M.FEEL_OFFSETS for x in f])
     # the global pages' knobs that are another layer's (LAYERS, LANES): the layer, shown as their name
-    rows.update(algl=[M.global_label(ps[k]) if k < len(ps) else -1 for _, ps in M.GLOBAL_PAGES for k in range(4)])
+    # (sized for every page number - a layer's pages go further than the global ones - so no read falls outside it)
+    gl = [M.global_label(ps[k]) if k < len(ps) else -1 for _, ps in M.GLOBAL_PAGES for k in range(4)]
+    rows.update(algl=gl + [-1] * (MAXPAGES * 4 - len(gl)))
     rows.update(alet=et, alew=ew, alevs=[S(L, None, "Evolve") for L in LAYERS],
                 alevp=[S(L, None, "Pace") for L in LAYERS], alevy=[S(L, None, "EvSync") for L in LAYERS])
     c.comment("the tables: parameters (alp) and their kinds, the knob pages, scales, chord stories (tools/model.py)")

@@ -222,11 +222,12 @@ def build(c):
     # ---- pattern view: a row per layer (its gate or lane pattern), hits as boxes, the length as a tick; a
     # playhead under each row, moved every 16th (al-patmark)
     def row_on(r):
-        return f"alin[{r}] && if({r} < 3, int(alp[alrg[{r}]]*3) >= 1, 1)"
+        return f"alin[{r}] && if({r} < 3, int(alp[max(0, alrg[{r}])]*3) >= 1, 1)"
     hits = "int(1 + alp[alrh[alpr]]*15 + 0.5)"
     steps = "int(2 + alp[alrs[alpr]]*14 + 0.5)"
     # (a tapped row: its tapped steps)
-    tap = "if(alpr < 3, int(alp[alrg[alpr]]*3) == 2, alp[alrp[alpr]] >= 0.5)"
+    # (alrg / alrp are -1 where a row has no such knob: read as slot 0, never outside the array)
+    tap = "if(alpr < 3, int(alp[max(0, alrg[alpr])]*3) == 2, alp[max(0, alrp[alpr])] >= 0.5)"
     cell = f"if({tap}, altap[alpr*16 + alpc2] > 0, (alpc2*{hits}) % {steps} < {hits})"
     patv = [Loop(str(len(PAT_LAYERS)), "alpr", [
         If(row_on("alpr"), [

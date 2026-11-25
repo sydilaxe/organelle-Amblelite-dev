@@ -48,7 +48,7 @@
 #X obj 20 860 array define alevs 8;
 #X obj 20 884 array define alevp 8;
 #X obj 20 908 array define alevy 8;
-#X obj 20 932 array define algl 48;
+#X obj 20 932 array define algl 64;
 #X obj 20 956 array define altap 112;
 #X obj 20 980 array define aleo 8;
 #X obj 20 1004 array define alepo 8;
@@ -104,7 +104,7 @@
 #X obj 20 2204 array set alin;
 #X msg 20 2228 0 1 0 1 0 0.5 0.25 0.75 0 0.25 0.5 0.75 0 0 1 0;
 #X obj 20 2252 array set alfo;
-#X msg 20 2276 -1 -1 -1 -1 0 1 2 7 3 4 5 6 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1;
+#X msg 20 2276 -1 -1 -1 -1 0 1 2 7 3 4 5 6 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1;
 #X obj 20 2300 array set algl;
 #X msg 20 2324 79 80 83 86 87 35 93 94 92 35 -1 -1 98 102 101 35 -1 -1 105 106 104 35 -1 -1 108 109 35 -1 -1 -1 112 113 35 -1 -1 -1 116 117 35 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 165 166 -1 -1 -1 -1 167 168 -1 -1 -1 -1 169 170 -1 -1 -1 -1 172 174 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 225 226 227 177 -1 -1 232 233 234 177 -1 -1 236 237 238 239 177 -1 242 243 244 246 177 -1 249 251 252 177 -1 -1 253 255 177 -1 -1 -1 258 259 177 -1 -1 -1 261 263 177 -1 -1 -1 265 266 177 -1 -1 -1 269 177 -1 -1 -1 -1 273 275 177 -1 -1 -1 277 279 177 -1 -1 -1 281 282 177 -1 -1 -1 286 287 288 -1 -1 -1 290 291 -1 -1 -1 -1 293 294 177 -1 -1 -1 337 338 342 -1 -1 -1 343 345 347 -1 -1 -1 348 349 350 -1 -1 -1 352 353 354 -1 -1 -1 355 356 358 -1 -1 -1 360 361 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 402 403 407 -1 -1 -1 408 410 412 -1 -1 -1 413 414 415 -1 -1 -1 417 418 419 -1 -1 -1 420 421 423 -1 -1 -1 425 426 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 467 468 472 -1 -1 -1 473 475 477 -1 -1 -1 478 479 480 -1 -1 -1 482 483 484 -1 -1 -1 485 486 488 -1 -1 -1 490 491 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 532 533 537 -1 -1 -1 538 540 542 -1 -1 -1 543 544 545 -1 -1 -1 547 548 549 -1 -1 -1 550 551 553 -1 -1 -1 555 556 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 581 577 580 582 560 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1;
 #X obj 20 2348 array set alet;
@@ -5059,7 +5059,7 @@
 #X obj 20 356 expr alpr*9 + 7;
 #X msg 20 380 /oled/gFillArea 3 16 \$1 112 1 0;
 #X obj 20 404 s oscOut;
-#X obj 20 428 expr alin[alpr] && if(alpr < 3 \, int(alp[alrg[alpr]]*3) >= 1 \, 1);
+#X obj 20 428 expr alin[alpr] && if(alpr < 3 \, int(alp[max(0 \, alrg[alpr])]*3) >= 1 \, 1);
 #X obj 20 452 sel 0;
 #X obj 20 476 b;
 #X obj 20 500 expr 16 + ((int(max(0 \, alc24)/if(min(5 \, int(alp[alrr[alpr]]*6)) == 0 \, 24 \, if(min(5 \, int(alp[alrr[alpr]]*6)) == 1 \, 12 \, if(min(5 \, int(alp[alrr[alpr]]*6)) == 2 \, 8 \, if(min(5 \, int(alp[alrr[alpr]]*6)) == 3 \, 6 \, if(min(5 \, int(alp[alrr[alpr]]*6)) == 4 \, 4 \, 3)))))) + int(alp[alro[alpr]]*15 + 0.5) + if(alpr >= 3 \, allrot[alpr - 3] \, 0)) % int(2 + alp[alrs[alpr]]*14 + 0.5))*7 \; alpr*9 + 7;
@@ -5649,7 +5649,7 @@
 #X obj 20 188 + 1;
 #X obj 20 212 t b f;
 #X obj 20 236 v alpr;
-#X obj 20 260 expr alin[alpr] && if(alpr < 3 \, int(alp[alrg[alpr]]*3) >= 1 \, 1);
+#X obj 20 260 expr alin[alpr] && if(alpr < 3 \, int(alp[max(0 \, alrg[alpr])]*3) >= 1 \, 1);
 #X obj 20 284 sel 0;
 #X obj 20 308 b;
 #X obj 20 332 t b b;
@@ -5661,7 +5661,7 @@
 #X obj 20 476 + 1;
 #X obj 20 500 t b f;
 #X obj 20 524 v alpc2;
-#X obj 20 548 expr if(if(alpr < 3 \, int(alp[alrg[alpr]]*3) == 2 \, alp[alrp[alpr]] >= 0.5) \, altap[alpr*16 + alpc2] > 0 \, (alpc2*int(1 + alp[alrh[alpr]]*15 + 0.5)) % int(2 + alp[alrs[alpr]]*14 + 0.5) < int(1 + alp[alrh[alpr]]*15 + 0.5));
+#X obj 20 548 expr if(if(alpr < 3 \, int(alp[max(0 \, alrg[alpr])]*3) == 2 \, alp[max(0 \, alrp[alpr])] >= 0.5) \, altap[alpr*16 + alpc2] > 0 \, (alpc2*int(1 + alp[alrh[alpr]]*15 + 0.5)) % int(2 + alp[alrs[alpr]]*14 + 0.5) < int(1 + alp[alrh[alpr]]*15 + 0.5));
 #X obj 20 572 sel 0;
 #X obj 20 596 b;
 #X obj 20 620 expr 16 + alpc2*7 \; alpr*9 + 1;
@@ -9705,7 +9705,7 @@
 #N canvas 50 50 2600 900 then 0;
 #X obj 20 20 inlet;
 #X obj 20 44 t b b;
-#X obj 20 68 expr allq % 2 \; alfv = (alp[allfD[allq]]*0.5*(if(min(7 \, int(alp[allfS[allq]]*8)) == 0 \, sin(6.28319*(alfph - int(alfph))) \, if(min(7 \, int(alp[allfS[allq]]*8)) == 1 \, 4*abs((alfph - int(alfph)) - 0.5) - 1 \, if(min(7 \, int(alp[allfS[allq]]*8)) == 2 \, 2*(alfph - int(alfph)) - 1 \, if(min(7 \, int(alp[allfS[allq]]*8)) == 3 \, 1 - 2*(alfph - int(alfph)) \, if(min(7 \, int(alp[allfS[allq]]*8)) == 4 \, if((alfph - int(alfph)) < 0.5 \, 1 \, -1) \, if(min(7 \, int(alp[allfS[allq]]*8)) == 5 \, alstp[int((alfph - int(alfph))*8) % 8] \, if(min(7 \, int(alp[allfS[allq]]*8)) == 6 \, (2*fmod(abs(sin((int(alfph))*12.9898 + allq*78.233)*43758.5453) \, 1) - 1) + ((2*fmod(abs(sin((int(alfph) + 1)*12.9898 + allq*78.233)*43758.5453) \, 1) - 1) - (2*fmod(abs(sin((int(alfph))*12.9898 + allq*78.233)*43758.5453) \, 1) - 1))*((alfph - int(alfph))*(alfph - int(alfph))*(3 - 2*(alfph - int(alfph)))) \, (2*fmod(abs(sin((int(alfph))*12.9898 + allq*78.233)*43758.5453) \, 1) - 1)))))))))) \; alfph = (if(min(15 \, int(alp[allfR[allq]]*16)) == 0 \, max(0 \, alc24)/if(allpl[int(allq/2)] > 0 \, allpl[int(allq/2)] \, max(1 \, int(2 + alp[alrs[int(allq/2)]]*14 + 0.5)*if(min(5 \, int(alp[alrr[int(allq/2)]]*6)) == 0 \, 24 \, if(min(5 \, int(alp[alrr[int(allq/2)]]*6)) == 1 \, 12 \, if(min(5 \, int(alp[alrr[int(allq/2)]]*6)) == 2 \, 8 \, if(min(5 \, int(alp[alrr[int(allq/2)]]*6)) == 3 \, 6 \, if(min(5 \, int(alp[alrr[int(allq/2)]]*6)) == 4 \, 4 \, 3))))))) \, if(min(15 \, int(alp[allfR[allq]]*16)) < 8 \, max(0 \, alc24)/(24*allfbeats[min(15 \, int(alp[allfR[allq]]*16))]) \, altime/allfsecs[min(15 \, int(alp[allfR[allq]]*16)) - 8] + 0.13*allq)));
+#X obj 20 68 expr allq % 2 \; alfv = (alp[allfD[allq]]*0.5*(if(min(7 \, int(alp[allfS[allq]]*8)) == 0 \, sin(6.28319*(alfph - int(alfph))) \, if(min(7 \, int(alp[allfS[allq]]*8)) == 1 \, 4*abs((alfph - int(alfph)) - 0.5) - 1 \, if(min(7 \, int(alp[allfS[allq]]*8)) == 2 \, 2*(alfph - int(alfph)) - 1 \, if(min(7 \, int(alp[allfS[allq]]*8)) == 3 \, 1 - 2*(alfph - int(alfph)) \, if(min(7 \, int(alp[allfS[allq]]*8)) == 4 \, if((alfph - int(alfph)) < 0.5 \, 1 \, -1) \, if(min(7 \, int(alp[allfS[allq]]*8)) == 5 \, alstp[int((alfph - int(alfph))*8) % 8] \, if(min(7 \, int(alp[allfS[allq]]*8)) == 6 \, (2*fmod(abs(sin((int(alfph))*12.9898 + allq*78.233)*43758.5453) \, 1) - 1) + ((2*fmod(abs(sin((int(alfph) + 1)*12.9898 + allq*78.233)*43758.5453) \, 1) - 1) - (2*fmod(abs(sin((int(alfph))*12.9898 + allq*78.233)*43758.5453) \, 1) - 1))*((alfph - int(alfph))*(alfph - int(alfph))*(3 - 2*(alfph - int(alfph)))) \, (2*fmod(abs(sin((int(alfph))*12.9898 + allq*78.233)*43758.5453) \, 1) - 1)))))))))) \; alfph = (if(min(15 \, int(alp[allfR[allq]]*16)) == 0 \, max(0 \, alc24)/if(allpl[int(allq/2)] > 0 \, allpl[int(allq/2)] \, max(1 \, int(2 + alp[alrs[min(6 \, int(allq/2))]]*14 + 0.5)*if(min(5 \, int(alp[alrr[min(6 \, int(allq/2))]]*6)) == 0 \, 24 \, if(min(5 \, int(alp[alrr[min(6 \, int(allq/2))]]*6)) == 1 \, 12 \, if(min(5 \, int(alp[alrr[min(6 \, int(allq/2))]]*6)) == 2 \, 8 \, if(min(5 \, int(alp[alrr[min(6 \, int(allq/2))]]*6)) == 3 \, 6 \, if(min(5 \, int(alp[alrr[min(6 \, int(allq/2))]]*6)) == 4 \, 4 \, 3))))))) \, if(min(15 \, int(alp[allfR[allq]]*16)) < 8 \, max(0 \, alc24)/(24*allfbeats[min(15 \, int(alp[allfR[allq]]*16))]) \, altime/allfsecs[min(15 \, int(alp[allfR[allq]]*16)) - 8] + 0.13*allq)));
 #X obj 20 92 sel 0;
 #X obj 20 116 b;
 #X obj 20 140 expr alfn[alftg] = (alfv);
