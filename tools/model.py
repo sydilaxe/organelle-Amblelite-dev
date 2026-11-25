@@ -9,15 +9,36 @@ Kinds of parameter:
 """
 
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-MODES = [("ionian", [0, 2, 4, 5, 7, 9, 11]), ("dorian", [0, 2, 3, 5, 7, 9, 10]),
-         ("phrygian", [0, 1, 3, 5, 7, 8, 10]), ("lydian", [0, 2, 4, 6, 7, 9, 11]),
-         ("mixolyd", [0, 2, 4, 5, 7, 9, 10]), ("aeolian", [0, 2, 3, 5, 7, 8, 10]),
-         ("locrian", [0, 1, 3, 5, 6, 8, 10]), ("majpent", [0, 2, 4, 7, 9]), ("minpent", [0, 3, 5, 7, 10])]
+# the scales (MAIN page: Scale), each with its modes (Mode: the scale started from each of its degrees). MODES is
+# all of them in one list: a scale's modes from SCALE_START[scale]
+SCALES = [("modes", [("ionian", [0, 2, 4, 5, 7, 9, 11]), ("dorian", [0, 2, 3, 5, 7, 9, 10]),
+                     ("phrygian", [0, 1, 3, 5, 7, 8, 10]), ("lydian", [0, 2, 4, 6, 7, 9, 11]),
+                     ("mixolyd", [0, 2, 4, 5, 7, 9, 10]), ("aeolian", [0, 2, 3, 5, 7, 8, 10]),
+                     ("locrian", [0, 1, 3, 5, 6, 8, 10])]),
+          ("harmin", [("harmin", [0, 2, 3, 5, 7, 8, 11]), ("locr#6", [0, 1, 3, 5, 6, 9, 10]),
+                      ("ion#5", [0, 2, 4, 5, 8, 9, 11]), ("dor#4", [0, 2, 3, 6, 7, 9, 10]),
+                      ("phrdom", [0, 1, 4, 5, 7, 8, 10]), ("lyd#2", [0, 3, 4, 6, 7, 9, 11]),
+                      ("altbb7", [0, 1, 3, 4, 6, 8, 9])]),
+          ("melmin", [("melmin", [0, 2, 3, 5, 7, 9, 11]), ("dorb2", [0, 1, 3, 5, 7, 9, 10]),
+                      ("lydaug", [0, 2, 4, 6, 8, 9, 11]), ("lyddom", [0, 2, 4, 6, 7, 9, 10]),
+                      ("mixob6", [0, 2, 4, 5, 7, 8, 10]), ("locr#2", [0, 2, 3, 5, 6, 8, 10]),
+                      ("altered", [0, 1, 3, 4, 6, 8, 10])]),
+          ("pent", [("majpent", [0, 2, 4, 7, 9]), ("suspent", [0, 2, 5, 7, 10]), ("mangong", [0, 3, 5, 8, 10]),
+                    ("ritusen", [0, 2, 5, 7, 9]), ("minpent", [0, 3, 5, 7, 10])])]
+MODES = [m for _, ms in SCALES for m in ms]
+SCALE_START = [sum(len(ms) for _, ms in SCALES[:i]) for i in range(len(SCALES))]
+SCALE_COUNT = [len(ms) for _, ms in SCALES]
+MAX_MODES = max(SCALE_COUNT)
 
 # the chord story: chords as scale degrees (0 = the tonic chord), stacked in thirds within the mode.
 # "modal" uses each mode's own characteristic move (dorian's IV, lydian's II, mixolydian's bVII ...)
 MODAL = {"ionian": [0, 3, 5, 4], "dorian": [0, 3, 6, 4], "phrygian": [0, 1, 6, 1], "lydian": [0, 1, 4, 1],
-         "mixolyd": [0, 6, 3, 0], "aeolian": [0, 5, 2, 6], "locrian": [0, 1, 5, 6], "majpent": [0, 3, 1, 4],
+         "mixolyd": [0, 6, 3, 0], "aeolian": [0, 5, 2, 6], "locrian": [0, 1, 5, 6],
+         "harmin": [0, 5, 3, 4], "locr#6": [0, 1, 6, 0], "ion#5": [0, 3, 1, 0], "dor#4": [0, 1, 3, 1],
+         "phrdom": [0, 1, 6, 1], "lyd#2": [0, 1, 4, 1], "altbb7": [0, 1, 5, 0],
+         "melmin": [0, 3, 4, 1], "dorb2": [0, 1, 6, 1], "lydaug": [0, 1, 4, 1], "lyddom": [0, 6, 1, 4],
+         "mixob6": [0, 5, 3, 6], "locr#2": [0, 5, 1, 6], "altered": [0, 1, 5, 0],
+         "majpent": [0, 3, 1, 4], "suspent": [0, 2, 3, 1], "mangong": [0, 2, 4, 1], "ritusen": [0, 3, 1, 2],
          "minpent": [0, 2, 4, 1]}
 # chord types for the library: 4 voices (semitones from the root), and the name shown after the root (QUALS)
 CHORD_TYPES = {"maj": ([0, 4, 7, 14], 0), "min": ([0, 3, 7, 14], 1), "dim": ([0, 3, 6, 9], 2), "aug": ([0, 4, 8, 12], 3),
@@ -296,8 +317,12 @@ SHORT = {"drone": "Dr", "sub": "Sb", "pad": "Pd", "perc1": "P1", "perc2": "P2", 
          "cloud": "Cl"}
 VOICES = {"drone": 1, "sub": 1, "pad": 4, "perc1": 3, "perc2": 3, "perc3": 3, "perc4": 3}
 
-GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opts=NOTE_NAMES),
-                          Param("Mode", 1, opts=[m for m, _ in MODES]), Param("Volume", 0.55)]),
+# (a page's knob is a Param of its own, or (layer, key): another layer's slot, shown with the layer's name)
+GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, lo=30, hi=200),
+                          Param("Scale", 0, opts=[n for n, _ in SCALES]),
+                          Param("Mode", 1, opts=[str(i + 1) for i in range(MAX_MODES)])]),
+                ("LAYERS", [("drone", "Engine"), ("sub", "Engine"), ("pad", "Engine"), ("cloud", "Source")]),
+                ("LANES", [("perc1", "Engine"), ("perc2", "Engine"), ("perc3", "Engine"), ("perc4", "Engine")]),
                 ("STORY", [Param("Story", 0, opts=[n for n, _, _ in STORIES]), Param("Bars", 3, opts=BARS),
                            Param("SubTo", 1, opts=SUBMODES), Param("Voicng", 0.4)]),
                 ("SYNC", [Param("Sync", 0, opts=["int", "ext"]), Param("ClkOut", 1, opts=ONOFF)]),
@@ -307,7 +332,7 @@ GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opt
                 ("MIDI", [Param("Profil", 0, opts=PROFILES), Param("Chans", 0, opts=["layers", "mpe"]),
                           Param("Zones", 0, opts=ONOFF), Param("LastCC", 0, lo=0, hi=127)]),
                 ("MIDI 2", [Param("Bend", 3, opts=["2", "12", "24", "48"]), Param("Press", 1, opts=["off", "expr", "breath"])]),
-                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Fade", 0.62)]),
+                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Fade", 0.62), Param("Volume", 0.55)]),
                 # the harmony assistant: the next chords ranked (Sugg shows one by name: aux + top E plays it and
                 # adds it to your own story), which kind, and listening (held notes pull the next chord)
                 ("HARMNY", [Param("Sugg", 0, opts=["1", "2", "3", "4"], key="Sugg"),
@@ -386,7 +411,8 @@ def _add(key, p):
 
 for _, ps in GLOBAL_PAGES:
     for p in ps:
-        _add(("g", None, p.key), p)
+        if isinstance(p, Param):
+            _add(("g", None, p.key), p)
 LAYER_PAGES = {}
 for L in LAYERS:
     LAYER_PAGES[L] = layer_controls(L, [e for e, _ in engines(L)])
@@ -427,6 +453,19 @@ MAXENG = max(len(engines(L)) for L in LAYERS)
 GLOBAL_LAYER = len(LAYERS)          # the "layer" index the MAIN / STORY pages use; + 1: the MIX pages
 
 
+def global_slot(p):
+    """a global page's knob: its own slot, or (layer, key) - another layer's"""
+    if isinstance(p, Param):
+        return S("g", None, p.key)
+    L, key = p
+    return SLOT.get((L, None, key), SLOT.get((L, engines(L)[0][0], key)))
+
+
+def global_label(p):
+    """(layer, key) knobs show the layer's name: the index into LAYERS, else -1"""
+    return -1 if isinstance(p, Param) else LAYERS.index(p[0])
+
+
 def knob_table():
     """alks[((layer*MAXENG + engine)*MAXPAGES + page)*4 + knob] = slot (-1 none); alnp[layer*MAXENG + engine] = pages;
     the global pages as layer GLOBAL_LAYER, engine 0"""
@@ -445,7 +484,7 @@ def knob_table():
     for pi, (pn, ps) in enumerate(GLOBAL_PAGES):
         pnames[(GLOBAL_LAYER * MAXENG) * MAXPAGES + pi] = pn
         for k, p in enumerate(ps):
-            ks[((GLOBAL_LAYER * MAXENG) * MAXPAGES + pi) * 4 + k] = S("g", None, p.key)
+            ks[((GLOBAL_LAYER * MAXENG) * MAXPAGES + pi) * 4 + k] = global_slot(p)
     np_[(GLOBAL_LAYER + 1) * MAXENG] = len(MIX_PAGES)
     for pi, (pn, refs) in enumerate(MIX_PAGES):
         pnames[((GLOBAL_LAYER + 1) * MAXENG) * MAXPAGES + pi] = pn

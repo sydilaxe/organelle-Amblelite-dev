@@ -13,6 +13,7 @@ LX = {"drone": "d", "sub": "s"}
 FIRST_LANE = LAYERS.index(LANES[0])
 VIEW_LAYER, VIEW_GLOBAL, VIEW_MIX = 0, 1, 2
 SECTN_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("SECTN")
+MODE_SLOT, SCALE_SLOT = S("g", None, "Mode"), S("g", None, "Scale")
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
 GLOBALS = dict(alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
@@ -32,11 +33,16 @@ ARRAYS = dict(alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alk
               allatch=NL, alin=NL, alprm=4, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
               alscn=len(M.MODES), alsk=0, alsd=0, alsr=0, alsy=0, alsdl=0, alsm=len(M.MODES) * 8,
               alsml=len(M.MODES), alty=0, altq=0, alpe=NSLOTS, alem=NSLOTS, alet=0, alew=0, alevs=0, alevp=0,
-              alevy=0, aleo=NL, alepo=NL, allane=4, allrot=4, allrr=4, alfo=0, alfm=NSLOTS, alfn=NSLOTS)
+              alevy=0, algl=0, aleo=NL, alepo=NL, allane=4, allrot=4, allrr=4, alfo=0, alfm=NSLOTS, alfn=NSLOTS)
 
 
 def opt(slot, n=None):
-    """the option index of a choice slot"""
+    """the option index of a choice slot. The Mode knob's is the mode in model.MODES: its Scale's modes from
+    SCALE_START, the knob choosing among them (a 5-note scale has 5)"""
+    if slot == MODE_SLOT and n is None:
+        sc = opt(SCALE_SLOT)
+        start, count = pick(M.SCALE_START, sc), pick(M.SCALE_COUNT, sc)
+        return f"(({start}) + min(({count}) - 1, int(alp[{slot}]*({count}))))"
     n = n or len(M.SLOTS[slot][1].opts)
     return f"min({n - 1}, int(alp[{slot}]*{n}))"
 
@@ -122,6 +128,8 @@ def tables(c):
                 et[(li * MAXENG + ei) * M.EVOLVE_MAX + k] = S(L, None, "Cutoff") if pn is None else S(L, e, pn)
                 ew[(li * MAXENG + ei) * M.EVOLVE_MAX + k] = w
     rows.update(alfo=[x for f in M.FEEL_OFFSETS for x in f])
+    # the global pages' knobs that are another layer's (LAYERS, LANES): the layer, shown as their name
+    rows.update(algl=[M.global_label(ps[k]) if k < len(ps) else -1 for _, ps in M.GLOBAL_PAGES for k in range(4)])
     rows.update(alet=et, alew=ew, alevs=[S(L, None, "Evolve") for L in LAYERS],
                 alevp=[S(L, None, "Pace") for L in LAYERS], alevy=[S(L, None, "EvSync") for L in LAYERS])
     c.comment("the tables: parameters (alp) and their kinds, the knob pages, scales, chord stories (tools/model.py)")

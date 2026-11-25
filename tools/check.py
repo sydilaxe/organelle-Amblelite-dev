@@ -409,6 +409,24 @@ def main():
     check("motif: a lane plays another layer's loop", late and set(late) <= {69, 72, 76} and len(set(late)) >= 2,
           f"lane notes {sorted(set(late))} (69 72 76)")
 
+    # ---- the global pages: MAIN (key, tempo, scale, mode - its name from the scale), then LAYERS (the layers' engines)
+    sc_, md_ = M.S('g', None, 'Scale'), M.S('g', None, 'Mode')
+    ev = [(100, "notesRaw 68 100"), (150, "notesRaw 68 0"), (300, f"al-set {sc_} {(1 + 0.5) / len(M.SCALES)}"),
+          (310, f"al-set {md_} {(4 + 0.5) / M.MAX_MODES}"), (400, "knob1 0.5"), (1000, "notesRaw 68 100"),
+          (1050, "notesRaw 68 0")]
+    log, _ = H.run(ev, 1.5, d=d, keep=True)
+    scr = " | ".join(l.split(" 8 1 ", 1)[1] for l in log.splitlines() if "gPrintln 3 0 " in l and " 8 1 " in l)
+    want = ["Key C", "Tempo 84", "Scale harmin", "Mode phrdom", "LAYERS", "DRONE analog", "PADS sine"]
+    check("MAIN: key, tempo, scale, mode; LAYERS: the engines", all(w in scr for w in want),
+          ", ".join(w for w in want if w not in scr) or "all shown")
+    # a lane playing the scale (Pitch 'scl up') in C harmonic minor: its notes and only its notes
+    ev = solo("perc1") + [(30, f"al-set {sc_} {(1 + 0.5) / len(M.SCALES)}"), (31, f"al-set {md_} {0.5 / M.MAX_MODES}"),
+                          (32, f"al-set {M.S('perc1', None, 'Pitch')} {(5 + 0.5) / len(M.PITCHES)}"), START]
+    log, _ = H.run(ev, 5, d=d, keep=True, prints=("al-perc1-hit",))
+    pcs = sorted({int(float(l.split()[2])) % 12 for l in log.splitlines() if l.startswith("al-perc1-hit")})
+    check("the scale and mode reach the notes (C harmonic minor)", set(pcs) <= {0, 2, 3, 5, 7, 8, 11} and
+          {8, 11} <= set(pcs), f"pitch classes {pcs}")
+
     # ---- every engine of every layer sounds (one second each, in turn), and nothing in Pd complains
     for L in ("drone", "pad", "perc1"):
         names = [e for e, _ in M.engines(L)]

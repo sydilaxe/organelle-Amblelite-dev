@@ -15,8 +15,10 @@ from control import opt
 
 NC = 14             # the mode's and the borrowed chords, per mode
 MOVES = [(3, "maj"), (-3, "maj"), (4, "maj"), (-4, "maj"), (6, "maj")]
-PARENT = {"majpent": "ionian", "minpent": "aeolian"}
-MAJORISH = {"ionian", "lydian", "mixolyd", "majpent"}
+# (a pentatonic's chords: its parent mode's; the borrowed chords come from the parallel major or minor)
+PARENT = {"majpent": "ionian", "suspent": "mixolyd", "mangong": "aeolian", "ritusen": "mixolyd", "minpent": "aeolian"}
+MAJORISH = {"ionian", "lydian", "mixolyd", "ion#5", "phrdom", "lyd#2", "lydaug", "lyddom", "mixob6", "majpent",
+            "suspent", "ritusen"}
 
 
 def _triad(iv, d):

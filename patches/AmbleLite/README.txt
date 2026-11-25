@@ -20,7 +20,7 @@ THE OTHER KEYS (one press each): the low black keys the views, the top octave pl
   low C#   the play view (back from MIX / pattern / pages)
   low D#   the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)
   low F#   the pattern view (every gate and lane as steps), then the roadmap view, then neither
-  low G#   the global pages: MAIN, STORY, SYNC, MIDI, MIDI 2, PERFRM, HARMNY, ROAD, ROAD 2, SECTN (again: the next one)
+  low G#   the global pages: MAIN (key, tempo, scale, mode), LAYERS and LANES (each layer's engine), STORY, SYNC, MIDI, MIDI 2, PERFRM, HARMNY, ROAD, ROAD 2, SECTN (again: the next one)
   low A#   page forward
   top C    start / stop
   top C#   clear the shown layer (back to its default)
@@ -94,6 +94,10 @@ MIDI (the MIDI and MIDI 2 global pages):
   loop, loopstop, loopclear, pgnext, pgprev, play, mix, pattern. LastCC shows the last CC that came in;
   controllers/user.txt is kept when a new version is copied over.
   Clock in (SYNC: ext) and out (SYNC: ClkOut).
+
+SCALES (MAIN page): Scale picks the family - modes (the seven church modes), harmin (harmonic minor),
+melmin (melodic minor), pent (pentatonic) - and Mode which of its modes, by name (dorian, phrdom ...).
+Everything follows them: the chords, the lanes' scale runs, the counterpoint and the suggestions.
 
 THE CHORD STORY (STORY page): a progression in the key and mode, the pads, sub and percussion
 following it; Bars sets how often it moves on (manual: top D / top E).

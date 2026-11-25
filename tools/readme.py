@@ -5,7 +5,7 @@ from control import KEYS, AUX_KEYS, LAYER_KEYS, LAYER_HOLD
 NAMES = {60: "C", 61: "C#", 62: "D", 63: "D#", 64: "E", 65: "F", 66: "F#", 67: "G", 68: "G#", 69: "A", 70: "A#",
          71: "B"}
 WHAT = {**{f"al-sel-{L}": f"show the {M.LAYER_LABEL[L]} pages" for L in M.LAYERS},
-        "al-global": "the global pages: MAIN, STORY, SYNC, MIDI, MIDI 2, PERFRM, HARMNY, ROAD, ROAD 2, SECTN (again: the next one)", "al-pgprev": "page back",
+        "al-global": "the global pages: MAIN (key, tempo, scale, mode), LAYERS and LANES (each layer's engine), STORY, SYNC, MIDI, MIDI 2, PERFRM, HARMNY, ROAD, ROAD 2, SECTN (again: the next one)", "al-pgprev": "page back",
         "al-pgnext": "page forward", "al-latch": "latch on / off for the shown layer (drone, sub, pads)",
         "al-startstop": "start / stop", "al-clear": "clear the shown layer (back to its default)",
         "al-chordprev": "previous chord", "al-chordnext": "next chord",
@@ -71,6 +71,9 @@ def text():
             "  loop, loopstop, loopclear, pgnext, pgprev, play, mix, pattern. LastCC shows the last CC that came in;",
             "  controllers/user.txt is kept when a new version is copied over.",
             "  Clock in (SYNC: ext) and out (SYNC: ClkOut).", "",
+            "SCALES (MAIN page): Scale picks the family - modes (the seven church modes), harmin (harmonic minor),",
+            "melmin (melodic minor), pent (pentatonic) - and Mode which of its modes, by name (dorian, phrdom ...).",
+            "Everything follows them: the chords, the lanes' scale runs, the counterpoint and the suggestions.", "",
             "THE CHORD STORY (STORY page): a progression in the key and mode, the pads, sub and percussion",
             "following it; Bars sets how often it moves on (manual: top D / top E).", "",
             "ENGINES"]

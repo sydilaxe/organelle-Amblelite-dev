@@ -10,7 +10,7 @@ Redraws are throttled: at most one every 60 ms, however fast knobs turn."""
 from pdlib import Canvas, proc, If, Call, SendL, Send, run_steps
 import model as M
 from model import S, LAYERS
-from control import words, opt, num, ctx, npages, QUALS
+from control import words, opt, num, ctx, npages, QUALS, MODE_SLOT, VIEW_GLOBAL
 
 OSC = "oscOut"
 
@@ -50,10 +50,11 @@ def row(c, name, x, y, parts):
             tg = f"alcand[(allayer*{M.MAXENG} + aleng[allayer])*{M.MAXC} + {tgi} - 1]"
             sug = S("g", None, "Sugg")
             so = f"min(3, int(alp[{sug}]*4))"
-            wl = sc.to(src, f"expr if({sl} == {sug}, {OFF['chord']} + alsuR[{so}]*{len(QUALS)} + altq[alsuT[{so}]], "
+            mode_w = f"{OFF['mode']} + {opt(MODE_SLOT)}"          # (the Mode knob: its mode's name)
+            wl = sc.to(src, f"expr if({sl} == {MODE_SLOT}, {mode_w}, if({sl} == {sug}, {OFF['chord']} + alsuR[{so}]*{len(QUALS)} + altq[alsuT[{so}]], "
                             f"if({sl} < 0, {OFF['misc']}, if(aln[{sl}] == -2, if({tgi} == 0, {OFF['off']}, "
                             f"if({tg} < 0, {OFF['misc']}, {OFF['name']} + {tg})), if(aln[{sl}] > 0, {OFF['opt']} + "
-                            f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1))))")
+                            f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1)))))")
             mo = sc.to(wl, "moses 0")
             _sym(sc, sc.ch((mo, 1), "text get al-words"), (pk, i))
             nv = sc.to(sc.to((mo, 0), "t b"),
@@ -170,7 +171,10 @@ def build(c):
     row(c, "al-r-page", 0, 11, [("w", f"{OFF['page']} + {ctx()}*{M.MAXPAGES} + alpage"),
                                 ("w", f"{OFF['frac']} + ({npages()} - 1)*{M.MAXPAGES} + alpage")])
     for k in range(4):
-        row(c, f"al-r-k{k}", 0, 22 + 10 * k, [("w", f"if(alsl{k} < 0, {misc('-')}, {OFF['name']} + alsl{k})"),
+        # (a global page's knob that is a layer's: the layer's name)
+        gl = f"algl[alpage*4 + {k}]"
+        row(c, f"al-r-k{k}", 0, 22 + 10 * k, [("w", f"if(alsl{k} < 0, {misc('-')}, if(alview == {VIEW_GLOBAL} && {gl} >= 0, "
+                                                    f"{OFF['layer']} + {gl}, {OFF['name']} + alsl{k}))"),
                                               ("v", k)])
         lay += [Call(f"al-r-k{k}"),
                 If(f"alsl{k} >= 0 && (aln[alsl{k}] == 0 || aln[alsl{k}] == -1)",
