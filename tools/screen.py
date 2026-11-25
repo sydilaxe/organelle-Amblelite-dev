@@ -77,7 +77,7 @@ OFF["chord"] = len(LINES)
 LINES += chord_words()
 OFF["frac"] = len(LINES)
 LINES += [f"{p}/{n}" for n in range(1, M.MAXPAGES + 1) for p in range(1, M.MAXPAGES + 1)]
-MISC = {"-": 0, "RUN": 1, "STOP": 2, "M": 3, ">": 4, "NOTES": 5, "LAT": 6}
+MISC = {"-": 0, "RUN": 1, "STOP": 2, "M": 3, ">": 4, "NOTES": 5, "LAT": 6, "RUN*": 7, "STOP*": 8}
 LINES.append("+")
 OFF["plus"] = len(LINES) - 1
 LINES.append("GLOBAL")
@@ -124,12 +124,17 @@ def rows_tables(c):
 
 def build(c):
     from pdlib import V, Loop
-    c.comment("the screen: al-redraw (any change) -> at most every 60 ms -> al-draw")
+    c.comment("the screen: al-redraw (any change) -> at most every 60 ms (120 while the CPU is above 70 %) -> al-draw")
     sp = c.obj("spigot 1")
     c.c(c.ch(c.recv("al-redraw"), "t b"), 0, sp, 0)
-    tb = c.to(sp, "t b b")
-    c.c(c.m((tb, 1), "0"), 0, sp, 1)
-    d = c.ch((tb, 0), "delay 60", "t b b")
+    tb = c.to(sp, "t b b b")
+    c.c(c.m((tb, 2), "0"), 0, sp, 1)
+    # (fewer frames when busy: the OLED's messages travel to its program on the same core - under load some are
+    # lost or late, and half-drawn frames show as lines; the sound is never slowed by the screen)
+    dl = c.obj("delay 60")
+    c.c(c.to((tb, 1), "expr if(alcpu > 70, 120, 60)"), 0, dl, 1)
+    c.c((tb, 0), 0, dl, 0)
+    d = c.to(dl, "t b b")
     c.c(c.m((d, 1), "1"), 0, sp, 1)
     c.c(d, 0, c.obj("s al-draw"), 0)
     lb = c.ch(c.recv("al-init"), "t b")
@@ -140,7 +145,7 @@ def build(c):
     fl = LAYERS.index(M.LANES[0])
     # ---- play view
     row(c, "al-r-head", 0, 0, [("w", f"{OFF['note']} + {opt(key)}"), ("w", f"{OFF['mode']} + {opt(mode)}"),
-                               ("n", num(tempo), "%dbpm"), ("w", f"if(alrun, {misc('RUN')}, {misc('STOP')})"),
+                               ("n", num(tempo), "%dbpm"), ("w", f"if(alrun, {misc('RUN')}, {misc('STOP')}) + 6*alchg"),      # (*: changed since the snapshot)
                                ("w", f"if(alnotes, {misc('NOTES')}, {OFF['plus']})")])
     row(c, "al-r-chord", 0, 11, [("w", f"{OFF['chord']} + alcr*{len(QUALS)} + alcq"), ("w", misc(">")),
                                  ("w", f"{OFF['chord']} + alnxr*{len(QUALS)} + alnxq")])
@@ -210,10 +215,10 @@ def build(c):
                                           f"/oled/gFillArea 3 $1 $2 {MIX_W} $3 1")],
                     [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(2, int(alp[{lvl}]*38))"],
                            f"/oled/gBox 3 $1 $2 {MIX_W} $3 1")]),
-                 Send(OSC, f"/oled/gPrintln 3 {x} 55 8 1 {M.SHORT[L][1] if M.kind(L) == 'perc' else M.SHORT[L][0]}")]
+                 If("almixok == 0", [Send(OSC, f"/oled/gPrintln 3 {x} 55 8 1 {M.SHORT[L][1] if M.kind(L) == 'perc' else M.SHORT[L][0]}")])]
     vol = S("g", None, "Volume")
     mixv += [SendL(OSC, [f"52 - int(alp[{vol}]*38)", f"max(1, int(alp[{vol}]*38))"], "/oled/gFillArea 3 112 $1 14 $2 1")]
-    mixv += [Send(OSC, "/oled/gPrintln 3 114 55 8 1 V")]
+    mixv += [If("almixok == 0", [Send(OSC, "/oled/gPrintln 3 114 55 8 1 V")]), V("almixok", "1")]
     # (the columns the knobs turn now: a line under them)
     for k in range(4):
         terms = " + ".join(f"(alsl{k} == {S(L, None, 'Level')})*{li}" for li, L in enumerate(LAYERS))
@@ -246,9 +251,12 @@ def build(c):
         Send(OSC, "/oled/gFlip 3")]
     proc(c, "al-patmark", [If("alpatv == 1 && alpop == 0 && altick % 2 == 0", mark)])
     roadv = road_view(c)
-    proc(c, "al-draw", [Fill(0, 0, 128, 64, 0),
+    # (the MIX view, after its first frame: only the header and the columns cleared and drawn - its labels stay)
+    mixing = "alpop == 0 && alview == 2"
+    proc(c, "al-draw", [If(f"{mixing} && almixok", [Fill(0, 0, 128, 55, 0)], [Fill(0, 0, 128, 64, 0), V("almixok", "0")]),
                         If("alpop", lay, [If(f"alview == 2", mixv, [If("alpatv == 1", patv,
                                                                        [If("alpatv == 2", roadv, play)])])]),
+                        If(f"({mixing}) == 0", [V("almixok", "0")]),
                         Send(OSC, "/oled/gFlip 3")])
 
 

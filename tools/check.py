@@ -101,7 +101,7 @@ def main():
     # holds still; and the same settings move the same way every time
     pe, pp = M.S("pad", None, "Evolve"), M.S("pad", None, "Pace")
     base = solo("pad") + [(50, f"al-set {M.S('pad', None, 'Engine')} {M.engine_value('pad', 'wave')}"), (51, f"al-set {pp} 1"),
-                          (52, f"al-set {M.S('pad', 'wave', 'Table')} 0.35"),
+                          (52, f"al-set {M.S('pad', 'wave', 'Table')} {(M.WAVE_TABLES.index('reson') + 0.5) / len(M.WAVE_TABLES)}"),
                           (53, f"al-set {M.S('g', None, 'Bars')} 0.05"), START]      # (Bars: manual - one chord)
 
     def centroids(a):
@@ -225,20 +225,31 @@ def main():
           nav[:2] == ["10", "10"] and nav[2:3] == ["0"] and nav[3:4] != ["0"] and nav[4:5] == ["0"]
           and nav[5:6] == ["10"] and nav[6:7] == ["0"], " ".join(nav))
 
-    # snapshots: save 1, change the pads' engine and level, recall 1 (morph 0): back as it was; COMPARE: the change
+    # snapshots: save 1, change the pads' engine and level, recall 1 (morph 0): back as it was
     eng, lv = M.S("pad", None, "Engine"), M.S("pad", None, "Level")
     ev = [(50, f"al-set {M.S('g', None, 'Morph')} 0"), START, (500, "notesRaw 82 100"), (510, "aux 1"),
           (520, "notesRaw 60 100"), (530, "aux 0"), (540, "notesRaw 82 0"),
           (800, f"al-set {eng} 0.3"), (810, f"al-set {lv} 0.1"),
-          (1500, "notesRaw 82 100"), (1510, "notesRaw 60 100"), (1520, "notesRaw 82 0"),
-          (2500, "notesRaw 82 100"), (2510, "notesRaw 82 0")]
-    log, a = H.run(solo("pad") + ev, 3.5, d=d, keep=True, prints=("oscOut",))
+          (1500, "notesRaw 82 100"), (1510, "notesRaw 60 100"), (1520, "notesRaw 82 0")]
+    log, a = H.run(solo("pad") + ev, 2.5, d=d, keep=True, prints=("oscOut",))
     heads = [l for l in log.splitlines() if "gPrintln 3 0 0 " in l]
-    rows = [l for l in log.splitlines() if "gPrintln 3 0 42" in l]
-    r1, r2, r3 = H.rms_db(seg(a, 1.2, 1.5)), H.rms_db(seg(a, 2.0, 2.4)), H.rms_db(seg(a, 3.0, 3.4))
+    r1, r2 = H.rms_db(seg(a, 1.2, 1.5)), H.rms_db(seg(a, 2.0, 2.4))
     check("save, change, recall", r2 - r1 > 6 and any("SAVED" in l for l in heads) and any("LOADED" in l for l in heads),
           f"level {r1:.1f} -> recalled {r2:.1f} dB")
-    check("compare goes back to the change", r2 - r3 > 6 and any("COMPARE" in l for l in heads), f"{r3:.1f} dB")
+
+    # COMPARE (as Amble): save, turn the level down (the header: RUN*); top A# tapped: the saved sound (loud), tapped
+    # again: yours (quiet); held: the saved one while held, yours again when let go
+    ev = [START, (500, "notesRaw 82 100"), (510, "aux 1"), (520, "notesRaw 60 100"), (530, "aux 0"),
+          (540, "notesRaw 82 0"), (800, f"al-set {lv} 0.1"),
+          (1500, "notesRaw 82 100"), (1550, "notesRaw 82 0"), (2500, "notesRaw 82 100"), (2550, "notesRaw 82 0"),
+          (3200, "notesRaw 82 100"), (4300, "notesRaw 82 0")]
+    log, a = H.run(solo("pad") + ev, 6.8, d=d, keep=True, prints=("oscOut",))
+    heads = [l for l in log.splitlines() if "gPrintln 3 0 0 " in l]
+    lv_ = [H.rms_db(seg(a, t0, t1)) for t0, t1 in ((1.1, 1.45), (2.0, 2.45), (2.95, 3.15), (3.8, 4.25), (4.75, 5.1))]
+    ok = lv_[1] - lv_[0] > 6 and lv_[1] - lv_[2] > 6 and lv_[3] - lv_[2] > 6 and lv_[3] - lv_[4] > 6
+    check("compare: a tap flips saved / yours, a hold hears the saved one", ok and any("RUN*" in l for l in heads),
+          " > ".join(f"{x:.0f}" for x in lv_) + " dB (yours, saved, yours, held, yours)"
+          + ("" if any("RUN*" in l for l in heads) else "; no RUN* mark"))
 
     # morph: a slow morph (Morph 70 %: about 4 s) - the level glides
     ev2 = [(50, f"al-set {M.S('g', None, 'Morph')} 0.7"), START, (300, f"al-set {lv} 0.1"), (500, "notesRaw 82 100"),
@@ -252,8 +263,8 @@ def main():
 
     # the looper: on the sub, A then E recorded in one bar; the next cycles play them again
     q = [(30, f"al-set {M.S('g', None, 'Bars')} 0.05"), (31, "al-sel-sub bang")]
-    ev3 = solo("sub") + q + [START, (1000, "notesRaw 75 100"), (1001, "al-midi 69 100 1"), (1500, "al-midi 69 0 1"),
-                             (2400, "al-midi 76 100 1"), (2900, "al-midi 76 0 1"), (3700, "notesRaw 75 100")]
+    ev3 = solo("sub") + q + [START, (998, "notesRaw 77 100"), (1000, "notesRaw 77 100"), (1001, "al-midi 69 100 1"), (1500, "al-midi 69 0 1"),
+                             (2400, "al-midi 76 100 1"), (2900, "al-midi 76 0 1"), (3700, "notesRaw 77 100")]
     _, a = run(ev3, 9.5)
     # (a bar is 2.86 s: the 2nd cycle starts at 3.86 s - A, then E 1.4 s later; the 3rd at 6.71 s)
     h1, h2, h3 = peak_hz(seg(a, 4.2, 5.0), 30, 400), peak_hz(seg(a, 5.6, 6.4), 30, 400), peak_hz(seg(a, 7.0, 7.8), 30, 400)
@@ -337,8 +348,8 @@ def main():
     zb = solo("sub") + [(50, f"al-set {zones} 0.75"), (51, f"al-set {S_('sub', None, 'BTgt')} {(2 + 0.5) / M.MAXC}"),
                         (52, f"al-set {S_('sub', None, 'BDep')} 1"), (53, f"al-set {S_('sub', None, 'Level')} 0.15"),
                         (54, f"al-set {S_('g', None, 'Bars')} 0.05"), START,
-                        (1000, "notesRaw 75 100"), (1001, "al-midi 45 100 1"), (1010, "al-cc 127 2 1"),
-                        (2000, "al-cc 0 2 1"), (3800, "al-midi 45 0 1"), (3810, "notesRaw 75 100")]
+                        (998, "notesRaw 77 100"), (1000, "notesRaw 77 100"), (1001, "al-midi 45 100 1"), (1010, "al-cc 127 2 1"),
+                        (2000, "al-cc 0 2 1"), (3800, "al-midi 45 0 1"), (3810, "notesRaw 77 100")]
     _, a = run(zb, 7.2)
     hi_, lo_ = H.rms_db(seg(a, 4.0, 4.7)), H.rms_db(seg(a, 5.2, 6.4))
     check("a zone's breath loops", hi_ - lo_ > 8, f"replayed: {hi_:.1f} dB where it blew, {lo_:.1f} after")
@@ -375,7 +386,7 @@ def main():
     g = lambda k: M.S("g", None, k)
     gpages = [n for n, _ in M.GLOBAL_PAGES]
     rd = [(50, f"al-set {g('Road')} 0.9"), (51, f"al-set {g('Mins')} 0"), (52, f"al-set {g('Tempo')} 1"),
-          (100, "aux 1"), (150, "notesRaw 73 100"), (160, "notesRaw 73 0"), (200, "aux 0"), START]
+          (100, "aux 1"), (150, "notesRaw 81 100"), (160, "notesRaw 81 0"), (200, "aux 0"), START]
     # (the first section shortened to 4 bars on the SECTN page: Bars, for the section Sect shows)
     log, _ = H.run(rd + [(300, f"al-set {g('SBars')} 0")], 9, d=d, keep=True, prints=("al-inset",))
     ins = [l for l in log.splitlines() if l.startswith("al-inset")]
@@ -399,10 +410,10 @@ def main():
 
     # ---- motif: the pads' loop (A, C, E) played by percussion lane 1 (Pitch motif, Source pads), an octave up
     mo = [(30, "al-sel-pad bang"), (40, f"al-set {M.S('perc1', None, 'Pitch')} {(8 + 0.5) / len(M.PITCHES)}"),
-          (41, f"al-set {M.S('perc1', None, 'MSrc')} {(2 + 0.5) / 7}"), START, (600, "notesRaw 75 100")]
+          (41, f"al-set {M.S('perc1', None, 'MSrc')} {(2 + 0.5) / 7}"), START, (598, "notesRaw 77 100"), (600, "notesRaw 77 100")]
     for i, n in enumerate((57, 60, 64)):
         mo += [(700 + 400 * i, f"al-midi {n} 100 1"), (900 + 400 * i, f"al-midi {n} 0 1")]
-    mo += [(2400, "notesRaw 75 100")]
+    mo += [(2400, "notesRaw 77 100")]
     log, _ = H.run(mo, 6, d=d, keep=True, prints=("al-perc1-hit",))
     hits_ = [int(float(l.split()[2])) for l in log.splitlines() if l.startswith("al-perc1-hit")]
     late = hits_[len(hits_) // 2:]
@@ -427,15 +438,136 @@ def main():
     check("the scale and mode reach the notes (C harmonic minor)", set(pcs) <= {0, 2, 3, 5, 7, 8, 11} and
           {8, 11} <= set(pcs), f"pitch classes {pcs}")
 
+    # ---- the filter doesn't crackle when its cutoff is turned by hand: a sine pad (no highs of its own) through a
+    # resonant filter, the knob moved every 20 ms - nothing above 5 kHz grows while it moves
+    ev = solo("pad") + [(30, f"al-set {M.S('pad', None, 'Evolve')} 0"), (31, f"al-set {M.S('pad', None, 'Reso')} 0.6"),
+                        (32, f"al-set {M.S('pad', None, 'Cutoff')} 0.3"), START]
+    ev += [(2000 + 20 * i, f"al-set {M.S('pad', None, 'Cutoff')} {0.3 + 0.45 * (i if i < 75 else 149 - i) / 74:.4f}")
+           for i in range(150)]
+    _, a = run(ev, 5.5)
+    xm = a.mean(axis=1)
+
+    def hf(seg_):
+        sp = np.abs(np.fft.rfft(seg_ * np.hanning(len(seg_)))) ** 2
+        fr = np.fft.rfftfreq(len(seg_), 1 / SR)
+        return 10 * np.log10(sp[fr > 5000].sum() / (sp.sum() + 1e-20) + 1e-15)
+    cr = hf(xm[int(2.0 * SR):int(5.0 * SR)]) - hf(xm[int(0.8 * SR):int(1.9 * SR)])
+    check("the filter doesn't crackle when turned", cr < 8, f"highs while moving {cr:+.1f} dB (the old filter: +28)")
+
+    # ---- pieces: on the PIECE page, aux + top A# saves (key F), the key changes (D), top A# loads it back (F)
+    gp_ = [n for n, _ in M.GLOBAL_PAGES]
+    key_ = M.S('g', None, 'Key')
+
+    def pq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), f"expr int(alp[{key_}]*12)"), 0, c.obj("print PK", 900, 760), 0)
+    ev = [(30, f"al-set {key_} {(5 + 0.5) / 12}")] + [(100 + 60 * i, "notesRaw 68 100") for i in range(gp_.index("PIECE") + 1)]
+    ev += [(800, "aux 1"), (850, "notesRaw 82 100"), (900, "notesRaw 82 0"), (950, "aux 0"),
+           (1200, f"al-set {key_} {(2 + 0.5) / 12}"), (1300, "h-q bang"),
+           (1500, "notesRaw 82 100"), (1550, "notesRaw 82 0"), (1800, "h-q bang")]
+    log, _ = H.run(ev, 2, d=d, keep=True, extra=pq)
+    pk = [l.split()[-1] for l in log.splitlines() if l.startswith("PK")]
+    check("a piece saves and loads (its key)", pk == ["2", "5"] and not H.errors(log),
+          f"key after the change {pk[:1]}, after loading {pk[1:2]} (F = 5)" + (f"; {H.errors(log)[:1]}" if H.errors(log) else ""))
+
+    # ---- the audio input: off - nothing; reso - strings only with an input; octave - an octave below and above;
+    # listening - a steady A held at the input counts as a held note (HARMNY Listen)
+    imode = M.S('g', None, 'InMode')
+
+    def inrun(k, on, inp, extra_ev=(), extra=None, prints=("oscOut",)):
+        ev = [(20 + i, f"al-inset {i} {1 if L in on else 0}") for i, L in enumerate(M.LAYERS)]
+        ev += [(30, f"al-set {imode} {(k + 0.5) / 6}"), START] + list(extra_ev)
+        return H.run(ev, 4, d=d, keep=True, inp=inp, extra=extra, prints=prints)
+
+    def band(x, f0, w=8):
+        sp = np.abs(np.fft.rfft(x * np.hanning(len(x))))
+        fr = np.fft.rfftfreq(len(x), 1 / SR)
+        return 20 * np.log10(sp[(fr > f0 - w) & (fr < f0 + w)].max() + 1e-9)
+    _, a0 = inrun(0, [], "osc~ 220")
+    quiet = [(25, f"al-set {M.S('pad', None, 'Level')} 0")]
+    _, a1 = inrun(1, ["pad"], "osc~ 220", quiet)
+    _, a2 = inrun(1, ["pad"], None, quiet)
+    _, a5 = inrun(5, [], "osc~ 220")
+    x5 = seg(a5, 2, 4).mean(axis=1)
+    check("input: off is silent, reso rings with it, octave adds below and above",
+          H.rms_db(seg(a0, 2, 4)) < -100 and H.rms_db(seg(a1, 2, 4)) - H.rms_db(seg(a2, 2, 4)) > 40
+          and band(x5, 110) > band(x5, 1000) + 30 and band(x5, 440) > band(x5, 1000) + 30,
+          f"off {H.rms_db(seg(a0, 2, 4)):.0f} dB, reso {H.rms_db(seg(a1, 2, 4)):.0f} dB (without input "
+          f"{H.rms_db(seg(a2, 2, 4)):.0f}), octave 110 / 440 / 1000 Hz {band(x5, 110):.0f} / {band(x5, 440):.0f} / "
+          f"{band(x5, 1000):.0f}")
+
+    def hq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "array get alhpc 0 12"), 0, c.obj("print HPC", 900, 760), 0)
+    log, _ = inrun(3, [], "osc~ 220", [(40, f"al-set {M.S('g', None, 'Listen')} 0.75"), (3500, "h-q bang")], extra=hq)
+    hp = [l.split()[1:] for l in log.splitlines() if l.startswith("HPC")]
+    check("input: a steady pitch is listened to (A)", bool(hp) and float(hp[0][9]) > 0,
+          f"held pitch classes {hp[0] if hp else '-'}")
+
+    # ---- your wavetables: a 4-frame WAV and a single cycle in waves/ - user1 has 4 frames, user2 1, user3 none
+    import wave as _wave
+    import struct as _struct
+    for nm, smp in (("a_multi", [0.4 * np.sin(2 * np.pi * i / 2048) for i in range(4 * 2048)]),
+                    ("b_single", [0.8 * (2 * i / 600 - 1) for i in range(600)])):
+        w = _wave.open(os.path.join(d, "waves", nm + ".wav"), "wb")
+        w.setnchannels(1), w.setsampwidth(2), w.setframerate(SR)
+        w.writeframes(b"".join(_struct.pack("<h", int(32000 * v)) for v in smp))
+        w.close()
+
+    def uq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "array get alwuf 0 3"), 0, c.obj("print UF", 900, 760), 0)
+    log, a = H.run(solo("pad") + [(30, f"al-set {M.S('pad', None, 'Engine')} {M.engine_value('pad', 'wave')}"),
+                                  (400, f"al-set {M.S('pad', 'wave', 'Table')} {(8 + 0.5) / len(M.WAVE_TABLES)}"),
+                                  START, (600, "h-q bang")], 2.5, d=d, keep=True, extra=uq)
+    uf = [l.split()[1:] for l in log.splitlines() if l.startswith("UF")]
+    for nm in ("a_multi", "b_single"):
+        os.remove(os.path.join(d, "waves", nm + ".wav"))
+    check("your wavetables load from waves/ (and play)", uf == [["4", "1", "0"]] and H.rms_db(seg(a, 1.5, 2.5)) > -40,
+          f"frames {uf[0] if uf else '-'}, user2 plays at {H.rms_db(seg(a, 1.5, 2.5)):.0f} dB")
+
+    # ---- the looper's flow (the sub, Len 1 bar): armed until the bar line, the first pass, then overdub; a press:
+    # play. Aux held over the start of a pass erases the A there while the D played meanwhile replaces it
+    BARMS = 96 * 60000 / (84 * 24)
+    T0 = 200
+
+    def lq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "expr allps[1]"), 0, c.obj("print ST", 900, 760), 0)
+        c.c(c.ch(c.obj("r h-n", 1100, 700), "array get allpn 256 4"), 0, c.obj("print NOTES", 1100, 760), 0)
+    ev = solo("sub") + [(30, "al-sel-sub bang"), (31, f"al-set {M.S('sub', None, 'LpLen')} {(2 + 0.5) / 7}"), START,
+                        (1000, "notesRaw 77 100"), (1100, "h-q bang"), (int(T0 + BARMS + 100), "h-q bang"),
+                        (int(T0 + BARMS + 200), "al-midi 57 100 1"), (int(T0 + BARMS + 500), "al-midi 57 0 1"),
+                        (int(T0 + 2 * BARMS + 100), "h-q bang"), (int(T0 + 2 * BARMS + 150), "h-n bang"),
+                        (int(T0 + 3 * BARMS - 300), "aux 1"), (int(T0 + 3 * BARMS + 250), "al-midi 62 100 1"),
+                        (int(T0 + 3 * BARMS + 600), "al-midi 62 0 1"), (int(T0 + 3 * BARMS + 900), "aux 0"),
+                        (int(T0 + 4 * BARMS - 100), "h-n bang"), (int(T0 + 4 * BARMS + 100), "notesRaw 77 100"),
+                        (int(T0 + 4 * BARMS + 200), "h-q bang")]
+    log, _ = H.run(ev, (T0 + 4 * BARMS + 400) / 1000, d=d, keep=True, extra=lq)
+    st = [l.split()[-1] for l in log.splitlines() if l.startswith("ST")]
+    nt = [" ".join(l.split()[1:3]) for l in log.splitlines() if l.startswith("NOTES")]
+    check("loop: armed till the bar, first pass, overdub, a press plays", st == ["5", "1", "3", "2"],
+          "states " + " ".join(st) + " (5 armed, 1 first pass, 3 overdub, 2 play)")
+    check("loop: aux held erases, what is played meanwhile replaces it", nt == ["57 57", "62 62"],
+          f"notes before {nt[:1]}, after {nt[1:2]}")
+    # a free loop starts on its first note (not on the bar line)
+    ev = solo("sub") + [(30, "al-sel-sub bang"), (31, f"al-set {M.S('sub', None, 'LpLen')} {(1 + 0.5) / 7}"), START,
+                        (1000, "notesRaw 77 100"), (1700, "al-midi 57 100 1"), (1800, "h-q bang")]
+
+    def fq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "expr allps[1]*1000 + allp0[1]"), 0, c.obj("print FR", 900, 760), 0)
+    log, _ = H.run(ev, 2, d=d, keep=True, extra=fq)
+    fr = [float(l.split()[-1]) for l in log.splitlines() if l.startswith("FR")]
+    p0 = fr[0] - 1000 if fr else -1
+    check("loop: free starts on the first note", fr and fr[0] >= 1000 and p0 % 96 != 0 and abs(p0 - 1500 / 29.76) < 3,
+          f"state {int(fr[0] // 1000) if fr else '-'}, from clock {p0:.0f} (the note: {1500 / 29.76:.0f})")
+
     # ---- a tapped rhythm: aux + top D# with lane 1 shown, three notes at steps 0, 3 and 5 of the cycle (8 steps of a
     # 16th): it becomes the lane's pattern - those gaps (3 2 3), and then 3 hits a cycle (2 cycles: 6)
     ev = solo("perc1") + [(30, "al-sel-perc1 bang"), (40, f"al-set {M.S('perc1', None, 'Steps')} {6 / 14}"),
                           (41, f"al-set {M.S('perc1', None, 'Rate')} {(3 + 0.5) / 6}"),
                           (43, f"al-set {M.S('perc1', None, 'Phase')} 0.01"), START,
-                          (1000, "aux 1"), (1010, "notesRaw 75 100"), (1020, "aux 0")]
+                          (1000, "aux 1"), (1008, "notesRaw 78 100"), (1010, "notesRaw 78 100"), (1020, "aux 0")]
     step = 60000 / (84 * 4)
     ev += [(1030 + int(st * step), "al-note 3 60 0.8") for st in (0, 3, 5)]
     t_end = 1010 + 8 * step + 300
+    ev += [(int(t_end) - 200, "aux 1"), (int(t_end) - 190, "notesRaw 78 100"), (int(t_end) - 180, "aux 0")]
     ev += [(int(t_end), "h-q bang"), (int(t_end + 16 * step), "h-q bang")]
 
     def tapq(c):
@@ -450,6 +582,13 @@ def main():
     between = sum(1 for l in seq[m[0] + 1:m[1]] if l.startswith("al-perc1-hit")) if len(m) == 2 else -1
     check("a tapped rhythm becomes the lane's pattern", gaps == [2, 3, 3] and between == 6,
           f"steps {tsteps} (gaps {gaps}), {between} hits in 2 cycles")
+
+    # ---- only Pd's core objects: nothing from 'extra' (sigmund~, bonk~ ...), which some installs leave out
+    import glob as _glob
+    extra = ("sigmund~", "bonk~", "fiddle~", "bob~", "choice", "loop~", "lrshift~", "pique", "pd~", "stdout")
+    found = sorted({w for f in _glob.glob(os.path.join(d, "*.pd")) for ln in open(f)
+                    for w in ln.replace(";", " ").split()[4:5] if w in extra})
+    check("only Pd's core objects (nothing from extra)", not found, ", ".join(found) or "none")
 
     # ---- every engine of every layer sounds (one second each, in turn), and nothing in Pd complains
     for L in ("drone", "pad", "perc1"):

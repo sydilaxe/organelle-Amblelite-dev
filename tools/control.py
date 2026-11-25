@@ -13,10 +13,11 @@ LX = {"drone": "d", "sub": "s"}
 FIRST_LANE = LAYERS.index(LANES[0])
 VIEW_LAYER, VIEW_GLOBAL, VIEW_MIX = 0, 1, 2
 SECTN_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("SECTN")
+PIECE_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("PIECE")
 MODE_SLOT, SCALE_SLOT = S("g", None, "Mode"), S("g", None, "Scale")
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
-GLOBALS = dict(altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
+GLOBALS = dict(alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
                alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
                alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0, alcb=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
@@ -24,7 +25,7 @@ GLOBALS = dict(altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, a
                altime=0, alel=0, alek=0, aled=0, alep=100, alet2=0, alesl=0, alenew=0, alplane=FIRST_LANE,
                alln=0, allv=0, allr=0, allm=0, alpatv=0, alprow=0, alpc2=0, alil=0, aliv=0, alhk=-1, alhd=0,
                aldk=0, alsk=0,
-               alcpu=0, alcpux=0, alcpuh=0)
+               alcpu=0, alcpux=0, alcpuh=0, almixok=0)
 for k in range(4):
     GLOBALS.update({f"alsl{k}": -1, f"allat{k}": 0, f"alpv{k}": -1})
 for L in LANES:
@@ -33,7 +34,7 @@ ARRAYS = dict(alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alk
               allatch=NL, alin=NL, alprm=4, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
               alscn=len(M.MODES), alsk=0, alsd=0, alsr=0, alsy=0, alsdl=0, alsm=len(M.MODES) * 8,
               alsml=len(M.MODES), alty=0, altq=0, alpe=NSLOTS, alem=NSLOTS, alet=0, alew=0, alevs=0, alevp=0,
-              alevy=0, algl=0, altap=len(M.NOTE_LAYERS) * 16, aleo=NL, alepo=NL, allane=4, allrot=4, allrr=4, alfo=0, alfm=NSLOTS, alfn=NSLOTS)
+              alevy=0, algl=0, altap=len(M.NOTE_LAYERS) * 16, altapw=len(M.NOTE_LAYERS) * 16, aleo=NL, alepo=NL, allane=4, allrot=4, allrr=4, alfo=0, alfm=NSLOTS, alfn=NSLOTS)
 
 
 def opt(slot, n=None):
@@ -165,7 +166,7 @@ def words():
     for key, items in (("name", names), ("opt", opts), ("page", pnames), ("note", M.NOTE_NAMES),
                        ("mode", [m for m, _ in M.MODES]), ("layer", [M.LAYER_LABEL[L] for L in LAYERS]),
                        ("short", [M.SHORT[L] for L in LAYERS]), ("qual", M.QUALS),
-                       ("misc", ["-", "RUN", "STOP", "M", ">", "NOTES", "LAT"])):
+                       ("misc", ["-", "RUN", "STOP", "M", ">", "NOTES", "LAT", "RUN*", "STOP*"])):
         off[key] = len(lines)
         lines += [w if w else "-" for w in items]
     for L in LAYERS:
@@ -215,7 +216,7 @@ def knobs(c):
         ka = sc.to(sc.recv(f"knob{k + 1}"), "t f b f")
         sc.c((ka, 2), 0, sc.obj("v alasv"), 0)
         lp0 = sc.obj("list prepend")
-        sc.c(sc.to((ka, 1), "expr alaux && alview == 0"), 0, lp0, 1)
+        sc.c(sc.to((ka, 1), f"expr alaux && alview == 0 && !{rec_any()}"), 0, lp0, 1)
         sc.c((ka, 0), 0, lp0, 0)
         rt0 = sc.to(lp0, "route 0 1")
         sc.c(sc.to((rt0, 1), "t b"), 0, sc.obj(f"s al-assign{k}"), 0)
@@ -245,6 +246,17 @@ def fade_ms():
     return f"if(alp[{f}] < 0.02, 0, 50*pow(400, alp[{f}]))"
 
 
+def by_env(L):
+    """whether layer L enters and leaves by its own envelope (PIECE page FadeBy env: the drone, sub and pads; the
+    lanes and the cloud, which have none, by the Fade time)"""
+    return f"({opt(S('g', None, 'FadeBy'))} == 1)" if L in ("drone", "sub", "pad") else "0"
+
+
+def release_ms(L):
+    """the layer's envelope Release in ms (as the voices: voice.env_ms)"""
+    return f"5*pow(4000, alpe[{S(L, None, 'Releas')}])"
+
+
 def layer_switches(c):
     """each layer is in or out (alin). In: its level fades up (the PERFRM page's Fade) and it plays - the drone,
     sub and pads their default or latched notes, a lane its pattern. Out: its level fades down, then its notes
@@ -258,13 +270,20 @@ def layer_switches(c):
         proc(c, f"al-tog-{L}", [If(f"alview == {VIEW_GLOBAL} && alpage == {SECTN_PAGE}",
                                    [V("alrq", str(li)), Call("al-rtog")],
                                    [SendL("al-inset", [str(li), f"1 - alin[{li}]"])])])
-        # (the level's fade: 'in fade_ms' to the mix)
+        # (the level's fade: 'in fade_ms' to the mix. By envelope: the level at once, the notes' own Attack; out,
+        # the notes released at once, their Release heard, then the level down)
+        env = by_env(L)
         proc(c, f"al-inset-{L}", [
             If(f"aliv != alin[{li}]", [
-                T("alin", str(li), "aliv"), SendL(f"al-in{li}", ["aliv", fade_ms()]),
-                If("aliv", [Send(f"al-outstop-{L}"), Call(f"al-inon-{L}")],
-                   [Arm(f"al-outrel-{L}", f"{fade_ms()} + 20", stop=f"al-outstop-{L}")]),
+                T("alin", str(li), "aliv"),
+                If(f"{env} && aliv", [SendL(f"al-in{li}", ["1", "5"])],
+                   [If(f"{env} == 0", [SendL(f"al-in{li}", ["aliv", fade_ms()])])]),
+                If("aliv", [Send(f"al-outstop-{L}"), Send(f"al-outlvlstop-{L}"), Call(f"al-inon-{L}")],
+                   [If(env, [Call(f"al-outrel-{L}"), Arm(f"al-outlvl-{L}", f"{release_ms(L) if L in ('drone', 'sub', 'pad') else 0} + 50",
+                                                         stop=f"al-outlvlstop-{L}")],
+                       [Arm(f"al-outrel-{L}", f"{fade_ms()} + 20", stop=f"al-outstop-{L}")])]),
                 Call("al-redraw")])])
+        proc(c, f"al-outlvl-{L}", [If(f"alin[{li}] == 0", [SendL(f"al-in{li}", ["0", "20"])])])
         if L in ("drone", "sub"):
             x = LX[L]
             proc(c, f"al-outrel-{L}", [If(f"alin[{li}] == 0 && al{x}on", [
@@ -325,16 +344,32 @@ def pages(c):
 # the low white keys: the seven layers - a tap: in / out; held (LAYER_HOLD ms): its pages
 LAYER_KEYS = {60: "drone", 62: "sub", 64: "pad", 65: "perc1", 67: "perc2", 69: "perc3", 71: "perc4", 79: "cloud"}
 LAYER_HOLD = 400
-# the low black keys: the views; the top octave: playing
-KEYS = {61: "al-layerview", 63: "al-mix", 66: "al-patview", 68: "al-global", 70: "al-pgnext",
-        72: "al-startstop", 73: "al-clear", 74: "al-chordprev", 75: "al-loop", 76: "al-chordnext",
-        77: "al-pgprev", 78: "al-loopstop", 80: "al-loopclear", 81: "al-latch",
-        83: "al-notesmode"}
+# the low black keys: the views and notes mode; the top octave: playing - the page arrows on the black keys either side
+# of chord prev (top D), the looper's three keys together (F, F#, G#), clear at the far end
+KEY = dict(home=61, mix=63, pattern=66, glob=68, notes=70, start=72, pgprev=73, chordprev=74, pgnext=75,
+           chordnext=76, loop=77, loopstop=78, loopclear=80, latch=81, clear=83)
+KEYS = {KEY["home"]: "al-layerview", KEY["mix"]: "al-mix", KEY["pattern"]: "al-patview", KEY["glob"]: "al-global",
+        KEY["notes"]: "al-notesmode", KEY["start"]: "al-startstop", KEY["pgprev"]: "al-pgprev",
+        KEY["chordprev"]: "al-chordprev", KEY["pgnext"]: "al-pgnext", KEY["chordnext"]: "al-chordnext",
+        KEY["loop"]: "al-loop", KEY["loopstop"]: "al-loopstop", KEY["loopclear"]: "al-loopclear",
+        KEY["latch"]: "al-latch", KEY["clear"]: "al-clear"}
 SLOT_KEY = 82          # held: the keys from low C to top D# recall a snapshot (with aux: save); tapped: COMPARE
-# aux held + a layer key: its pages at once (in notes mode too); aux + a few others
-AUX_KEYS = {**{k: f"al-sel-{L}" for k, L in LAYER_KEYS.items()}, 70: "al-pgprev", 72: "al-startstop",
-            73: "al-rgen", 74: "al-ownclear", 75: "al-taprec", 76: "al-sugaccept", 78: "al-rhold", 80: "al-rnext",
-            83: "al-notesmode"}
+# aux held + a key: in notes mode the way to the functions (paging, start, the looper), and a second set: a layer key
+# shows its pages at once; the tapped rhythm next to the loop key; the assistant and the roadmap
+AUX_KEYS = {**{k: f"al-sel-{L}" for k, L in LAYER_KEYS.items()}, KEY["notes"]: "al-notesmode",
+            KEY["start"]: "al-startstop", KEY["pgprev"]: "al-pgprev", KEY["pgnext"]: "al-pgnext",
+            KEY["loop"]: "al-loop", KEY["loopstop"]: "al-taprec", KEY["loopclear"]: "al-loopclear",
+            KEY["chordprev"]: "al-ownclear", KEY["chordnext"]: "al-sugaccept", KEY["latch"]: "al-rgen",
+            KEY["clear"]: "al-rnext", KEY["pattern"]: "al-rhold"}
+
+
+def rec_any():
+    """a loop recording or overdubbing (features.looper: allps 1 or 3), or a tapped pattern being recorded"""
+    return "(" + " || ".join(f"allps[{i}] == 1 || allps[{i}] == 3" for i in range(len(M.NOTE_LAYERS))) + \
+        " || altrl >= 0)"
+
+
+ERASE_HOLD = 250        # ms: aux held this long, alone, while something records = erase
 
 
 def organelle(c):
@@ -350,14 +385,24 @@ def organelle(c):
                    [V("alauxu", "if(alaux, 1, alauxu)"), Send("al-keyfn")])]
     key_up = [If("alkn == alhk", [Send("al-khstop"), If("alhd == 0", [SendL("al-togk", ["alkn"])]),
                                   V("alhk", "-1")])]
-    normal = [If("alnotes && alaux == 0", [SendL("al-note", ["allayer", "alkn", "alkvel/127"])],
+    # (while aux erases, the keys in notes mode play - what you play replaces what is erased - but the loop key
+    # still switches to play)
+    normal = [If(f"alnotes && (alaux == 0 || (alerase && alkn != {KEY['loop']}))",
+                 [SendL("al-note", ["allayer", "alkn", "alkvel/127"])],
                  [If("alkvel > 0", key_down, key_up)])]
     slots = [If("alslh && alkvel > 0 && alkn >= 60 && alkn <= 75",
                 [V("alslot", "alkn - 60"), V("alslu", "1"), V("alauxu", "if(alaux, 1, alauxu)"),
                  If("alaux", [Call("al-save")], [Call("al-recall")])], normal)]
+    # (top A# tapped: COMPARE - or, on the PIECE page, load the Piece knob's piece; with aux: save to it)
+    # (alone: a tap flips COMPARE, a hold hears the saved snapshot until it is let go)
+    piece = f"alview == {VIEW_GLOBAL} && alpage == {PIECE_PAGE}"
     run_steps(c, (r, 0), [If(f"alkn == {SLOT_KEY}",
-                             [If("alkvel > 0", [V("alslh", "1"), V("alslu", "0")],
-                                 [V("alslh", "0"), If("alslu == 0", [Call("al-compare")])])], slots)])
+                             [If("alkvel > 0", [V("alslh", "1"), V("alslu", "0"), V("alcmph", "0"),
+                                                If(f"({piece}) == 0", [Arm("al-cmphold", "400", stop="al-cmphstop")])],
+                                 [V("alslh", "0"), Send("al-cmphstop"), If("alslu == 0", [
+                                     If(piece, [If("alaux", [V("alauxu", "1"), Call("al-psave")], [Call("al-pload")])],
+                                        [If("alcmph", [Call("al-cmpoff")], [Call("al-compare")])])])])], slots)])
+    proc(c, "al-cmphold", [If("alslh && alslu == 0", [V("alcmph", "1"), Call("al-cmpon")])])
     tg = c.ch(c.recv("al-togk"), "route " + " ".join(str(k) for k in LAYER_KEYS))
     hx = c.ch(c.recv("al-khold"), "t b", "expr alhd = 1; alhk")
     hl = c.to((hx, 1), "route " + " ".join(str(k) for k in LAYER_KEYS))
@@ -372,9 +417,15 @@ def organelle(c):
     a = c.ch(c.recv("aux"), "t f f")
     c.c(c.to((a, 1), "expr $f1 > 0"), 0, c.obj("v alaux"), 0)
     tap = c.ch((a, 0), "sel 0")
-    # an aux tap (aux not used with a key or knob): home - the play view, from any page or view
-    run_steps(c, (tap, 0), [If("alauxu == 0", [Call("al-layerview"), Call("al-redraw")])])
-    run_steps(c, (tap, 1), [V("alauxu", "0")])
+    # an aux tap (aux not used with a key or knob): home - the play view, from any page or view. Held alone while
+    # something records (ERASE_HOLD ms): erase, until it is let go (a new erase session: alersid)
+    run_steps(c, (tap, 0), [Send("al-erasestop"),
+                            If("alerase", [V("alerase", "0"), Call("al-redraw")],
+                               [If("alauxu == 0", [Call("al-layerview"), Call("al-redraw")])])])
+    run_steps(c, (tap, 1), [V("alauxu", "0"), If(rec_any(), [Arm("al-erason", str(ERASE_HOLD), stop="al-erasestop")])])
+    from features import toast
+    proc(c, "al-erason", [If(f"alaux && alauxu == 0 && {rec_any()}",
+                             [V("alerase", "1"), V("alersid", "alersid + 1"), V("alauxu", "1")] + toast("ERASE"))])
 
 
 # ---------------------------------------------------------------------------------------------- notes to voices
@@ -586,29 +637,34 @@ def gates(c):
 
 
 def taps(c):
-    """a tapped pattern: aux + the loop key records one cycle (Steps x Rate) of the shown layer's pattern from what
-    you play on it - each note-on snapped to the nearest step - and switches the layer to it (a lane's Patt, a
-    gate's Gate: 'tapped'). Tapping again replaces it; euclid / on goes back to the Euclidean pattern, keeping it"""
+    """a tapped pattern: aux + top F# arms the shown layer's (it starts on the next bar; a second press: at once);
+    from then on every cycle (Steps x Rate) takes what you play on it, each note-on snapped to the nearest step,
+    until a press switches it to play. Aux held while it records: the steps passing under the playhead are emptied
+    (all but those played in this erase). The layer plays it at once: a lane's Patt, a gate's Gate 'tapped'"""
     NLy = len(M.NOTE_LAYERS)
-
-    def per(key, f=lambda sl: sl):
-        return pick([f(S(L, None, key)) for L in M.NOTE_LAYERS], "altrl")
     rc = pick([clocks(S(L, None, "Rate")) for L in M.NOTE_LAYERS], "altrl")
     steps = pick([num(S(L, None, "Steps")) for L in M.NOTE_LAYERS], "altrl")
     rot = pick([num(S(L, None, "Rotate")) + (f" + allrot[{LANES.index(L)}]" if L in LANES else "")
                 for L in M.NOTE_LAYERS], "altrl")
     slot = pick([S(L, None, "Patt") if L in LANES else S(L, None, "Gate") for L in M.NOTE_LAYERS], "altrl")
     val = pick([0.75 if L in LANES else (2 + 0.5) / 3 for L in M.NOTE_LAYERS], "altrl")
+    idx = f"altrl*16 + (int(max(0, alc24)/({rc}) + 0.5) + {rot}) % ({steps})"
     from features import toast
     proc(c, "al-taprec", [If(f"allayer < {NLy}", [
         If("alrun == 0", [Call("al-start")]),
-        V("altrl", "allayer"), V("altr0", "max(0, alc24)"), V("altrn", f"{steps}*{rc}"),
-        Loop("16", "altri", [T("altap", "altrl*16 + altri", "0")]),
-        SendL("al-set", [slot, str(val)])] + toast("TAP"))])
-    proc(c, "al-tapclock", [If("altrl >= 0 && alc24 - altr0 >= altrn", [V("altrl", "-1")] + toast("PLAY"))])
+        If("altrl == allayer", [V("altrl", "-1")] + toast("PLAY"),
+           [If("altarm == allayer", [Call("al-tapstart")], [V("altrl", "-1"), V("altarm", "allayer")] + toast("ARMED"))])])])
+    proc(c, "al-tapstart", [V("altrl", "altarm"), V("altarm", "-1"),
+                            Loop("16", "altri", [T("altap", "altrl*16 + altri", "0"), T("altapw", "altrl*16 + altri", "-1")]),
+                            SendL("al-set", [slot, str(val)])] + toast("REC"))
+    proc(c, "al-tapclock", [
+        If(f"altarm >= 0 && alc24 % {96} == 0", [Call("al-tapstart")]),
+        # (erasing: the step under the playhead, at each step)
+        If(f"altrl >= 0 && alerase && alc24 % ({rc}) == 0 && altapw[{idx}] != alersid",
+           [T("altap", idx, "0"), Call("al-redraw")])])
     _entry(c, "al-note", ["altnl", "altnn", "altnv"], "al-tapnote")
     proc(c, "al-tapnote", [If("altnl == altrl && altnv > 0 && altrl >= 0", [
-        T("altap", f"altrl*16 + (int(max(0, alc24)/({rc}) + 0.5) + {rot}) % ({steps})", "1"), Call("al-redraw")])])
+        T("altap", idx, "1"), T("altapw", idx, "if(alerase, alersid, -1)"), Call("al-redraw")])])
 
 
 # ---------------------------------------------------------------------------------------------- the chord story
@@ -729,7 +785,10 @@ def build(c):
     import harmony
     import roadmap
     import lines
-    for g in (features.GLOBALS, midi.GLOBALS, harmony.GLOBALS, roadmap.GLOBALS, lines.GLOBALS):
+    import userwaves
+    import audioin
+    for g in (features.GLOBALS, midi.GLOBALS, harmony.GLOBALS, roadmap.GLOBALS, lines.GLOBALS, userwaves.GLOBALS,
+              audioin.GLOBALS):
         for k, v in g.items():
             assert k not in GLOBALS, k
         GLOBALS.update(g)

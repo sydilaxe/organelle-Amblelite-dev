@@ -462,14 +462,8 @@ def perc_wave(s, ins, L):
     (strike,) = ins
     P = lambda n: S(L, "wave", n)
     nt = len(TABLES)
-    tsel = s.ch(s.recv(f"al-s{P('Table')}"), f"expr min({nt - 1}, int($f1*{nt}))", "change -1")
-    names = s.obj("sel " + " ".join(str(i) for i in range(nt)))
-    s.c(tsel, 0, names, 0)
-    nfr = s.obj("f 1")
-    readers = []
-    for i, (tn, frames, _) in enumerate(TABLES):
-        readers.append(s.m((names, i), f"set alwt-{tn}"))
-        s.c(s.m((names, i), str(len(frames))), 0, nfr, 0)
+    from userwaves import table_select
+    readers, nfr = table_select(s, P("Table"))          # (the factory tables, then your own: user1 .. 8)
     up = s.to(strike, "unpack f f f")
     # at each strike: the two frames' starts in the table (body, bright)
     pos, bri = a(P("Pos")), a(P("Bright"))
