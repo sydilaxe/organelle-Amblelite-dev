@@ -25,7 +25,7 @@ GLOBALS = dict(alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, alt
                altime=0, alel=0, alek=0, aled=0, alep=100, alet2=0, alesl=0, alenew=0, alplane=FIRST_LANE,
                alln=0, allv=0, allr=0, allm=0, alpatv=0, alprow=0, alpc2=0, alil=0, aliv=0, alhk=-1, alhd=0,
                aldk=0, alsk=0,
-               alcpu=0, alcpux=0, alcpuh=0)
+               alcpu=0, alcpux=0, alcpuh=0, almixok=0)
 for k in range(4):
     GLOBALS.update({f"alsl{k}": -1, f"allat{k}": 0, f"alpv{k}": -1})
 for L in LANES:
