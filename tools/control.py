@@ -164,7 +164,7 @@ def params(c):
               "(alpe), send that to [r al-s<slot>], redraw. al-out 'slot': send alpe[slot] again.")
     t = c.to(c.recv("al-set"), "t b l l l")
     c.c((t, 3), 0, c.obj("expr alp[$f1] = $f2"), 0)
-    c.c((t, 2), 0, c.obj("expr alpe[$f1] = max(0, min(1, $f2 + alem[$f1] + alfm[$f1] + alfn[$f1]))"), 0)
+    c.c((t, 2), 0, c.obj("expr alpe[$f1] = max(0, min(1, $f2 + alem[$f1] + alfm[$f1] + alfn[$f1] + alfb[$f1]))"), 0)
     c.c(c.to((t, 1), "list split 1"), 0, c.obj("s al-out"), 0)
     c.c((t, 0), 0, c.obj("s al-redraw"), 0)
     o = c.to(c.recv("al-out"), "t f f")
@@ -347,27 +347,6 @@ def organelle(c):
     tap = c.ch((a, 0), "sel 0")
     run_steps(c, (tap, 0), [If("alauxu == 0", [Call("al-pgnext")])])
     run_steps(c, (tap, 1), [V("alauxu", "0")])
-
-
-# ---------------------------------------------------------------------------------------------- MIDI in
-def midi_in(c):
-    c.comment("MIDI notes: channel 1 (and 9 - 16) play the shown layer; channels 2 - 8 the drone, sub, pads and "
-              "percussion lanes 1 - 4. [r al-midi] 'note vel ch' also lets the tests play.")
-    n = c.obj("notein")
-    pk = c.obj("pack f f f")
-    c.c((n, 2), 0, pk, 2)
-    c.c((n, 1), 0, pk, 1)
-    c.c((n, 0), 0, pk, 0)
-    c.c(pk, 0, c.obj("s al-midi"), 0)
-    r = c.ch(c.recv("al-midi"), "t b l")
-    up = c.to((r, 1), "unpack f f f")
-    for i, nm in enumerate(("almn", "almv", "almc")):
-        c.c((up, i), 0, c.obj(f"v {nm}"), 0)
-    run_steps(c, (r, 0), [SendL("al-note", [f"if(almc >= 2 && almc <= {NL + 1}, almc - 2, allayer)", "almn",
-                                            "almv/127"])])
-    rt = c.ch(c.recv("al-note"), "route " + " ".join(str(i) for i in range(NL)))
-    for i, L in enumerate(LAYERS):
-        c.c((rt, i), 0, c.obj(f"s al-user-{L}"), 0)      # (the looper records them, then al-in-<layer>)
 
 
 # ---------------------------------------------------------------------------------------------- notes to voices
@@ -656,7 +635,7 @@ def evolve(c):
         V("aled", f"alp[alevs[alel]]*alp[{master}]"), V("alep", per), V("alet2", tt),
         SendL("al-evd", ["alel", "aled", "alep"]),
         Loop(str(em), "alek", [If(f"{sl} >= 0", [
-            V("alesl", sl), T("alem", "alesl", mod), V("alenew", "max(0, min(1, alp[alesl] + alem[alesl] + alfm[alesl] + alfn[alesl]))"),
+            V("alesl", sl), T("alem", "alesl", mod), V("alenew", "max(0, min(1, alp[alesl] + alem[alesl] + alfm[alesl] + alfn[alesl] + alfb[alesl]))"),
             If("abs(alenew - alpe[alesl]) > 0.0004", [T("alpe", "alesl", "alenew"), SendL("al-out", ["alesl"])])])])])])
     rt = c.ch(c.recv("al-evd"), "route " + " ".join(str(i) for i in range(NL)))
     for i in range(NL):
@@ -664,7 +643,7 @@ def evolve(c):
 
 
 def build(c):
-    for fn in (tables, params, knobs, pages, organelle, midi_in, transport, lane_patterns, gates, story, evolve):
+    for fn in (tables, params, knobs, pages, organelle, transport, lane_patterns, gates, story, evolve):
         sc = Canvas(fn.__name__, w=2600)
         c.sub(sc)
         fn(sc)
@@ -679,9 +658,11 @@ def build(c):
     vals = Canvas("values")
     c.sub(vals)
     import features
-    for k, v in features.GLOBALS.items():
-        assert k not in GLOBALS, k
-    GLOBALS.update(features.GLOBALS)
+    import midi
+    for g in (features.GLOBALS, midi.GLOBALS):
+        for k, v in g.items():
+            assert k not in GLOBALS, k
+        GLOBALS.update(g)
     for name, v0 in GLOBALS.items():
         vals.obj(f"v {name}")
     lb = vals.obj("loadbang")

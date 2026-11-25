@@ -1,0 +1,5 @@
+comment  Lekholm DM48X (MPE): every channel plays each note its own bend and pressure breath on CC 2;
+comment  (and CC 11);
+mode mpe;
+cc 2 breath;
+cc 11 breath;

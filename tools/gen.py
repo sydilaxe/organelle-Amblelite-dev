@@ -86,6 +86,10 @@ def main_patch():
     m.sub(flt, 330, 250)
     import cloud
     m.sub(cloud.build(), 510, 250)
+    import midi
+    mi = Canvas("midi", w=1600)
+    midi.build(mi)
+    m.sub(mi, 600, 250)
     m3 = Canvas("features", w=1600)
     features.build(m3)
     m.sub(m3, 420, 250)
@@ -112,6 +116,8 @@ def build(out=OUT):
     open(os.path.join(out, "al-words.txt"), "w").write("".join(w.replace(" ", "\\ ") + "\n" for w in screen.LINES))
     wavetables.write(os.path.join(out, "waves", "factory"))
     open(os.path.join(out, "pd-opts.txt"), "w").write("-audiobuf 25\n")
+    import midi
+    midi.write_profiles(out)
     # the snapshots: kept across builds (an update keeps your saves); 18 empty lines the first time
     sv = os.path.join(out, "saves.txt")
     if not os.path.exists(sv):

@@ -276,6 +276,57 @@ def main():
     rc, r0 = H.rms_db(seg(a, 6.3, 7.3)), H.rms_db(seg(b, 6.3, 7.3))
     check("the cloud grains the layers (and outlives them)", rc > -50 and r0 < -80, f"after the pads left: {rc:.1f} dB with the cloud, {r0:.1f} without")
 
+    # ---- milestone 4: controllers, MPE, breath, zones
+    S_ = M.S
+    pr, chans, zones, bend = (S_("g", None, k) for k in ("Profil", "Chans", "Zones", "Bend"))
+    # a profile: the nanoKONTROL Studio's slider 1 sets the drone's level, its M button 1 takes it out, knob 1 the
+    # first parameter on the page shown
+    log, _ = H.run([(100, f"al-set {pr} {(2 + 0.5) / 5}"), (300, "al-cc 20 0 1"), (400, "al-cc 127 48 1"),
+                    (500, "al-cc 100 16 1")], 1, d=d, keep=True, prints=("al-set", "al-inset"))
+    lv = f"al-set: {S_('drone', None, 'Level')} 0.15748"
+    check("controller profile (nanoKONTROL Studio)", lv in log and "al-inset: 0 0" in log and
+          any(l.startswith("al-set:") and l.endswith(" 0.787402") for l in log.splitlines()), "slider, M button, knob")
+
+    # MPE: a note on channel 3 bent up a semitone (range 2) on its own, then its pressure lowers its level
+    mp = solo("sub") + [(50, f"al-set {chans} 0.75"), (51, f"al-set {bend} 0.1"), (52, "al-sel-sub bang"), START,
+                        (900, "al-bendin 12288 3"), (1000, "al-midi 69 100 3"), (3000, "al-touchin 20 3")]
+    _, a = run(mp, 4.5)
+    hz = peak_hz(seg(a, 1.8, 2.8), 30, 400)
+    l1, l2 = H.rms_db(seg(a, 2.0, 2.8)), H.rms_db(seg(a, 3.6, 4.4))
+    check("MPE: a note's own bend and pressure", abs(hz - 116.5) < 2 and l1 - l2 > 6,
+          f"{hz:.1f} Hz (116.5), pressure {l1:.1f} -> {l2:.1f} dB")
+
+    # breath (the generic profile: CC 2) -> the pads' cutoff (their BREATH page): brighter as it blows
+    bt = [(50, f"al-set {S_('pad', None, 'BTgt')} {(1 + 0.5) / M.MAXC}"), (51, f"al-set {S_('pad', None, 'BDep')} 1"),
+          (52, f"al-set {S_('pad', None, 'Cutoff')} 0.35"), (53, f"al-set {S_('pad', None, 'Evolve')} 0"),
+          (54, f"al-set {S_('pad', None, 'Engine')} {(2 + 0.5) / 5}")]      # (the saws: harmonics to filter)
+    _, a = run(solo("pad") + bt + [START, (2000, "al-cc 127 2 1")], 3.5)
+
+    def bright(x):
+        m = x.mean(axis=1)
+        sp = np.abs(np.fft.rfft(m * np.hanning(len(m))))
+        f = np.fft.rfftfreq(len(m), 1 / SR)
+        return float((sp * f).sum() / (sp.sum() + 1e-9))
+    b1, b2 = bright(seg(a, 1.2, 1.9)), bright(seg(a, 2.6, 3.4))
+    check("breath moves a layer's target", b2 > b1 * 1.3, f"brightness {b1:.0f} -> {b2:.0f} Hz")
+
+    # zones: low notes to the sub, middle ones to the pads (whatever is shown)
+    log, _ = H.run([(50, f"al-set {zones} 0.75"), START, (500, "al-midi 40 100 1"), (600, "al-midi 60 100 1")], 1,
+                   d=d, keep=True, prints=("al-user-sub", "al-user-pad"))
+    ok = "al-user-sub: 40 0.787402" in log and "al-user-pad: 60 0.787402" in log
+    check("zones split the keyboard", ok, "40 -> sub, 60 -> pads" if ok else log[-200:])
+
+    # a zone's breath, looped: the sub's breath (to its level) recorded with its notes in one bar; the next cycle
+    # plays it back with no breath - loud where it blew, quiet where it didn't
+    zb = solo("sub") + [(50, f"al-set {zones} 0.75"), (51, f"al-set {S_('sub', None, 'BTgt')} {(2 + 0.5) / M.MAXC}"),
+                        (52, f"al-set {S_('sub', None, 'BDep')} 1"), (53, f"al-set {S_('sub', None, 'Level')} 0.15"),
+                        (54, f"al-set {S_('g', None, 'Bars')} 0.05"), START,
+                        (1000, "notesRaw 75 100"), (1001, "al-midi 45 100 1"), (1010, "al-cc 127 2 1"),
+                        (2000, "al-cc 0 2 1"), (3800, "al-midi 45 0 1"), (3810, "notesRaw 75 100")]
+    _, a = run(zb, 7.2)
+    hi_, lo_ = H.rms_db(seg(a, 4.0, 4.7)), H.rms_db(seg(a, 5.2, 6.4))
+    check("a zone's breath loops", hi_ - lo_ > 8, f"replayed: {hi_:.1f} dB where it blew, {lo_:.1f} after")
+
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()
     run(on + [(25, f"al-inset {M.LAYERS.index('cloud')} 1"), START], 30)        # (all four lanes and the cloud in)

@@ -128,6 +128,10 @@ QUANT_CLOCKS = [1, 6, 12, 8, 24]
 MAXC = 24          # an LFO's targets: off + up to 23 of the layer's parameters
 
 LANES = ["perc1", "perc2", "perc3", "perc4"]
+# the keyboard zones (MIDI page Zones on): the notes each layer takes (lo, hi); (127, 0): none. The first layer
+# whose zone holds a note plays it
+ZONE_DEFAULT = dict(sub=(0, 47), pad=(48, 71), perc1=(72, 127))
+PROFILES = ["generic", "nanokey", "nanoktl", "dm48x", "user"]
 OCT_DEFAULT = dict(drone=2, sub=1, pad=3, perc1=4, perc2=4, perc3=3, perc4=5)      # -1, -2, 0, +1 ...
 # the lanes' defaults: a cascade that interlocks (engine, hits, steps, rotate, rate, pitch, phase, decay)
 LANE_DEFAULT = dict(perc1=(3, 5, 8, 0, 3, 0, 0, 0.45), perc2=(4, 3, 8, 2, 1, 4, 0, 0.5),
@@ -157,9 +161,12 @@ def layer_controls(layer, engines=()):
                           Param("Shape", 0, opts=LFO_SHAPES, key=f"L{n}Shp")]) for n in (1, 2)]
     loop = ("LOOP", [Param("Len", 0, opts=LOOP_LENS, key="LpLen"), Param("Quant", 1, opts=QUANTS),
                      Param("Follow", 0, opts=["chord", "exact"]), Param("Vel", 0.8, key="LpVel")])
+    zone = ZONE_DEFAULT.get(layer, (127, 0))
+    breath = ("BREATH", [Param("Target", 0, key="BTgt", target=True), Param("Depth", 0.5, key="BDep"),
+                         Param("ZoneLo", zone[0], lo=0, hi=127, key="ZnLo"), Param("ZoneHi", zone[1], lo=0, hi=127, key="ZnHi")])
     front = [("LAYER", common)]
     if layer == "cloud":
-        return front, lfos + [("EVOLVE", evolve[1][:3])]
+        return front, lfos + [breath, ("EVOLVE", evolve[1][:3])]
     if perc:
         return front, [
             ("HIT", [Param("Decay", d[7]), Param("Velo", 0.5), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
@@ -167,7 +174,7 @@ def layer_controls(layer, engines=()):
             ("RHYTHM", [Param("Hits", d[1], lo=1, hi=16), Param("Steps", d[2], lo=2, hi=16),
                         Param("Rotate", d[3], lo=0, hi=15), Param("Rate", d[4], opts=RATES)]),
             ("MOTION", [Param("Phase", d[6], opts=PHASES), Param("Spread", 0.6), Param("Accent", 0.3)]),
-            feel] + lfos + [evolve, loop]
+            feel] + lfos + [breath, evolve, loop]
     return front, [
         ("ENV", [Param("Attack", 0.45), Param("Decay", 0.6), Param("Sustn", 0.85), Param("Releas", 0.55)]),
         ("PLAY", [Param("Artic", 2, opts=ARTIC), Param("Glide", 0.45), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
@@ -179,7 +186,7 @@ def layer_controls(layer, engines=()):
         # the gate's own envelope: its hits shaped apart from the notes you play
         ("GATENV", [Param("Attack", 0.15, key="GAtk"), Param("Decay", 0.4, key="GDec"),
                     Param("Sustn", 0.6, key="GSus"), Param("Releas", 0.35, key="GRel")]),
-        feel] + lfos + [evolve, loop]
+        feel] + lfos + [breath, evolve, loop]
 
 
 def targets(layer, engine):
@@ -252,6 +259,12 @@ GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opt
                 ("STORY", [Param("Story", 0, opts=[n for n, _, _ in STORIES]), Param("Bars", 3, opts=BARS),
                            Param("SubTo", 1, opts=SUBMODES), Param("Voicng", 0.4)]),
                 ("SYNC", [Param("Sync", 0, opts=["int", "ext"]), Param("ClkOut", 1, opts=ONOFF)]),
+                # MIDI: the controller profile (controllers/<name>.txt), channels (layers: 1 the shown layer, 2-9 one
+                # layer each; mpe: every channel plays, each note its own bend and pressure), keyboard zones, and the
+                # last CC that came in (to find what a controller sends)
+                ("MIDI", [Param("Profil", 0, opts=PROFILES), Param("Chans", 0, opts=["layers", "mpe"]),
+                          Param("Zones", 0, opts=ONOFF), Param("LastCC", 0, lo=0, hi=127)]),
+                ("MIDI 2", [Param("Bend", 3, opts=["2", "12", "24", "48"]), Param("Press", 1, opts=["off", "expr", "breath"])]),
                 ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Fade", 0.62)])]
 # the MIX view's pages: existing slots (layer, name)
 MIX_PAGES = [("MIX 1", [("drone", "Level"), ("sub", "Level"), ("pad", "Level"), ("cloud", "Level")]),
