@@ -19,7 +19,8 @@ def build_tmp():
     return d
 
 
-def run(events, seconds, prints=("oscOut",), d=None, keep=False, extra=None):
+def run(events, seconds, prints=("oscOut",), d=None, keep=False, extra=None, inp=None):
+    """inp: a signal for the audio input, e.g. 'osc~ 220' (default: silence)"""
     own = d is None
     if own:
         d = build_tmp()
@@ -51,7 +52,10 @@ def run(events, seconds, prints=("oscOut",), d=None, keep=False, extra=None):
     sm = c.msg("stop", 500, 125)
     c.c(c.obj("r h-stop", 500, 100), 0, sm, 0)
     c.c(sm, 0, ws, 0)
-    z = c.obj("sig~ 0", 700, 60)
+    z = c.obj("sig~ 0", 700, 60) if not inp else c.ch(c.obj(inp, 700, 30), "*~ 0.3")
+    if inp:
+        nz = c.ch(c.obj("noise~", 900, 30), "*~ 0.03")
+        c.c(nz, 0, z, 0)
     c.c(z, 0, c.obj("s~ inL", 700, 90), 0)
     c.c(z, 0, c.obj("s~ inR", 800, 90), 0)
     c.obj("main", 20, 250)

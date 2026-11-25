@@ -93,6 +93,12 @@ def text():
             "once; snapshots (16, top A# held + a key) stay the quick sound changes, and morph.",
             "FADE (PIECE page): how layers enter and leave - FadeBy time: over Fade; env: the drone, sub and pads by",
             "their own envelope (Attack in, Release out), the lanes and cloud by Fade.", "",
+            "AUDIO INPUT (INPUT page): Mode off (the input ignored, no CPU), reso (four strings on the chord, rung by",
+            "the input), cloud (into the granular cloud), bands (eight bands on the key and mode), morph (a vocoder: the",
+            "input makes the pads speak), octave (an octave below and above); Gain; Amount (what it does per mode). Its",
+            "pitch is heard in every mode: with the HARMNY page's Listen on, a steady pitch pulls the next chord.",
+            "YOUR WAVETABLES: WAVs in the patch's waves/ folder load at start (name order) as Table user1 - user8:",
+            "frames of 2048 samples (Serum / Vital) to scan, or any other length as one single cycle.", "",
             "THE CHORD STORY (STORY page): a progression in the key and mode, the pads, sub and percussion",
             "following it; Bars sets how often it moves on (manual: top D / top E).", "",
             "ENGINES"]

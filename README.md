@@ -5,7 +5,7 @@ A stripped-back, performance-focused patch for the Critter & Guitari **Organelle
 
 **Status:** playable and in testing on the Organelle M - every layer and engine, lanes and gates (Euclidean or
 tapped), the looper, LFOs, Evolve, snapshots with COMPARE, pieces, the chord library and scales, the assistant and
-the roadmap, MIDI / MPE / breath. Audio input modes and the user wavetable folder are next.
+the roadmap, MIDI / MPE / breath, the audio input's modes and your own wavetables (`waves/`).
 
 - **Manual:** [`docs/AmbleLite-manual.pdf`](docs/AmbleLite-manual.pdf) - **key chart:** [`docs/AmbleLite-keys.pdf`](docs/AmbleLite-keys.pdf)
   (both built from the patch's own tables by `tools/manual.py`; also in each release).

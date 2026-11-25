@@ -246,7 +246,7 @@ def targets(layer, engine):
 
 
 # ---- engines: (name, [Param ...]); the DSP of each is in eng_<layer>.py under the same name
-WAVE_TABLES = ["amble", "basic", "reson", "pulse", "formnt", "harmon", "mini"]
+WAVE_TABLES = ["amble", "basic", "reson", "pulse", "formnt", "harmon", "mini"] + [f"user{i + 1}" for i in range(8)]
 
 ENGINES = {
     "drone": [
@@ -328,6 +328,9 @@ GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, l
                 # enter and leave - over the Fade time, or by their own envelope (FadeBy env: Attack in, Release out)
                 ("PIECE", [Param("Piece", 0, opts=[str(i + 1) for i in range(8)]), Param("Fade", 0.62),
                            Param("FadeBy", 0, opts=["time", "env"])]),
+                # the audio input (audioin.py): off (ignored, no CPU), reso, cloud, bands, morph, octave
+                ("INPUT", [Param("Mode", 0, opts=["off", "reso", "cloud", "bands", "morph", "octave"], key="InMode"),
+                           Param("Gain", 0.5, key="InGain"), Param("Amount", 0.5, key="InAmt")]),
                 ("STORY", [Param("Story", 0, opts=[n for n, _, _ in STORIES]), Param("Bars", 3, opts=BARS),
                            Param("SubTo", 1, opts=SUBMODES), Param("Voicng", 0.4)]),
                 ("SYNC", [Param("Sync", 0, opts=["int", "ext"]), Param("ClkOut", 1, opts=ONOFF)]),

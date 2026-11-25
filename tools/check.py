@@ -101,7 +101,7 @@ def main():
     # holds still; and the same settings move the same way every time
     pe, pp = M.S("pad", None, "Evolve"), M.S("pad", None, "Pace")
     base = solo("pad") + [(50, f"al-set {M.S('pad', None, 'Engine')} {M.engine_value('pad', 'wave')}"), (51, f"al-set {pp} 1"),
-                          (52, f"al-set {M.S('pad', 'wave', 'Table')} 0.35"),
+                          (52, f"al-set {M.S('pad', 'wave', 'Table')} {(M.WAVE_TABLES.index('reson') + 0.5) / len(M.WAVE_TABLES)}"),
                           (53, f"al-set {M.S('g', None, 'Bars')} 0.05"), START]      # (Bars: manual - one chord)
 
     def centroids(a):
@@ -468,6 +468,60 @@ def main():
     pk = [l.split()[-1] for l in log.splitlines() if l.startswith("PK")]
     check("a piece saves and loads (its key)", pk == ["2", "5"] and not H.errors(log),
           f"key after the change {pk[:1]}, after loading {pk[1:2]} (F = 5)" + (f"; {H.errors(log)[:1]}" if H.errors(log) else ""))
+
+    # ---- the audio input: off - nothing; reso - strings only with an input; octave - an octave below and above;
+    # listening - a steady A held at the input counts as a held note (HARMNY Listen)
+    imode = M.S('g', None, 'InMode')
+
+    def inrun(k, on, inp, extra_ev=(), extra=None, prints=("oscOut",)):
+        ev = [(20 + i, f"al-inset {i} {1 if L in on else 0}") for i, L in enumerate(M.LAYERS)]
+        ev += [(30, f"al-set {imode} {(k + 0.5) / 6}"), START] + list(extra_ev)
+        return H.run(ev, 4, d=d, keep=True, inp=inp, extra=extra, prints=prints)
+
+    def band(x, f0, w=8):
+        sp = np.abs(np.fft.rfft(x * np.hanning(len(x))))
+        fr = np.fft.rfftfreq(len(x), 1 / SR)
+        return 20 * np.log10(sp[(fr > f0 - w) & (fr < f0 + w)].max() + 1e-9)
+    _, a0 = inrun(0, [], "osc~ 220")
+    quiet = [(25, f"al-set {M.S('pad', None, 'Level')} 0")]
+    _, a1 = inrun(1, ["pad"], "osc~ 220", quiet)
+    _, a2 = inrun(1, ["pad"], None, quiet)
+    _, a5 = inrun(5, [], "osc~ 220")
+    x5 = seg(a5, 2, 4).mean(axis=1)
+    check("input: off is silent, reso rings with it, octave adds below and above",
+          H.rms_db(seg(a0, 2, 4)) < -100 and H.rms_db(seg(a1, 2, 4)) - H.rms_db(seg(a2, 2, 4)) > 40
+          and band(x5, 110) > band(x5, 1000) + 30 and band(x5, 440) > band(x5, 1000) + 30,
+          f"off {H.rms_db(seg(a0, 2, 4)):.0f} dB, reso {H.rms_db(seg(a1, 2, 4)):.0f} dB (without input "
+          f"{H.rms_db(seg(a2, 2, 4)):.0f}), octave 110 / 440 / 1000 Hz {band(x5, 110):.0f} / {band(x5, 440):.0f} / "
+          f"{band(x5, 1000):.0f}")
+
+    def hq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "array get alhpc 0 12"), 0, c.obj("print HPC", 900, 760), 0)
+    log, _ = inrun(3, [], "osc~ 220", [(40, f"al-set {M.S('g', None, 'Listen')} 0.75"), (3500, "h-q bang")], extra=hq)
+    hp = [l.split()[1:] for l in log.splitlines() if l.startswith("HPC")]
+    check("input: a steady pitch is listened to (A)", bool(hp) and float(hp[0][9]) > 0,
+          f"held pitch classes {hp[0] if hp else '-'}")
+
+    # ---- your wavetables: a 4-frame WAV and a single cycle in waves/ - user1 has 4 frames, user2 1, user3 none
+    import wave as _wave
+    import struct as _struct
+    for nm, smp in (("a_multi", [0.4 * np.sin(2 * np.pi * i / 2048) for i in range(4 * 2048)]),
+                    ("b_single", [0.8 * (2 * i / 600 - 1) for i in range(600)])):
+        w = _wave.open(os.path.join(d, "waves", nm + ".wav"), "wb")
+        w.setnchannels(1), w.setsampwidth(2), w.setframerate(SR)
+        w.writeframes(b"".join(_struct.pack("<h", int(32000 * v)) for v in smp))
+        w.close()
+
+    def uq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "array get alwuf 0 3"), 0, c.obj("print UF", 900, 760), 0)
+    log, a = H.run(solo("pad") + [(30, f"al-set {M.S('pad', None, 'Engine')} {M.engine_value('pad', 'wave')}"),
+                                  (400, f"al-set {M.S('pad', 'wave', 'Table')} {(8 + 0.5) / len(M.WAVE_TABLES)}"),
+                                  START, (600, "h-q bang")], 2.5, d=d, keep=True, extra=uq)
+    uf = [l.split()[1:] for l in log.splitlines() if l.startswith("UF")]
+    for nm in ("a_multi", "b_single"):
+        os.remove(os.path.join(d, "waves", nm + ".wav"))
+    check("your wavetables load from waves/ (and play)", uf == [["4", "1", "0"]] and H.rms_db(seg(a, 1.5, 2.5)) > -40,
+          f"frames {uf[0] if uf else '-'}, user2 plays at {H.rms_db(seg(a, 1.5, 2.5)):.0f} dB")
 
     # ---- the looper's flow (the sub, Len 1 bar): armed until the bar line, the first pass, then overdub; a press:
     # play. Aux held over the start of a pass erases the A there while the D played meanwhile replaces it

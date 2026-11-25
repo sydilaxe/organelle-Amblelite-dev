@@ -11,11 +11,14 @@ its own table from the bank, so the pads and the percussion can play different t
      They default to 8-bit mode (below), which gives the PPG's grainy, stepping sound.
    - **Miniwave-style:** banks of 16 waves, 8-bit, after the Wiard Miniwave's layout.
    - Basics: sine → triangle → saw → square, and additive sweeps.
-2. **Your own**, from the patch folder `waves/`, read at load (Pd's `[file glob]`):
-   - A **single-cycle WAV** (any length, mono) becomes one table of one wave.
-   - A **multi-frame WAV** (frames of 2048 samples back to back, as Serum and most wavetable editors export)
-     becomes one table to scan through.
-   - A subfolder becomes a table: its single-cycle files, in name order, are its waves.
+2. **Your own**, from the patch folder `waves/`, read when the patch loads, in name order, into the slots
+   **user1 .. user8** (the Table knob's last eight choices):
+   - a WAV whose length is a whole number of **2048-sample frames** (two or more: the Serum / Vital export) becomes a
+     table of that many waves to scan through;
+   - any other WAV is a **single cycle** (any length up to a few thousand samples), resampled to one 2048-sample
+     wave.
+   Mono or the first channel; 16 or 24 bit; up to 64 frames. An empty slot plays the factory *amble* table.
+   (Subfolders as tables, from the first design, aren't read yet.)
 
 The original PPG and Miniwave ROM data are not openly licensed, so they are not shipped. If you own them (for
 example an export from a PPG product or a dump of an EPROM you own), drop them into `waves/` as WAVs.

@@ -307,15 +307,8 @@ def pad_wave(s, ins, L):
     P = lambda n: S("pad", "wave", n)
     nt = len(TABLES)
     # the table: its array name (set on every reader) and its frame count
-    tsel = s.ch(s.recv(f"al-s{P('Table')}"), f"expr min({nt - 1}, int($f1*{nt}))", "change -1")
-    names = s.obj("sel " + " ".join(str(i) for i in range(nt)))
-    s.c(tsel, 0, names, 0)
-    readers = []
-    nfr = s.obj("f 1")
-    for i, (tn, frames, _) in enumerate(TABLES):
-        m = s.m((names, i), f"set alwt-{tn}")
-        readers.append(m)
-        s.c(s.m((names, i), str(len(frames))), 0, nfr, 0)
+    from userwaves import table_select
+    readers, nfr = table_select(s, P("Table"))          # (the factory tables, then your own: user1 .. 8)
     pos = cx(s, [P("Pos"), P("Table")], f"{a(P('Pos'))}")
     # frames - 1 as a signal (each table change)
     fm1 = s.ch(nfr, "- 1", "sig~")

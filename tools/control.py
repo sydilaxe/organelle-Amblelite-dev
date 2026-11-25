@@ -785,7 +785,10 @@ def build(c):
     import harmony
     import roadmap
     import lines
-    for g in (features.GLOBALS, midi.GLOBALS, harmony.GLOBALS, roadmap.GLOBALS, lines.GLOBALS):
+    import userwaves
+    import audioin
+    for g in (features.GLOBALS, midi.GLOBALS, harmony.GLOBALS, roadmap.GLOBALS, lines.GLOBALS, userwaves.GLOBALS,
+              audioin.GLOBALS):
         for k, v in g.items():
             assert k not in GLOBALS, k
         GLOBALS.update(g)

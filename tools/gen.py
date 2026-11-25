@@ -93,6 +93,9 @@ def mix():
             br = mul(c, gl, c.ch((pb, 1), "pack f 30", "line~"))
         cL, cR = c.obj(f"catch~ al-{L}-L"), c.obj(f"catch~ al-{L}-R")
         cL, cR = layer_filter(c, L, cL, cR)          # (the layer's filter, once on its bus)
+        if L == "pad":                                # (the input's morph mode: the pads through its vocoder)
+            import audioin
+            cL, cR = audioin.pad_morph(c, [cL, cR])
         oL, oR = mul(c, cL, bl), mul(c, cR, br)
         c.c(oL, 0, mL, 0)
         c.c(oR, 0, mR, 0)
@@ -100,6 +103,9 @@ def mix():
             c.c(oL, 0, c.obj("throw~ al-csrcL"), 0)
             c.c(oR, 0, c.obj("throw~ al-csrcR"), 0)
         c.col(200)
+    # the audio input's modes (audioin.py), into the master
+    c.c(c.obj("catch~ al-input-L"), 0, mL, 0)
+    c.c(c.obj("catch~ al-input-R"), 0, mR, 0)
     vol = c.ch(c.recv(f"al-s{M.S('g', None, 'Volume')}"), "expr $f1*$f1*2", "pack f 30", "line~")
     for x, o in ((mL, "outL"), (mR, "outR")):
         # (a soft limit above 0.8: the excess e eased to 0.2 e / (0.2 + |e|), so it never passes 1)
@@ -134,6 +140,14 @@ def main_patch():
     m.sub(mix(), 240, 250)
     import cloud
     m.sub(cloud.build(), 510, 250)
+    import audioin
+    ai = Canvas("input", w=1600)
+    audioin.build(ai)
+    m.sub(ai, 730, 250)
+    import userwaves
+    uw = Canvas("userwaves", w=1600)
+    userwaves.build(uw)
+    m.sub(uw, 620, 250)
     import harmony
     hm = Canvas("harmony", w=2600)
     harmony.build(hm)

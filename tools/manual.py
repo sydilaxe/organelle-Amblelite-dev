@@ -214,6 +214,13 @@ DESC = {
     "g:PIECE:Piece": "The piece slot: top A# loads it, aux + top A# saves to it.",
     "g:PIECE:Fade": "How long layers take to enter and leave (FadeBy time).",
     "g:PIECE:FadeBy": "time: every layer over Fade; env: the drone, sub and pads by their own Attack / Release.",
+    "g:INPUT:Mode": "The audio input: off (ignored, no CPU); reso - four strings on the chord, rung by it; cloud - "
+                    "into the granular cloud; bands - eight bands on the key and mode, breathing; morph - a vocoder: "
+                    "it makes the pads speak; octave - with an octave below and above. Its pitch is heard in every "
+                    "mode (HARMNY Listen).",
+    "g:INPUT:Gain": "The input's level into its mode.",
+    "g:INPUT:Amount": "reso: how long the strings ring; bands: how narrow; morph: how much vocoder; octave: below .. "
+                      "above.",
     "g:STORY:Story": "The chord story: a progression from the library (traditional, modal, ambient, "
                      "experimental) or your own.",
     "g:STORY:Bars": "How often it moves on (manual: the chord keys).",
@@ -296,7 +303,7 @@ DESC = {
     "Centre": "The centre saw's level.",
     "Depth": "Modulation depth.",
     "Rate": "Modulation speed.",
-    "Table": "The wavetable (factory bank).",
+    "Table": "The wavetable: the factory bank, then user1-8 (your WAVs in waves/, in name order).",
     "Pos": "Position in the table's frames.",
     "Mode": "8-bit (stepped, nearest frame) or smooth.",
     "Shimr": "An octave shimmer.",
@@ -667,6 +674,9 @@ def story():
             "screen says what is next) or auto (it happens: aux + low F# holds a section, aux + top B moves on). "
             "SECTN edits a section: its length, story and role, and the layer keys toggle its layers. The "
             "planner web page builds and edits roadmaps on a computer; a piece keeps its roadmap.")]
+    # ---- the input
+    s += [P("Audio input", H1), P(esc(DESC["g:INPUT:Mode"])), P(esc("Amount: " + DESC["g:INPUT:Amount"])),
+          P("Off by default: the input is ignored and costs nothing until a mode is chosen.")]
     # ---- MIDI
     s += [P("MIDI and controllers", H1),
           P("Chans (MIDI page): <b>layers</b> - channel 1 plays the shown layer, 2-9 one layer each (2 drone, 3 sub, "
@@ -684,7 +694,8 @@ def story():
                  ["pieces.txt", "the 8 pieces", "yes"],
                  ["roadmap.txt", "the roadmap", "yes"],
                  ["controllers/", "controller profiles (user.txt: yours)", "user.txt yes"],
-                 ["waves/", "the wavetable bank", "-"]], [1.2, 3.4, 2.6])]
+                 ["waves/", "the factory bank (waves/factory) and your WAVs: user1-8, in name order - frames of 2048 "
+                            "samples or a single cycle", "yours yes"]], [1.2, 3.4, 2.6])]
     return s
 
 
