@@ -231,8 +231,8 @@ def layer_controls(layer, engines=()):
 
 
 def targets(layer, engine):
-    """what an LFO can move on this layer with this engine (after 'off'): the filter, level, place, the envelopes,
-    the gate's length, then the engine's parameters"""
+    """what an LFO or the breath can move on this layer with this engine (after 'off'): the engine's own parameters
+    first, then the filter, level, place, the envelopes and the gate's length"""
     if layer == "cloud":
         own = ["Cutoff", "Level"]
     elif kind(layer) == "perc":
@@ -240,9 +240,31 @@ def targets(layer, engine):
     else:
         own = ["Cutoff", "Level", "Pan", "Attack", "Decay", "Sustn", "Releas", "GAtk", "GDec", "GSus", "GRel",
                "Length", "Swing"]
-    out = [S(layer, None, k) for k in own] + [S(layer, engine, p.key) for p in dict(engines(layer))[engine]]
+    out = [S(layer, engine, p.key) for p in dict(engines(layer))[engine]] + [S(layer, None, k) for k in own]
     assert len(out) < MAXC, (layer, engine, len(out))
     return out
+
+
+def target_index(knob, row):
+    """(Pd expr) the target a Target knob picks: 0 off, else 1 .. the row's count - the knob's whole turn spread
+    over the targets this engine has (alccnt: the count of the row, a layer x engine)"""
+    return f"min(alccnt[{row}], int({knob}*(alccnt[{row}] + 1)))"
+
+
+def target_slot(knob, row):
+    """(Pd expr) the slot a Target knob moves, or -1 (off)"""
+    i = target_index(knob, row)
+    return f"if({i} == 0, -1, alcand[({row})*{MAXC} + {i} - 1])"
+
+
+def target_value(layer, engine, name):
+    """the knob value that aims a Target at a parameter (its name; engine None: one of the layer's own)"""
+    t = targets(layer, engine)
+    try:
+        i = t.index(S(layer, engine, name)) + 1
+    except (KeyError, ValueError):
+        i = t.index(S(layer, None, name)) + 1
+    return (i + 0.5) / (len(t) + 1)
 
 
 # ---- engines: (name, [Param ...]); the DSP of each is in eng_<layer>.py under the same name

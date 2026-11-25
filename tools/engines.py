@@ -1,7 +1,7 @@
 """The sound engines, by layer. Each builder takes (s, ins) - the engine canvas and its inputs (dsp.engine_canvas) -
 and returns (L, R) before the engine's own fade. Parameters by name: P(name) is the slot; prm / cx turn it into a
 signal. Nothing here is random: the only movement is what the parameters ask for."""
-from dsp import mul, add, sub, prm
+from dsp import mul, add, sub, prm, prmx
 from model import S, ENGINES, kind
 
 FM_RATIOS = [0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7]
@@ -364,11 +364,23 @@ def _env(s, up, amp, att, dec, sq=True):
     return mul(s, e, e) if sq else e
 
 
+def _live_hz(s, up, slots):
+    """the strike's pitch, held and sent again whenever one of these slots moves: frequencies built from it follow
+    an LFO (or a knob) while the hit still rings - a frequency change is click-free, so no smoothing"""
+    hz = s.obj("f")
+    s.c((up, 0), 0, hz, 0)
+    for sl in slots:
+        s.c(s.ch(s.recv(f"al-s{sl}"), "t b"), 0, hz, 0)
+    return hz
+
+
 def _partials(s, up, hzs, parts, bright="1"):
-    """sine partials: (ratio, amp, decay factor); the upper ones x bright"""
+    """sine partials: (ratio, amp, decay factor); the upper ones x bright. hzs: the pitch to build the frequencies
+    from (_live_hz), or None: the strike's"""
     sm = s.obj("*~ 1")
+    src = hzs if hzs is not None else (up, 0)
     for k, (r, amp, df) in enumerate(parts):
-        fr = s.to((up, 0), f"* {r}") if not isinstance(r, str) else s.to((up, 0), f"expr $f1*{r}")
+        fr = s.to(src, f"* {r}") if not isinstance(r, str) else s.to(src, f"expr $f1*{r}")
         o = s.ch(fr, "osc~")
         s.c(s.m(s.to((up, 0), "t b"), "0"), 0, o, 1)        # (each strike from phase 0: a clean onset)
         e = _env(s, up, f"{amp}" + (f"*{bright}" if k else ""), 1, f"$f3*{df}")
@@ -391,14 +403,16 @@ def perc_blip(s, ins, L):
     subo = mul(s, s.ch(s.to(fv, "*~ 0.5"), "osc~"), s.to(prm(s, P("Sub")), "*~ 0.7"))
     src = add(s, saw, subo)
     # the filter: from 2 .. 11 x the note (by velocity, x Cutoff) down to 1.2 x over a share of the decay
-    cxp = s.obj(f"expr $f1*(2 + 9*$f2)*(0.25 + 1.5*{a(P('Cutoff'))}); $f1*1.2; $f3*(0.05 + 0.6*{a(P('FEnv'))})")
+    # (Cutoff scales the whole sweep, live: it moves a ringing hit)
+    cxp = s.obj(f"expr $f1*(2 + 9*$f2); $f1*1.2; $f3*(0.05 + 0.6*{a(P('FEnv'))})")
     s.c((up, 2), 0, cxp, 2)
     s.c((up, 1), 0, cxp, 1)
     s.c((up, 0), 0, cxp, 0)
     ck = s.obj("pack f f f")
     for i in (2, 1, 0):
         s.c(cxp, i, ck, i)
-    cf = s.ch(s.m(ck, "$1, $2 $3"), "vline~", "clip~ 30 7000")      # (vcf~: stable below 7 kHz with Q >= 1.5)
+    cf = s.to(mul(s, s.ch(s.m(ck, "$1, $2 $3"), "vline~"), prmx(s, P("Cutoff"), "0.25 + 1.5*$f1", 40)),
+              "clip~ 30 7000")      # (vcf~: stable below 7 kHz with Q >= 1.5)
     vf = s.obj("vcf~ 4")
     s.c(s.ch(s.recv(f"al-s{P('Reso')}"), "expr 1.5 + 10*$f1"), 0, vf, 2)
     s.c(src, 0, vf, 0)
@@ -418,8 +432,8 @@ def perc_lpg(s, ins, L):
     # the gate: one envelope closes the low-pass (the note + 500 .. 12000 Hz, down to the note) and the level;
     # Vactrl slows its close
     cf = s.to(add(s, s.to((up, 0), "sig~"),
-                  _env(s, up, f"500 + 6500*{a(P('Open'))}*{a(P('Open'))}", 1, f"$f3*(0.3 + 0.7*{a(P('Vactrl'))})",
-                       sq=False)), "clip~ 30 7000")
+                  mul(s, _env(s, up, "1", 1, f"$f3*(0.3 + 0.7*{a(P('Vactrl'))})", sq=False),
+                      prmx(s, P("Open"), "500 + 6500*$f1*$f1", 40))), "clip~ 30 7000")     # (Open: live)
     lp = s.obj("vcf~ 1.5")
     s.c(s.ch(s.recv(f"al-s{P('Reso')}"), "expr 1.5 + 6*$f1"), 0, lp, 2)
     s.c(fo, 0, lp, 0)
@@ -436,11 +450,12 @@ def perc_bowl(s, ins, L):
     P = lambda n: S(L, "bowl", n)
     up = s.to(strike, "unpack f f f")
     st = a(P("Strtch"))
+    hz = _live_hz(s, up, (P("Strtch"), P("Beat")))         # (Strtch and Beat: live, on a ringing bowl too)
     parts = [(f"pow({r}, 1 + 0.25*{st})" if r != 1 else 1, amp, d) for r, amp, d, _ in BOWL]
-    sig = _partials(s, up, None, parts, bright=f"(0.4 + 1.2*{a(P('Hard'))})")
+    sig = _partials(s, up, hz, parts, bright=f"(0.4 + 1.2*{a(P('Hard'))})")
     for r, amp, d, tw in BOWL:
         if tw:      # the mode's twin, a little up: the slow beating of a real bowl (Beat: x0 .. x2)
-            fr = s.to((up, 0), f"expr $f1*pow({r}, 1 + 0.25*{st}) + {tw}*2*{a(P('Beat'))}")
+            fr = s.to(hz, f"expr $f1*pow({r}, 1 + 0.25*{st}) + {tw}*2*{a(P('Beat'))}")
             o = s.to(fr, "osc~")
             s.c(mul(s, o, _env(s, up, amp * 0.6, 2, f"$f3*{d}")), 0, sig, 0)
     kn = mul(s, s.obj("noise~"), _env(s, up, f"0.5*{a(P('Strike'))}", 0.5, "5"))
@@ -458,7 +473,7 @@ def perc_wood(s, ins, L):
     up = s.to(strike, "unpack f f f")
     m = a(P("Matrl"))      # marimba (1, 3.93, 9.2) .. a woodblock (1, 2.4, 5.1)
     parts = [(1, 0.5, 1.0), (f"(3.93 - 1.53*{m})", 0.2, 0.2), (f"(9.2 - 4.1*{m})", 0.07, 0.06)]
-    sig = _partials(s, up, None, parts, bright=f"(2*{a(P('Mallet'))})")
+    sig = _partials(s, up, _live_hz(s, up, (P("Matrl"),)), parts, bright=f"(2*{a(P('Mallet'))})")   # (Matrl: live)
     kn = mul(s, s.obj("noise~"), _env(s, up, f"0.9*2*{a(P('Knock'))}", 0.5, "9"))
     bp = s.obj("bp~ 1000 2")
     s.c(kn, 0, bp, 0)
@@ -474,7 +489,7 @@ def perc_metal(s, ins, L):
     up = s.to(strike, "unpack f f f")
     sig = _partials(s, up, None, [(1, 0.4, 1.0), (4.0, 0.12, 0.3), (10.0, 0.05, 0.08)],
                     bright=f"(2*{a(P('Bright'))})")
-    tw = s.to(s.to((up, 0), f"expr $f1 + 2*{a(P('Beat'))}"), "osc~")
+    tw = s.to(s.to(_live_hz(s, up, (P("Beat"),)), f"expr $f1 + 2*{a(P('Beat'))}"), "osc~")     # (Beat: live)
     s.c(mul(s, tw, _env(s, up, 0.14, 2, "$f3")), 0, sig, 0)
     rate = s.ch(s.recv(f"al-s{P('TremR')}"), "expr 2 + 7*$f1", "osc~")
     tr = add(s, mul(s, rate, s.to(prm(s, P("TremD")), "*~ 0.5")), s.ch(prm(s, P("TremD")), "*~ -0.5", "+~ 1"))

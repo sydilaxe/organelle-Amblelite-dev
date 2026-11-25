@@ -75,8 +75,8 @@ EVOLVE: each layer changes slowly by itself - its engine's character, the filter
 Evolve 0 = still; Pace: 5 minutes .. 25 s a cycle; EvSync: free or locked to the clock; Drift: a slight
 pitch wander (0 = exact). The master Evolve (PERFRM page) scales every layer's.
 
-LFO 1 / 2: Target (any of the layer's parameters: filter, level, place, envelopes, gate length,
-swing, the engine's), Rate (loop = one cycle per loop or pattern cycle; bars; Hz), Depth, Shape (sine,
+LFO 1 / 2: Target (the engine's own parameters first, then filter, level, place, envelopes, gate
+length, swing), Rate (loop = one cycle per loop or pattern cycle; bars; Hz), Depth, Shape (sine,
 tri, saw up / down, square, steps, random smooth, random stepped: a new value each cycle).
 
 LOOP: Len (auto: rounded to bars; free: as played; or 1 - 16 bars), Quant, Follow (chord: the loop

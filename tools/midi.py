@@ -176,8 +176,7 @@ def breath(c):
     c.c((tb, 1), 0, c.obj("v albr"), 0)
     zones = S("g", None, "Zones")
     c.c(tb, 0, c.obj("s al-breathapply"), 0)
-    tgi = f"min({MAXC - 1}, int(alp[albrT[albl]]*{MAXC}))"
-    tgt = f"if({tgi} == 0, -1, alcand[(albl*{MAXENG} + aleng[albl])*{MAXC} + {tgi} - 1])"
+    tgt = M.target_slot("alp[albrT[albl]]", f"albl*{MAXENG} + aleng[albl]")
     eff = "max(0, min(1, alp[albtg] + alem[albtg] + alfm[albtg] + alfn[albtg] + alfb[albtg]))"
     proc(c, "al-breathapply", [Loop(str(NL), "albl", [
         T("albll", "albl", f"if({opt(zones)} == 0 || alzh[albl] > 0, albr, 0)"),

@@ -176,9 +176,8 @@ def main():
     def opt_v(i, n):
         return (i + 0.5) / n
     mc = M.MAXC
-    lev = 2          # (the targets: off, Cutoff, Level ...)
     lt, lr, ld = (M.S("pad", None, k) for k in ("L1Tgt", "L1Rate", "L1Dep"))
-    lfo = [(40, f"al-set {lt} {opt_v(lev, mc)}"), (41, f"al-set {lr} {opt_v(13, 16)}"), (42, f"al-set {ld} 1"),
+    lfo = [(40, f"al-set {lt} {M.target_value('pad', M.engines('pad')[0][0], 'Level')}"), (41, f"al-set {lr} {opt_v(13, 16)}"), (42, f"al-set {ld} 1"),
            (43, f"al-set {M.S('pad', None, 'Evolve')} 0")]
     _, a = run(solo("pad") + lfo + [START], 5)
     e = env(seg(a, 2, 5), 0.05)
@@ -202,6 +201,35 @@ def main():
     same = np.allclose(res[7][0][:len(e2)], e2[:len(res[7][0])], atol=1e-4)
     check("random LFOs (smooth, stepped)", res[6][1] > 0.15 and res[7][1] > 0.15 and res[7][2] > res[6][2] and same,
           f"variation {res[6][1]:.2f} / {res[7][1]:.2f}, jumps {res[6][2]:.3f} / {res[7][2]:.3f}, repeatable {same}")
+
+    # an LFO on a percussion lane's engine (its blip's Flick): the knob reaches it and it moves
+    fl = M.S("perc1", "blip", "Flick")
+    pl = [(40, f"al-set {M.S('perc1', None, 'Engine')} {M.engine_value('perc1', 'blip')}"),
+          (41, f"al-set {M.S('perc1', None, 'L1Tgt')} {M.target_value('perc1', 'blip', 'Flick')}"),
+          (42, f"al-set {M.S('perc1', None, 'L1Rate')} {opt_v(13, 16)}"), (43, f"al-set {M.S('perc1', None, 'L1Dep')} 1")]
+    log, _ = H.run(pl + [START], 2, d=d, keep=True, prints=(f"al-s{fl}",))
+    vals = {l.split(":")[-1].strip() for l in log.splitlines() if l.startswith(f"al-s{fl}:")}
+    check("an LFO moves a percussion engine's own parameter", len(vals) > 10, f"{len(vals)} values of Flick")
+
+    # ... and it moves a hit while it rings: one long bowl hit, its upper partial swept by an LFO on Strtch (1 Hz)
+    def upper(lfo_on):
+        ev = [(10, "al-sel-perc1 bang"), (20, f"al-set {M.S('perc1', None, 'Engine')} {M.engine_value('perc1', 'bowl')}"),
+              (21, f"al-set {M.S('perc1', None, 'Decay')} 1"), (22, f"al-set {M.S('perc1', None, 'Evolve')} 0")]
+        if lfo_on:
+            ev += [(30, f"al-set {M.S('perc1', None, 'L1Tgt')} {M.target_value('perc1', 'bowl', 'Strtch')}"),
+                   (31, f"al-set {M.S('perc1', None, 'L1Rate')} {opt_v(13, 16)}"), (32, f"al-set {M.S('perc1', None, 'L1Dep')} 1")]
+        _, a = run(ev + [(500, "al-midi 69 100 1")], 2.8)
+        out = []
+        for t in np.arange(0.7, 2.5, 0.2):
+            m = seg(a, t, t + 4096 / SR).mean(axis=1)
+            sp = np.abs(np.fft.rfft(m * np.hanning(len(m))))
+            f = np.fft.rfftfreq(len(m), 1 / SR)
+            band = (f > 1800) & (f < 5500)
+            out.append(round(float(f[band][np.argmax(sp[band])])))
+        return out
+    still, moved = upper(False), upper(True)
+    check("an LFO moves a ringing hit (bowl Strtch)", len(set(still)) == 1 and max(moved) - min(moved) > 150,
+          f"upper partial {min(moved)} .. {max(moved)} Hz (off: {sorted(set(still))})")
 
     # assign: aux held, knob 1 - the FAV page's first place takes another parameter
     log, _ = H.run([(100, "al-sel-pad bang"), (300, "aux 1"), (400, "knob1 0.95"), (500, "aux 0")], 1, d=d,
@@ -324,7 +352,7 @@ def main():
           f"{hz:.1f} Hz (116.5), pressure {l1:.1f} -> {l2:.1f} dB")
 
     # breath (the generic profile: CC 2) -> the pads' cutoff (their BREATH page): brighter as it blows
-    bt = [(50, f"al-set {S_('pad', None, 'BTgt')} {(1 + 0.5) / M.MAXC}"), (51, f"al-set {S_('pad', None, 'BDep')} 1"),
+    bt = [(50, f"al-set {S_('pad', None, 'BTgt')} {M.target_value('pad', 'saws', 'Cutoff')}"), (51, f"al-set {S_('pad', None, 'BDep')} 1"),
           (52, f"al-set {S_('pad', None, 'Cutoff')} 0.35"), (53, f"al-set {S_('pad', None, 'Evolve')} 0"),
           (54, f"al-set {S_('pad', None, 'Engine')} {M.engine_value('pad', 'saws')}")]      # (the saws: harmonics to filter)
     _, a = run(solo("pad") + bt + [START, (2000, "al-cc 127 2 1")], 3.5)
@@ -345,7 +373,7 @@ def main():
 
     # a zone's breath, looped: the sub's breath (to its level) recorded with its notes in one bar; the next cycle
     # plays it back with no breath - loud where it blew, quiet where it didn't
-    zb = solo("sub") + [(50, f"al-set {zones} 0.75"), (51, f"al-set {S_('sub', None, 'BTgt')} {(2 + 0.5) / M.MAXC}"),
+    zb = solo("sub") + [(50, f"al-set {zones} 0.75"), (51, f"al-set {S_('sub', None, 'BTgt')} {M.target_value('sub', M.engines('sub')[0][0], 'Level')}"),
                         (52, f"al-set {S_('sub', None, 'BDep')} 1"), (53, f"al-set {S_('sub', None, 'Level')} 0.15"),
                         (54, f"al-set {S_('g', None, 'Bars')} 0.05"), START,
                         (998, "notesRaw 77 100"), (1000, "notesRaw 77 100"), (1001, "al-midi 45 100 1"), (1010, "al-cc 127 2 1"),

@@ -471,6 +471,8 @@ def perc_wave(s, ins, L):
                f"min($f2 - 1, int(({pos} + {bri})*($f2 - 1) + 0.5))*{STRIDE} + 1")
     s.c(nfr, 0, fr, 1)
     s.c(s.to((up, 0), "t b"), 0, fr, 0)
+    for k in ("Pos", "Bright"):         # (live: a ringing hit moves through the table as they move)
+        s.c(s.ch(s.recv(f"al-s{P(k)}"), "t b"), 0, fr, 0)
     fs = s.to((up, 0), "sig~")
     ph = s.obj("phasor~")
     s.c(fs, 0, ph, 0)
