@@ -13,9 +13,10 @@ LX = {"drone": "d", "sub": "s"}
 FIRST_LANE = LAYERS.index(LANES[0])
 VIEW_LAYER, VIEW_GLOBAL, VIEW_MIX = 0, 1, 2
 SECTN_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("SECTN")
+MODE_SLOT, SCALE_SLOT = S("g", None, "Mode"), S("g", None, "Scale")
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
-GLOBALS = dict(allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
+GLOBALS = dict(altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
                alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
                alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0, alcb=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
@@ -32,11 +33,16 @@ ARRAYS = dict(alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alk
               allatch=NL, alin=NL, alprm=4, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
               alscn=len(M.MODES), alsk=0, alsd=0, alsr=0, alsy=0, alsdl=0, alsm=len(M.MODES) * 8,
               alsml=len(M.MODES), alty=0, altq=0, alpe=NSLOTS, alem=NSLOTS, alet=0, alew=0, alevs=0, alevp=0,
-              alevy=0, aleo=NL, alepo=NL, allane=4, allrot=4, allrr=4, alfo=0, alfm=NSLOTS, alfn=NSLOTS)
+              alevy=0, algl=0, altap=len(M.NOTE_LAYERS) * 16, aleo=NL, alepo=NL, allane=4, allrot=4, allrr=4, alfo=0, alfm=NSLOTS, alfn=NSLOTS)
 
 
 def opt(slot, n=None):
-    """the option index of a choice slot"""
+    """the option index of a choice slot. The Mode knob's is the mode in model.MODES: its Scale's modes from
+    SCALE_START, the knob choosing among them (a 5-note scale has 5)"""
+    if slot == MODE_SLOT and n is None:
+        sc = opt(SCALE_SLOT)
+        start, count = pick(M.SCALE_START, sc), pick(M.SCALE_COUNT, sc)
+        return f"(({start}) + min(({count}) - 1, int(alp[{slot}]*({count}))))"
     n = n or len(M.SLOTS[slot][1].opts)
     return f"min({n - 1}, int(alp[{slot}]*{n}))"
 
@@ -72,11 +78,18 @@ def clocks(slot):
     return pick(M.RATE_CLOCKS, opt(slot))
 
 
+def tapped(L):
+    """whether layer L plays its tapped pattern: a lane's Patt 'tapped', a gate's Gate 'tapped'"""
+    return f"({opt(S(L, None, 'Patt'))} == 1)" if L in LANES else f"({opt(S(L, None, 'Gate'))} == 2)"
+
+
 def euclid(L, step):
-    """whether step (an expression) is a hit of layer L's pattern: hits spread evenly over steps, rotated"""
+    """whether step (an expression) is a hit of layer L's pattern: its tapped steps (altap: 16 a layer), or hits
+    spread evenly over steps; rotated"""
     hits, steps, rot = (S(L, None, n) for n in ("Hits", "Steps", "Rotate"))
     idx = f"((({step}) + {num(rot)}) % {num(steps)})"
-    return f"(({idx}*{num(hits)}) % {num(steps)} < {num(hits)})"
+    return (f"if({tapped(L)}, altap[{M.NOTE_LAYERS.index(L) * 16} + {idx}] > 0, "
+            f"({idx}*{num(hits)}) % {num(steps)} < {num(hits)})")
 
 
 # ---------------------------------------------------------------------------------------------- tables at load
@@ -122,6 +135,10 @@ def tables(c):
                 et[(li * MAXENG + ei) * M.EVOLVE_MAX + k] = S(L, None, "Cutoff") if pn is None else S(L, e, pn)
                 ew[(li * MAXENG + ei) * M.EVOLVE_MAX + k] = w
     rows.update(alfo=[x for f in M.FEEL_OFFSETS for x in f])
+    # the global pages' knobs that are another layer's (LAYERS, LANES): the layer, shown as their name
+    # (sized for every page number - a layer's pages go further than the global ones - so no read falls outside it)
+    gl = [M.global_label(ps[k]) if k < len(ps) else -1 for _, ps in M.GLOBAL_PAGES for k in range(4)]
+    rows.update(algl=gl + [-1] * (MAXPAGES * 4 - len(gl)))
     rows.update(alet=et, alew=ew, alevs=[S(L, None, "Evolve") for L in LAYERS],
                 alevp=[S(L, None, "Pace") for L in LAYERS], alevy=[S(L, None, "EvSync") for L in LAYERS])
     c.comment("the tables: parameters (alp) and their kinds, the knob pages, scales, chord stories (tools/model.py)")
@@ -215,9 +232,11 @@ def knobs(c):
         sc.c((tt, 1), 0, sc.obj("s al-popup"), 0)
         sc.c((tt, 0), 0, lp, 0)
         sc.c(lp, 0, sc.obj("s al-set"), 0)
-    proc(c, "al-popup", [If(f"alview != {VIEW_MIX}", [V("alpop", "1"), Later("al-popoff", 5000)],
+    # pages opened on purpose (a held layer key, the global key, paging) stay until an aux tap (alstick); the
+    # pop-up a knob gives in the play view closes 3 s after the last turn
+    proc(c, "al-popup", [If(f"alview != {VIEW_MIX}", [V("alpop", "1"), Later("al-popoff", 3000)],
                             [Call("al-redraw")])])
-    proc(c, "al-popoff", [V("alpop", "0"), Call("al-redraw")])
+    proc(c, "al-popoff", [If("alstick == 0", [V("alpop", "0"), Call("al-redraw")])])
 
 
 # ---------------------------------------------------------------------------------------------- in / out
@@ -269,18 +288,19 @@ def layer_switches(c):
 
 # ---------------------------------------------------------------------------------------------- pages, layers
 def pages(c):
-    proc(c, "al-pgnext", [V("alpage", f"(alpage + 1) % {npages()}"), Call("al-pickreset"), Call("al-popup")])
-    proc(c, "al-pgprev", [V("alpage", f"(alpage + {npages()} - 1) % {npages()}"), Call("al-pickreset"),
+    proc(c, "al-pgnext", [V("alstick", "1"), V("alpage", f"(alpage + 1) % {npages()}"), Call("al-pickreset"),
                           Call("al-popup")])
+    proc(c, "al-pgprev", [V("alstick", "1"), V("alpage", f"(alpage + {npages()} - 1) % {npages()}"),
+                          Call("al-pickreset"), Call("al-popup")])
     for li, L in enumerate(LAYERS):
-        proc(c, f"al-sel-{L}", [V("allayer", str(li)), V("alview", "0"), V("alpage", "0"), Call("al-pickreset"),
+        proc(c, f"al-sel-{L}", [V("alstick", "1"), V("allayer", str(li)), V("alview", "0"), V("alpage", "0"), Call("al-pickreset"),
                                 Call("al-popup")] + ([V("alplane", str(li))] if L in LANES else []))
     layer_switches(c)
-    proc(c, "al-global", [If(f"alview == {VIEW_GLOBAL}", [V("alpage", f"(alpage + 1) % {len(M.GLOBAL_PAGES)}")],
+    proc(c, "al-global", [V("alstick", "1"), If(f"alview == {VIEW_GLOBAL}", [V("alpage", f"(alpage + 1) % {len(M.GLOBAL_PAGES)}")],
                              [V("alview", str(VIEW_GLOBAL)), V("alpage", "0")]), Call("al-pickreset"), Call("al-popup")])
-    proc(c, "al-mix", [If(f"alview == {VIEW_MIX}", [V("alpage", f"(alpage + 1) % {len(M.MIX_PAGES)}")],
+    proc(c, "al-mix", [V("alstick", "0"), If(f"alview == {VIEW_MIX}", [V("alpage", f"(alpage + 1) % {len(M.MIX_PAGES)}")],
                           [V("alview", str(VIEW_MIX)), V("alpage", "0")]), V("alpop", "0"), Call("al-pickreset")])
-    proc(c, "al-layerview", [V("alview", "0"), V("alpage", "0"), V("alpop", "0"), V("alpatv", "0"),
+    proc(c, "al-layerview", [V("alstick", "0"), V("alview", "0"), V("alpage", "0"), V("alpop", "0"), V("alpatv", "0"),
                              Call("al-pickreset")])
     # (low F#: the pattern view, then the roadmap view, then neither)
     proc(c, "al-patview", [V("alpatv", "(alpatv + 1) % 3"), V("alview", "if(alview == 2, 0, alview)"), V("alpop", "0"),
@@ -313,7 +333,8 @@ KEYS = {61: "al-layerview", 63: "al-mix", 66: "al-patview", 68: "al-global", 70:
 SLOT_KEY = 82          # held: the keys from low C to top D# recall a snapshot (with aux: save); tapped: COMPARE
 # aux held + a layer key: its pages at once (in notes mode too); aux + a few others
 AUX_KEYS = {**{k: f"al-sel-{L}" for k, L in LAYER_KEYS.items()}, 70: "al-pgprev", 72: "al-startstop",
-            73: "al-rgen", 74: "al-ownclear", 76: "al-sugaccept", 78: "al-rhold", 80: "al-rnext", 83: "al-notesmode"}
+            73: "al-rgen", 74: "al-ownclear", 75: "al-taprec", 76: "al-sugaccept", 78: "al-rhold", 80: "al-rnext",
+            83: "al-notesmode"}
 
 
 def organelle(c):
@@ -351,7 +372,8 @@ def organelle(c):
     a = c.ch(c.recv("aux"), "t f f")
     c.c(c.to((a, 1), "expr $f1 > 0"), 0, c.obj("v alaux"), 0)
     tap = c.ch((a, 0), "sel 0")
-    run_steps(c, (tap, 0), [If("alauxu == 0", [Call("al-pgnext")])])
+    # an aux tap (aux not used with a key or knob): home - the play view, from any page or view
+    run_steps(c, (tap, 0), [If("alauxu == 0", [Call("al-layerview"), Call("al-redraw")])])
     run_steps(c, (tap, 1), [V("alauxu", "0")])
 
 
@@ -371,7 +393,7 @@ def glide_ms(L):
 def zone(L):
     """the articulation: 0 artic, 1 legato, 2 porta, 3 slide. With the gate on, every note restarts (the gate needs
     the envelope)"""
-    return f"if({opt(S(L, None, 'Gate'))} == 1, 0, {opt(S(L, None, 'Artic'))})"
+    return f"if({opt(S(L, None, 'Gate'))} >= 1, 0, {opt(S(L, None, 'Artic'))})"
 
 
 def mono(c, L):
@@ -452,7 +474,7 @@ def transport(c):
     c.c(c.recv("al-midibyte"), 0, mo, 0)
     proc(c, "al-24", [V("alc24", "alc24 + 1"),
                       If(f"{opt(clk)} == 1", [Send("al-midibyte", "248")]),
-                      Call("al-lanes"), Call("al-gates"), Call("al-loops"), Call("al-lines"),
+                      Call("al-lanes"), Call("al-gates"), Call("al-loops"), Call("al-lines"), Call("al-tapclock"),
                       If("alc24 % 3 == 0", [Call("al-tick")])])
     proc(c, "al-startstop", [If("alrun", [Call("al-stop")], [Call("al-start")])])
     proc(c, "al-start", [If("alrun == 0", [
@@ -553,14 +575,40 @@ def gates(c):
             hold = [If(f"al{x}on", [SendL(f"al-{L}-g", ["0", "0.85", "0"])])]
         proc(c, f"al-gate-{L}", on + [Arm(f"al-gaterel-{L}", f"max(20, alp[{S(L, None, 'Length')}]*{rc}*{cms})",
                                           stop=f"al-gatestop-{L}")])
-        proc(c, f"al-gaterel-{L}", [If(f"{opt(gate)} == 1", off)])
+        proc(c, f"al-gaterel-{L}", [If(f"{opt(gate)} >= 1", off)])
         proc(c, f"al-gateoff-{L}", [Send(f"al-gatestop-{L}"), If(f"{opt(gate)} == 0 && alrun", hold)])
         c.c(c.ch(c.recv(f"al-s{gate}"), "t b"), 0, c.obj(f"s al-gateoff-{L}"), 0)
-    proc(c, "al-gates", [If(f"alrun && alin[{LAYERS.index(L)}] && {opt(S(L, None, 'Gate'))} == 1 && alc24 % {clocks(S(L, None, 'Rate'))} == 0 "
+    proc(c, "al-gates", [If(f"alrun && alin[{LAYERS.index(L)}] && {opt(S(L, None, 'Gate'))} >= 1 && alc24 % {clocks(S(L, None, 'Rate'))} == 0 "
                             f"&& {gate_hit(L)}", [SendL(f"al-gsw-{L}", ["0", swing_ms(L)])])
                          for L in ("drone", "sub", "pad")])
     for L in ("drone", "sub", "pad"):
         c.c(c.ch(c.recv(f"al-gsw-{L}"), "pipe", "t b"), 0, c.obj(f"s al-gate-{L}"), 0)
+
+
+def taps(c):
+    """a tapped pattern: aux + the loop key records one cycle (Steps x Rate) of the shown layer's pattern from what
+    you play on it - each note-on snapped to the nearest step - and switches the layer to it (a lane's Patt, a
+    gate's Gate: 'tapped'). Tapping again replaces it; euclid / on goes back to the Euclidean pattern, keeping it"""
+    NLy = len(M.NOTE_LAYERS)
+
+    def per(key, f=lambda sl: sl):
+        return pick([f(S(L, None, key)) for L in M.NOTE_LAYERS], "altrl")
+    rc = pick([clocks(S(L, None, "Rate")) for L in M.NOTE_LAYERS], "altrl")
+    steps = pick([num(S(L, None, "Steps")) for L in M.NOTE_LAYERS], "altrl")
+    rot = pick([num(S(L, None, "Rotate")) + (f" + allrot[{LANES.index(L)}]" if L in LANES else "")
+                for L in M.NOTE_LAYERS], "altrl")
+    slot = pick([S(L, None, "Patt") if L in LANES else S(L, None, "Gate") for L in M.NOTE_LAYERS], "altrl")
+    val = pick([0.75 if L in LANES else (2 + 0.5) / 3 for L in M.NOTE_LAYERS], "altrl")
+    from features import toast
+    proc(c, "al-taprec", [If(f"allayer < {NLy}", [
+        If("alrun == 0", [Call("al-start")]),
+        V("altrl", "allayer"), V("altr0", "max(0, alc24)"), V("altrn", f"{steps}*{rc}"),
+        Loop("16", "altri", [T("altap", "altrl*16 + altri", "0")]),
+        SendL("al-set", [slot, str(val)])] + toast("TAP"))])
+    proc(c, "al-tapclock", [If("altrl >= 0 && alc24 - altr0 >= altrn", [V("altrl", "-1")] + toast("PLAY"))])
+    _entry(c, "al-note", ["altnl", "altnn", "altnv"], "al-tapnote")
+    proc(c, "al-tapnote", [If("altnl == altrl && altnv > 0 && altrl >= 0", [
+        T("altap", f"altrl*16 + (int(max(0, alc24)/({rc}) + 0.5) + {rot}) % ({steps})", "1"), Call("al-redraw")])])
 
 
 # ---------------------------------------------------------------------------------------------- the chord story
@@ -662,7 +710,7 @@ def evolve(c):
 
 
 def build(c):
-    for fn in (tables, params, knobs, pages, organelle, transport, lane_patterns, gates, story, evolve):
+    for fn in (tables, params, knobs, pages, organelle, transport, lane_patterns, gates, taps, story, evolve):
         sc = Canvas(fn.__name__, w=2600)
         c.sub(sc)
         fn(sc)

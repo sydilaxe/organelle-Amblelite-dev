@@ -9,15 +9,36 @@ Kinds of parameter:
 """
 
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-MODES = [("ionian", [0, 2, 4, 5, 7, 9, 11]), ("dorian", [0, 2, 3, 5, 7, 9, 10]),
-         ("phrygian", [0, 1, 3, 5, 7, 8, 10]), ("lydian", [0, 2, 4, 6, 7, 9, 11]),
-         ("mixolyd", [0, 2, 4, 5, 7, 9, 10]), ("aeolian", [0, 2, 3, 5, 7, 8, 10]),
-         ("locrian", [0, 1, 3, 5, 6, 8, 10]), ("majpent", [0, 2, 4, 7, 9]), ("minpent", [0, 3, 5, 7, 10])]
+# the scales (MAIN page: Scale), each with its modes (Mode: the scale started from each of its degrees). MODES is
+# all of them in one list: a scale's modes from SCALE_START[scale]
+SCALES = [("modes", [("ionian", [0, 2, 4, 5, 7, 9, 11]), ("dorian", [0, 2, 3, 5, 7, 9, 10]),
+                     ("phrygian", [0, 1, 3, 5, 7, 8, 10]), ("lydian", [0, 2, 4, 6, 7, 9, 11]),
+                     ("mixolyd", [0, 2, 4, 5, 7, 9, 10]), ("aeolian", [0, 2, 3, 5, 7, 8, 10]),
+                     ("locrian", [0, 1, 3, 5, 6, 8, 10])]),
+          ("harmin", [("harmin", [0, 2, 3, 5, 7, 8, 11]), ("locr#6", [0, 1, 3, 5, 6, 9, 10]),
+                      ("ion#5", [0, 2, 4, 5, 8, 9, 11]), ("dor#4", [0, 2, 3, 6, 7, 9, 10]),
+                      ("phrdom", [0, 1, 4, 5, 7, 8, 10]), ("lyd#2", [0, 3, 4, 6, 7, 9, 11]),
+                      ("altbb7", [0, 1, 3, 4, 6, 8, 9])]),
+          ("melmin", [("melmin", [0, 2, 3, 5, 7, 9, 11]), ("dorb2", [0, 1, 3, 5, 7, 9, 10]),
+                      ("lydaug", [0, 2, 4, 6, 8, 9, 11]), ("lyddom", [0, 2, 4, 6, 7, 9, 10]),
+                      ("mixob6", [0, 2, 4, 5, 7, 8, 10]), ("locr#2", [0, 2, 3, 5, 6, 8, 10]),
+                      ("altered", [0, 1, 3, 4, 6, 8, 10])]),
+          ("pent", [("majpent", [0, 2, 4, 7, 9]), ("suspent", [0, 2, 5, 7, 10]), ("mangong", [0, 3, 5, 8, 10]),
+                    ("ritusen", [0, 2, 5, 7, 9]), ("minpent", [0, 3, 5, 7, 10])])]
+MODES = [m for _, ms in SCALES for m in ms]
+SCALE_START = [sum(len(ms) for _, ms in SCALES[:i]) for i in range(len(SCALES))]
+SCALE_COUNT = [len(ms) for _, ms in SCALES]
+MAX_MODES = max(SCALE_COUNT)
 
 # the chord story: chords as scale degrees (0 = the tonic chord), stacked in thirds within the mode.
 # "modal" uses each mode's own characteristic move (dorian's IV, lydian's II, mixolydian's bVII ...)
 MODAL = {"ionian": [0, 3, 5, 4], "dorian": [0, 3, 6, 4], "phrygian": [0, 1, 6, 1], "lydian": [0, 1, 4, 1],
-         "mixolyd": [0, 6, 3, 0], "aeolian": [0, 5, 2, 6], "locrian": [0, 1, 5, 6], "majpent": [0, 3, 1, 4],
+         "mixolyd": [0, 6, 3, 0], "aeolian": [0, 5, 2, 6], "locrian": [0, 1, 5, 6],
+         "harmin": [0, 5, 3, 4], "locr#6": [0, 1, 6, 0], "ion#5": [0, 3, 1, 0], "dor#4": [0, 1, 3, 1],
+         "phrdom": [0, 1, 6, 1], "lyd#2": [0, 1, 4, 1], "altbb7": [0, 1, 5, 0],
+         "melmin": [0, 3, 4, 1], "dorb2": [0, 1, 6, 1], "lydaug": [0, 1, 4, 1], "lyddom": [0, 6, 1, 4],
+         "mixob6": [0, 5, 3, 6], "locr#2": [0, 5, 1, 6], "altered": [0, 1, 5, 0],
+         "majpent": [0, 3, 1, 4], "suspent": [0, 2, 3, 1], "mangong": [0, 2, 4, 1], "ritusen": [0, 3, 1, 2],
          "minpent": [0, 2, 4, 1]}
 # chord types for the library: 4 voices (semitones from the root), and the name shown after the root (QUALS)
 CHORD_TYPES = {"maj": ([0, 4, 7, 14], 0), "min": ([0, 3, 7, 14], 1), "dim": ([0, 3, 6, 9], 2), "aug": ([0, 4, 8, 12], 3),
@@ -186,7 +207,8 @@ def layer_controls(layer, engines=()):
                      Param("Pitch", d[5], opts=PITCHES)]),
             ("RHYTHM", [Param("Hits", d[1], lo=1, hi=16), Param("Steps", d[2], lo=2, hi=16),
                         Param("Rotate", d[3], lo=0, hi=15), Param("Rate", d[4], opts=RATES)]),
-            ("MOTION", [Param("Phase", d[6], opts=PHASES), Param("Spread", 0.8), Param("Accent", 0.3)]),
+            ("MOTION", [Param("Phase", d[6], opts=PHASES), Param("Spread", 0.8), Param("Accent", 0.3),
+                        Param("Patt", 0, opts=["euclid", "tapped"])]),
             # a motif (its Pitch 'motif'): the notes of another layer's loop, transformed
             ("MOTIF", [Param("Source", 2, opts=MOTIF_SRC, key="MSrc"), Param("Transf", 0, opts=MOTIF_TRANS, key="MTran")]),
             feel] + lfos + [breath, evolve, loop]
@@ -194,7 +216,7 @@ def layer_controls(layer, engines=()):
         ("ENV", [Param("Attack", 0.45), Param("Decay", 0.6), Param("Sustn", 0.85), Param("Releas", 0.55)]),
         ("PLAY", [Param("Artic", 2, opts=ARTIC), Param("Glide", 0.45), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
                   Param("Pan", 0.5)]),
-        ("GATE", [Param("Gate", 0, opts=ONOFF), Param("Hits", 3, lo=1, hi=16), Param("Steps", 8, lo=2, hi=16),
+        ("GATE", [Param("Gate", 0, opts=["off", "on", "tapped"]), Param("Hits", 3, lo=1, hi=16), Param("Steps", 8, lo=2, hi=16),
                   Param("Rotate", 0, lo=0, hi=15)]),
         ("GATE 2", [Param("Rate", 1, opts=RATES), Param("Length", 0.5), Param("Comp", 0, opts=COMPS),
                     Param("Accent", 0.3)]),
@@ -236,6 +258,10 @@ ENGINES = {
                 Param("Width", 0.6)]),
         ("spectr", [Param("Upper", 0.5), Param("Drift", 0.5), Param("DrRate", 0.4), Param("OddEv", 0.5),
                     Param("Tilt", 0.5), Param("Strtch", 0.0)]),
+        ("frost", [Param("Detune", 0.4), Param("Bright", 0.5), Param("Glass", 0.4), Param("Drift", 0.4)]),
+        ("choir", [Param("Vowel", 0.5), Param("Breath", 0.3), Param("Fifth", 0.5), Param("Drift", 0.4)]),
+        ("bowed", [Param("Press", 0.5), Param("Body", 0.5), Param("Vib", 0.4), Param("Swell", 0.4)]),
+        ("gendy", [Param("Steps", 0.4), Param("Rough", 0.5), Param("Spread", 0.5)]),
     ],
     "sub": [
         ("sine", [Param("Harm", 0.0), Param("Body", 0.5)]),
@@ -255,6 +281,20 @@ ENGINES = {
                  Param("Bright", 0.6), Param("Sweep", 0.4)]),
         ("wave", [Param("Table", 0, opts=WAVE_TABLES), Param("Pos", 0.3), Param("Mode", 1, opts=["8bit", "smooth"]),
                   Param("Shimr", 0.0), Param("Detune", 0.3)]),
+        ("vox", [Param("Vowel", 0.5), Param("Motion", 0.4), Param("Reso", 0.4), Param("Body", 0.4)]),
+        ("part", [Param("Set", 0, opts=["harm", "bell", "fifths", "odd", "strtch"]), Param("Tilt", 0.5),
+                  Param("Swell", 0.4), Param("Spread", 0.6)]),
+        ("fold", [Param("Fold", 0.4), Param("Sub", 0.3), Param("Bias", 0.5), Param("Motion", 0.3)]),
+        ("pulsr", [Param("Formnt", 0.5), Param("Cycles", 0.4), Param("Sweep", 0.4), Param("Spread", 0.5)]),
+        ("sync", [Param("Ratio", 0.4), Param("Sweep", 0.4), Param("Rate", 0.3), Param("Detune", 0.3)]),
+        ("cz", [Param("Bend", 0.4), Param("Reso", 0.3), Param("Mix", 0.5), Param("Sweep", 0.4)]),
+        ("choir", [Param("Vowel", 0.5), Param("Drift", 0.5), Param("Bright", 0.5), Param("Breath", 0.2)]),
+        ("vosim", [Param("Formnt", 0.5), Param("Decay", 0.5), Param("Sweep", 0.3), Param("Spread", 0.5)]),
+        ("lissa", [Param("Ratio", 1, opts=["1:1", "3:2", "2:1", "4:3", "5:4"]), Param("Drift", 0.4),
+                   Param("Bright", 0.3), Param("Cross", 0.25)]),
+        ("chip", [Param("Duty", 2, opts=["12%", "25%", "50%"]), Param("Tri", 0.3), Param("Crush", 0.3),
+                  Param("Vib", 0.4)]),
+        ("vector", [Param("X", 0.5), Param("Y", 0.5), Param("Orbit", 0.4), Param("Rate", 0.3), Param("Detune", 0.3)]),
     ],
     "cloud": [
         ("grains", [Param("Size", 0.55), Param("Densty", 1.0), Param("Pitch", 0, opts=CLOUD_PITCHES),
@@ -268,6 +308,7 @@ ENGINES = {
         ("bowl", [Param("Hard", 0.5), Param("Beat", 0.5), Param("Strtch", 0.0), Param("Strike", 0.5)]),
         ("wood", [Param("Mallet", 0.5), Param("Matrl", 0.0), Param("Knock", 0.5)]),
         ("metal", [Param("Bright", 0.5), Param("Beat", 0.5), Param("TremR", 0.5), Param("TremD", 0.4)]),
+        ("wave", [Param("Table", 0, opts=WAVE_TABLES), Param("Pos", 0.3), Param("Bright", 0.5), Param("Shimr", 0.3)]),
     ],
 }
 LAYERS = ["drone", "sub", "pad"] + LANES + ["cloud"]
@@ -277,8 +318,12 @@ SHORT = {"drone": "Dr", "sub": "Sb", "pad": "Pd", "perc1": "P1", "perc2": "P2", 
          "cloud": "Cl"}
 VOICES = {"drone": 1, "sub": 1, "pad": 4, "perc1": 3, "perc2": 3, "perc3": 3, "perc4": 3}
 
-GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opts=NOTE_NAMES),
-                          Param("Mode", 1, opts=[m for m, _ in MODES]), Param("Volume", 0.55)]),
+# (a page's knob is a Param of its own, or (layer, key): another layer's slot, shown with the layer's name)
+GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, lo=30, hi=200),
+                          Param("Scale", 0, opts=[n for n, _ in SCALES]),
+                          Param("Mode", 1, opts=[str(i + 1) for i in range(MAX_MODES)])]),
+                ("LAYERS", [("drone", "Engine"), ("sub", "Engine"), ("pad", "Engine"), ("cloud", "Source")]),
+                ("LANES", [("perc1", "Engine"), ("perc2", "Engine"), ("perc3", "Engine"), ("perc4", "Engine")]),
                 ("STORY", [Param("Story", 0, opts=[n for n, _, _ in STORIES]), Param("Bars", 3, opts=BARS),
                            Param("SubTo", 1, opts=SUBMODES), Param("Voicng", 0.4)]),
                 ("SYNC", [Param("Sync", 0, opts=["int", "ext"]), Param("ClkOut", 1, opts=ONOFF)]),
@@ -288,7 +333,7 @@ GLOBAL_PAGES = [("MAIN", [Param("Tempo", 84, lo=30, hi=200), Param("Key", 0, opt
                 ("MIDI", [Param("Profil", 0, opts=PROFILES), Param("Chans", 0, opts=["layers", "mpe"]),
                           Param("Zones", 0, opts=ONOFF), Param("LastCC", 0, lo=0, hi=127)]),
                 ("MIDI 2", [Param("Bend", 3, opts=["2", "12", "24", "48"]), Param("Press", 1, opts=["off", "expr", "breath"])]),
-                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Fade", 0.62)]),
+                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Fade", 0.62), Param("Volume", 0.55)]),
                 # the harmony assistant: the next chords ranked (Sugg shows one by name: aux + top E plays it and
                 # adds it to your own story), which kind, and listening (held notes pull the next chord)
                 ("HARMNY", [Param("Sugg", 0, opts=["1", "2", "3", "4"], key="Sugg"),
@@ -320,6 +365,22 @@ EVOLVE = {
     ("pad", "saws"): [("Detune", 0.3), ("Spread", 0.4), ("Centre", 0.4), ("Bright", 0.4), (None, 0.3)],
     ("pad", "pwm"): [("Width", 0.5), ("Depth", 0.3), ("Rate", 0.2), ("Bright", 0.4), (None, 0.3)],
     ("pad", "wave"): [("Pos", 0.8), ("Shimr", 0.3), ("Detune", 0.3), (None, 0.3)],
+    ("drone", "frost"): [("Bright", 0.4), ("Glass", 0.4), ("Detune", 0.2), (None, 0.2)],
+    ("drone", "choir"): [("Vowel", 0.5), ("Breath", 0.3), (None, 0.2)],
+    ("drone", "bowed"): [("Press", 0.4), ("Body", 0.3), (None, 0.2)],
+    ("drone", "gendy"): [("Steps", 0.4), ("Rough", 0.3), (None, 0.2)],
+    ("pad", "vox"): [("Vowel", 0.4), ("Reso", 0.2), (None, 0.3)],
+    ("pad", "part"): [("Tilt", 0.4), ("Swell", 0.3), (None, 0.3)],
+    ("pad", "fold"): [("Fold", 0.4), ("Bias", 0.3), (None, 0.25)],
+    ("pad", "pulsr"): [("Formnt", 0.4), ("Cycles", 0.3), (None, 0.3)],
+    ("pad", "sync"): [("Ratio", 0.3), (None, 0.3)],
+    ("pad", "cz"): [("Bend", 0.4), ("Mix", 0.3), (None, 0.3)],
+    ("pad", "choir"): [("Vowel", 0.5), ("Bright", 0.3), (None, 0.2)],
+    ("pad", "vosim"): [("Formnt", 0.4), ("Decay", 0.3), (None, 0.2)],
+    ("pad", "lissa"): [("Drift", 0.3), ("Bright", 0.3), ("Cross", 0.3)],
+    ("pad", "chip"): [("Tri", 0.3), ("Crush", 0.2)],
+    ("pad", "vector"): [("X", 0.6), ("Y", 0.6), (None, 0.2)],
+    ("perc", "wave"): [("Pos", 0.5), ("Bright", 0.3)],
     ("cloud", "grains"): [("Scan", 0.5), ("Size", 0.4), ("Spread", 0.3), ("Jitter", 0.3), (None, 0.25)],
     ("perc", "blip"): [("Cutoff", 0.5), ("Flick", 0.3), ("FEnv", 0.3)],
     ("perc", "lpg"): [("Fold", 0.5), ("Open", 0.5), ("Vactrl", 0.3)],
@@ -333,6 +394,12 @@ EVOLVE_MAX = max(len(v) for v in EVOLVE.values())
 def engines(layer):
     return ENGINES[kind(layer)]
 
+
+def engine_value(layer, name):
+    """the Engine knob's value (0..1) that selects an engine by name"""
+    names = [e for e, _ in engines(layer)]
+    return (names.index(name) + 0.5) / len(names)
+
 # ---- slots
 SLOTS = []              # [(key, Param)]
 SLOT = {}               # key -> slot index; keys: ("g", name), (layer, None, name), (layer, engine, name)
@@ -345,7 +412,8 @@ def _add(key, p):
 
 for _, ps in GLOBAL_PAGES:
     for p in ps:
-        _add(("g", None, p.key), p)
+        if isinstance(p, Param):
+            _add(("g", None, p.key), p)
 LAYER_PAGES = {}
 for L in LAYERS:
     LAYER_PAGES[L] = layer_controls(L, [e for e, _ in engines(L)])
@@ -364,7 +432,7 @@ def S(layer, engine, name):
 
 
 def pages(layer, engine):
-    """the knob pages of a layer with an engine: FAV (your four: assign mode; at first the engine's first four),
+    """the knob pages of a layer with an engine: FAV (your four: assign mode; at first Engine and the engine's first three),
     LAYER, the engine's parameters 4 a page, then the layer's other pages"""
     front, back = LAYER_PAGES[layer]
     eps = dict(engines(layer))[engine]
@@ -372,7 +440,9 @@ def pages(layer, engine):
     for k in range(0, len(eps), 4):
         chunk = [S(layer, engine, p.key) for p in eps[k:k + 4]]
         ep.append((f"{engine.upper()} {k // 4 + 1}", chunk + [-1] * (4 - len(chunk))))
-    out = [("FAV", list(ep[0][1]))]
+    # FAV: the engine choice on knob 1 (when the layer has more than one), then the engine's first parameters
+    fav = ([S(layer, None, "Engine")] + ep[0][1][:3]) if len(engines(layer)) > 1 else list(ep[0][1])
+    out = [("FAV", fav)]
     out += [(n, [S(layer, None, p.key) for p in ps] + [-1] * (4 - len(ps))) for n, ps in front]
     out += ep
     out += [(n, [S(layer, None, p.key) for p in ps] + [-1] * (4 - len(ps))) for n, ps in back]
@@ -382,6 +452,19 @@ def pages(layer, engine):
 MAXPAGES = max(len(pages(L, e)) for L in LAYERS for e, _ in engines(L))
 MAXENG = max(len(engines(L)) for L in LAYERS)
 GLOBAL_LAYER = len(LAYERS)          # the "layer" index the MAIN / STORY pages use; + 1: the MIX pages
+
+
+def global_slot(p):
+    """a global page's knob: its own slot, or (layer, key) - another layer's"""
+    if isinstance(p, Param):
+        return S("g", None, p.key)
+    L, key = p
+    return SLOT.get((L, None, key), SLOT.get((L, engines(L)[0][0], key)))
+
+
+def global_label(p):
+    """(layer, key) knobs show the layer's name: the index into LAYERS, else -1"""
+    return -1 if isinstance(p, Param) else LAYERS.index(p[0])
 
 
 def knob_table():
@@ -402,7 +485,7 @@ def knob_table():
     for pi, (pn, ps) in enumerate(GLOBAL_PAGES):
         pnames[(GLOBAL_LAYER * MAXENG) * MAXPAGES + pi] = pn
         for k, p in enumerate(ps):
-            ks[((GLOBAL_LAYER * MAXENG) * MAXPAGES + pi) * 4 + k] = S("g", None, p.key)
+            ks[((GLOBAL_LAYER * MAXENG) * MAXPAGES + pi) * 4 + k] = global_slot(p)
     np_[(GLOBAL_LAYER + 1) * MAXENG] = len(MIX_PAGES)
     for pi, (pn, refs) in enumerate(MIX_PAGES):
         pnames[((GLOBAL_LAYER + 1) * MAXENG) * MAXPAGES + pi] = pn

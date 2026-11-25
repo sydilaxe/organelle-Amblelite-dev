@@ -100,7 +100,7 @@ def main():
     # Evolve: the pads' wave engine at full Evolve, fast pace - its brightness moves; at 0 (or the master at 0) it
     # holds still; and the same settings move the same way every time
     pe, pp = M.S("pad", None, "Evolve"), M.S("pad", None, "Pace")
-    base = solo("pad") + [(50, f"al-set {M.S('pad', None, 'Engine')} 0.9"), (51, f"al-set {pp} 1"),
+    base = solo("pad") + [(50, f"al-set {M.S('pad', None, 'Engine')} {M.engine_value('pad', 'wave')}"), (51, f"al-set {pp} 1"),
                           (52, f"al-set {M.S('pad', 'wave', 'Table')} 0.35"),
                           (53, f"al-set {M.S('g', None, 'Bars')} 0.05"), START]      # (Bars: manual - one chord)
 
@@ -149,12 +149,12 @@ def main():
 
     # the gate sequencer on the pads: their level pulses in 8ths; then the sub gated where the pads' pattern is
     # silent (Comp): the two alternate
-    gp = [(30, f"al-set {M.S('pad', None, 'Gate')} 0.75"), (31, f"al-set {M.S('pad', None, 'Attack')} 0.1"),
+    gp = [(30, f"al-set {M.S('pad', None, 'Gate')} 0.5"), (31, f"al-set {M.S('pad', None, 'Attack')} 0.1"),
           (32, f"al-set {M.S('pad', None, 'Releas')} 0.2")]
     _, a = run(solo("pad") + gp + [START], 4)
     e1 = env(seg(a, 1.5, 4))
     check("gate sequencer pulses the pads", np.std(e1) / (np.mean(e1) + 1e-9) > 0.4, f"variation {np.std(e1) / (np.mean(e1) + 1e-9):.2f}")
-    gs = [(33, f"al-set {M.S('sub', None, 'Gate')} 0.75"), (34, f"al-set {M.S('sub', None, 'Comp')} {(3 + 0.5) / 4}"),
+    gs = [(33, f"al-set {M.S('sub', None, 'Gate')} 0.5"), (34, f"al-set {M.S('sub', None, 'Comp')} {(3 + 0.5) / 4}"),
           (35, f"al-set {M.S('sub', None, 'Attack')} 0.1"), (36, f"al-set {M.S('sub', None, 'Releas')} 0.2")]
     _, b = run(solo("sub") + gp + gs + [START], 4)
     e2 = env(seg(b, 1.5, 4))
@@ -208,6 +208,22 @@ def main():
                    keep=True)
     lines = [l for l in log.splitlines() if "gPrintln 3 0 22" in l]
     check("assign mode puts a parameter on FAV", len(lines) >= 2 and lines[-1] != lines[0], lines[-1][-30:] if lines else "-")
+    fav = [l for l in lines if " 1 Engine " in l or l.endswith(" 1 Engine")]
+    check("FAV starts with the engine choice", bool(fav), fav[0][-30:] if fav else "-")
+
+    # navigation: a held layer key opens its pages; an aux tap (alone) goes home to the play view
+    def popq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "expr alpop*10 + alview"), 0, c.obj("print NAV", 900, 760), 0)
+    log, _ = H.run([(100, "notesRaw 64 100"), (700, "notesRaw 64 0"), (800, "h-q bang"), (6000, "h-q bang"),
+                    (6100, "aux 1"), (6150, "aux 0"), (6200, "h-q bang"),
+                    (6300, "notesRaw 68 100"), (6350, "notesRaw 68 0"), (6400, "h-q bang"),
+                    (6500, "aux 1"), (6550, "aux 0"), (6600, "h-q bang"),
+                    (7000, "knob3 0.1"), (7100, "knob3 0.9"), (7200, "h-q bang"), (11000, "h-q bang")],
+                   12, d=d, keep=True, extra=popq)
+    nav = [l.split()[-1] for l in log.splitlines() if l.startswith("NAV")]
+    check("a hold opens the pages (they stay), an aux tap goes home; a knob's pop-up closes by itself",
+          nav[:2] == ["10", "10"] and nav[2:3] == ["0"] and nav[3:4] != ["0"] and nav[4:5] == ["0"]
+          and nav[5:6] == ["10"] and nav[6:7] == ["0"], " ".join(nav))
 
     # snapshots: save 1, change the pads' engine and level, recall 1 (morph 0): back as it was; COMPARE: the change
     eng, lv = M.S("pad", None, "Engine"), M.S("pad", None, "Level")
@@ -299,7 +315,7 @@ def main():
     # breath (the generic profile: CC 2) -> the pads' cutoff (their BREATH page): brighter as it blows
     bt = [(50, f"al-set {S_('pad', None, 'BTgt')} {(1 + 0.5) / M.MAXC}"), (51, f"al-set {S_('pad', None, 'BDep')} 1"),
           (52, f"al-set {S_('pad', None, 'Cutoff')} 0.35"), (53, f"al-set {S_('pad', None, 'Evolve')} 0"),
-          (54, f"al-set {S_('pad', None, 'Engine')} {(2 + 0.5) / 5}")]      # (the saws: harmonics to filter)
+          (54, f"al-set {S_('pad', None, 'Engine')} {M.engine_value('pad', 'saws')}")]      # (the saws: harmonics to filter)
     _, a = run(solo("pad") + bt + [START, (2000, "al-cc 127 2 1")], 3.5)
 
     def bright(x):
@@ -392,6 +408,59 @@ def main():
     late = hits_[len(hits_) // 2:]
     check("motif: a lane plays another layer's loop", late and set(late) <= {69, 72, 76} and len(set(late)) >= 2,
           f"lane notes {sorted(set(late))} (69 72 76)")
+
+    # ---- the global pages: MAIN (key, tempo, scale, mode - its name from the scale), then LAYERS (the layers' engines)
+    sc_, md_ = M.S('g', None, 'Scale'), M.S('g', None, 'Mode')
+    ev = [(100, "notesRaw 68 100"), (150, "notesRaw 68 0"), (300, f"al-set {sc_} {(1 + 0.5) / len(M.SCALES)}"),
+          (310, f"al-set {md_} {(4 + 0.5) / M.MAX_MODES}"), (400, "knob1 0.5"), (1000, "notesRaw 68 100"),
+          (1050, "notesRaw 68 0")]
+    log, _ = H.run(ev, 1.5, d=d, keep=True)
+    scr = " | ".join(l.split(" 8 1 ", 1)[1] for l in log.splitlines() if "gPrintln 3 0 " in l and " 8 1 " in l)
+    want = ["Key C", "Tempo 84", "Scale harmin", "Mode phrdom", "LAYERS", "DRONE analog", "PADS sine"]
+    check("MAIN: key, tempo, scale, mode; LAYERS: the engines", all(w in scr for w in want),
+          ", ".join(w for w in want if w not in scr) or "all shown")
+    # a lane playing the scale (Pitch 'scl up') in C harmonic minor: its notes and only its notes
+    ev = solo("perc1") + [(30, f"al-set {sc_} {(1 + 0.5) / len(M.SCALES)}"), (31, f"al-set {md_} {0.5 / M.MAX_MODES}"),
+                          (32, f"al-set {M.S('perc1', None, 'Pitch')} {(5 + 0.5) / len(M.PITCHES)}"), START]
+    log, _ = H.run(ev, 5, d=d, keep=True, prints=("al-perc1-hit",))
+    pcs = sorted({int(float(l.split()[2])) % 12 for l in log.splitlines() if l.startswith("al-perc1-hit")})
+    check("the scale and mode reach the notes (C harmonic minor)", set(pcs) <= {0, 2, 3, 5, 7, 8, 11} and
+          {8, 11} <= set(pcs), f"pitch classes {pcs}")
+
+    # ---- a tapped rhythm: aux + top D# with lane 1 shown, three notes at steps 0, 3 and 5 of the cycle (8 steps of a
+    # 16th): it becomes the lane's pattern - those gaps (3 2 3), and then 3 hits a cycle (2 cycles: 6)
+    ev = solo("perc1") + [(30, "al-sel-perc1 bang"), (40, f"al-set {M.S('perc1', None, 'Steps')} {6 / 14}"),
+                          (41, f"al-set {M.S('perc1', None, 'Rate')} {(3 + 0.5) / 6}"),
+                          (43, f"al-set {M.S('perc1', None, 'Phase')} 0.01"), START,
+                          (1000, "aux 1"), (1010, "notesRaw 75 100"), (1020, "aux 0")]
+    step = 60000 / (84 * 4)
+    ev += [(1030 + int(st * step), "al-note 3 60 0.8") for st in (0, 3, 5)]
+    t_end = 1010 + 8 * step + 300
+    ev += [(int(t_end), "h-q bang"), (int(t_end + 16 * step), "h-q bang")]
+
+    def tapq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "array get altap 48 8"), 0, c.obj("print TAP", 900, 760), 0)
+        c.c(c.obj("r h-q", 1100, 700), 0, c.obj("print MARK", 1100, 760), 0)
+    log, _ = H.run(ev, t_end / 1000 + 16 * step / 1000 + 0.3, d=d, keep=True, extra=tapq, prints=("al-perc1-hit",))
+    tl = [l for l in log.splitlines() if l.startswith("TAP")]
+    tsteps = [i for i, v in enumerate(tl[0].split()[1:]) if float(v) > 0] if tl else []
+    gaps = sorted((tsteps[(i + 1) % len(tsteps)] - tsteps[i]) % 8 for i in range(len(tsteps))) if tsteps else []
+    seq = [l for l in log.splitlines() if l.startswith(("MARK", "al-perc1-hit"))]
+    m = [i for i, l in enumerate(seq) if l.startswith("MARK")]
+    between = sum(1 for l in seq[m[0] + 1:m[1]] if l.startswith("al-perc1-hit")) if len(m) == 2 else -1
+    check("a tapped rhythm becomes the lane's pattern", gaps == [2, 3, 3] and between == 6,
+          f"steps {tsteps} (gaps {gaps}), {between} hits in 2 cycles")
+
+    # ---- every engine of every layer sounds (one second each, in turn), and nothing in Pd complains
+    for L in ("drone", "pad", "perc1"):
+        names = [e for e, _ in M.engines(L)]
+        ev = solo(L) + [START] + [(1000 + 1000 * i, f"al-set {M.S(L, None, 'Engine')} {M.engine_value(L, e)}")
+                                  for i, e in enumerate(names)]
+        log, a = H.run(ev, 1.2 + len(names), d=d, keep=True)
+        lv = [H.rms_db(seg(a, 1.5 + i, 1.95 + i)) for i in range(len(names))]
+        quiet = [f"{e} {v:.0f}" for e, v in zip(names, lv) if v < -50]
+        check(f"every {M.kind(L)} engine sounds ({len(names)})", not quiet and not H.errors(log),
+              f"quietest {min(lv):.0f} dB" + (f"; silent: {quiet}" if quiet else "") + (f"; {H.errors(log)[:1]}" if H.errors(log) else ""))
 
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()

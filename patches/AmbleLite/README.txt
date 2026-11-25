@@ -5,6 +5,8 @@ Drone, sub, pads and four percussion lanes for real-time building. Loads silent:
 
 THE LAYERS: the low white keys, one each. A tap: the layer in / out (it fades over the PERFRM page's
 Fade time; out, a loop keeps its place, silent). Held (400 ms): its parameter pages.
+AUX TAPPED: home - the play view, from any page or view. Pages you open stay until then; the page a
+knob pops up in the play view closes 3 s after the last turn.
   low C    DRONE
   low D    SUB
   low E    PADS
@@ -18,7 +20,7 @@ THE OTHER KEYS (one press each): the low black keys the views, the top octave pl
   low C#   the play view (back from MIX / pattern / pages)
   low D#   the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)
   low F#   the pattern view (every gate and lane as steps), then the roadmap view, then neither
-  low G#   the MAIN / STORY / SYNC / PERFRM pages (again: the next one)
+  low G#   the global pages: MAIN (key, tempo, scale, mode), LAYERS and LANES (each layer's engine), STORY, SYNC, MIDI, MIDI 2, PERFRM, HARMNY, ROAD, ROAD 2, SECTN (again: the next one)
   low A#   page forward
   top C    start / stop
   top C#   clear the shown layer (back to its default)
@@ -45,12 +47,13 @@ AUX held + key
   top C    start / stop
   top C#   build the roadmap (the ROAD page's settings)
   top D    clear your own story
+  top D#   tap a rhythm: one cycle of what you play on the shown layer becomes its pattern (Patt / Gate: tapped)
   top E    the HARMNY page's suggestion: played now, added to your own story
   top F#   hold the roadmap's section (again: let it go)
   top G    show the CLOUD pages
   top G#   the roadmap's next section
   top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
-  aux tap  page forward
+  aux tap  home: the play view
   aux held + a knob: ASSIGN - that knob's place on the FAV page takes a
            parameter of the layer (the knob chooses which)
 
@@ -71,6 +74,10 @@ tri, saw up / down, square, steps, random smooth, random stepped: a new value ea
 
 LOOP: Len (auto: rounded to bars; free: as played; or 1 - 16 bars), Quant, Follow (chord: the loop
 moves with the chord story; exact), Vel. Records what you play into the layer, and its breath.
+
+TAPPED RHYTHMS: aux + top D# records one cycle (Steps x Rate) of the shown layer's pattern from the notes
+you play on it (notes mode or MIDI), each snapped to the nearest step. The lane's Patt (MOTION page) or
+the gate's Gate turns to 'tapped'; turn it back to euclid / on for the Euclidean pattern (kept).
 
 GATE: each gate has its own envelope (GATENV). FEEL: Swing and its feel (swing, lilt, drag, limp) on
 the gates and the lanes. MORPH (PERFRM page): how long a recalled snapshot glides (0 = at once).
@@ -93,11 +100,15 @@ MIDI (the MIDI and MIDI 2 global pages):
   controllers/user.txt is kept when a new version is copied over.
   Clock in (SYNC: ext) and out (SYNC: ClkOut).
 
+SCALES (MAIN page): Scale picks the family - modes (the seven church modes), harmin (harmonic minor),
+melmin (melodic minor), pent (pentatonic) - and Mode which of its modes, by name (dorian, phrdom ...).
+Everything follows them: the chords, the lanes' scale runs, the counterpoint and the suggestions.
+
 THE CHORD STORY (STORY page): a progression in the key and mode, the pads, sub and percussion
 following it; Bars sets how often it moves on (manual: top D / top E).
 
 ENGINES
-  DRONE  analog, fm, spectr
+  DRONE  analog, fm, spectr, frost, choir, bowed, gendy
   SUB    sine, warm, pulse, fm
-  PAD    sine, fm, saws, pwm, wave
-  PERC   blip, lpg, bowl, wood, metal
+  PAD    sine, fm, saws, pwm, wave, vox, part, fold, pulsr, sync, cz, choir, vosim, lissa, chip, vector
+  PERC   blip, lpg, bowl, wood, metal, wave

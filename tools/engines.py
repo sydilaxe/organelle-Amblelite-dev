@@ -497,3 +497,6 @@ BUILD = {
     ("perc", "blip"): perc_blip, ("perc", "lpg"): perc_lpg, ("perc", "bowl"): perc_bowl, ("perc", "wood"): perc_wood,
     ("perc", "metal"): perc_metal,
 }
+
+from engines2 import BUILD2          # (the second set: engines2.py)
+BUILD.update(BUILD2)

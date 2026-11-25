@@ -10,7 +10,7 @@ Redraws are throttled: at most one every 60 ms, however fast knobs turn."""
 from pdlib import Canvas, proc, If, Call, SendL, Send, run_steps
 import model as M
 from model import S, LAYERS
-from control import words, opt, num, ctx, npages, QUALS
+from control import words, opt, num, ctx, npages, QUALS, MODE_SLOT, VIEW_GLOBAL
 
 OSC = "oscOut"
 
@@ -50,10 +50,11 @@ def row(c, name, x, y, parts):
             tg = f"alcand[(allayer*{M.MAXENG} + aleng[allayer])*{M.MAXC} + {tgi} - 1]"
             sug = S("g", None, "Sugg")
             so = f"min(3, int(alp[{sug}]*4))"
-            wl = sc.to(src, f"expr if({sl} == {sug}, {OFF['chord']} + alsuR[{so}]*{len(QUALS)} + altq[alsuT[{so}]], "
+            mode_w = f"{OFF['mode']} + {opt(MODE_SLOT)}"          # (the Mode knob: its mode's name)
+            wl = sc.to(src, f"expr if({sl} == {MODE_SLOT}, {mode_w}, if({sl} == {sug}, {OFF['chord']} + alsuR[{so}]*{len(QUALS)} + altq[alsuT[{so}]], "
                             f"if({sl} < 0, {OFF['misc']}, if(aln[{sl}] == -2, if({tgi} == 0, {OFF['off']}, "
                             f"if({tg} < 0, {OFF['misc']}, {OFF['name']} + {tg})), if(aln[{sl}] > 0, {OFF['opt']} + "
-                            f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1))))")
+                            f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1)))))")
             mo = sc.to(wl, "moses 0")
             _sym(sc, sc.ch((mo, 1), "text get al-words"), (pk, i))
             nv = sc.to(sc.to((mo, 0), "t b"),
@@ -114,7 +115,8 @@ def rows_tables(c):
     import model as M
     sl = lambda n: [S(L, None, n) for L in PAT_LAYERS]
     tabs = dict(alrh=sl("Hits"), alrs=sl("Steps"), alro=sl("Rotate"), alrr=sl("Rate"),
-                alrg=[S(L, None, "Gate") if L in ("drone", "sub", "pad") else -1 for L in PAT_LAYERS])
+                alrg=[S(L, None, "Gate") if L in ("drone", "sub", "pad") else -1 for L in PAT_LAYERS],
+                alrp=[S(L, None, "Patt") if L in M.LANES else -1 for L in PAT_LAYERS])
     for name, vals in tabs.items():
         c.obj(f"array define {name} {len(vals)}")
         c.c(c.m(c.recv("al-init"), " ".join(str(v) for v in vals)), 0, c.obj(f"array set {name}"), 0)
@@ -170,7 +172,10 @@ def build(c):
     row(c, "al-r-page", 0, 11, [("w", f"{OFF['page']} + {ctx()}*{M.MAXPAGES} + alpage"),
                                 ("w", f"{OFF['frac']} + ({npages()} - 1)*{M.MAXPAGES} + alpage")])
     for k in range(4):
-        row(c, f"al-r-k{k}", 0, 22 + 10 * k, [("w", f"if(alsl{k} < 0, {misc('-')}, {OFF['name']} + alsl{k})"),
+        # (a global page's knob that is a layer's: the layer's name)
+        gl = f"algl[alpage*4 + {k}]"
+        row(c, f"al-r-k{k}", 0, 22 + 10 * k, [("w", f"if(alsl{k} < 0, {misc('-')}, if(alview == {VIEW_GLOBAL} && {gl} >= 0, "
+                                                    f"{OFF['layer']} + {gl}, {OFF['name']} + alsl{k}))"),
                                               ("v", k)])
         lay += [Call(f"al-r-k{k}"),
                 If(f"alsl{k} >= 0 && (aln[alsl{k}] == 0 || aln[alsl{k}] == -1)",
@@ -217,10 +222,13 @@ def build(c):
     # ---- pattern view: a row per layer (its gate or lane pattern), hits as boxes, the length as a tick; a
     # playhead under each row, moved every 16th (al-patmark)
     def row_on(r):
-        return f"alin[{r}] && if({r} < 3, alp[alrg[{r}]] >= 0.5, 1)"
+        return f"alin[{r}] && if({r} < 3, int(alp[max(0, alrg[{r}])]*3) >= 1, 1)"
     hits = "int(1 + alp[alrh[alpr]]*15 + 0.5)"
     steps = "int(2 + alp[alrs[alpr]]*14 + 0.5)"
-    cell = f"(alpc2*{hits}) % {steps} < {hits}"
+    # (a tapped row: its tapped steps)
+    # (alrg / alrp are -1 where a row has no such knob: read as slot 0, never outside the array)
+    tap = "if(alpr < 3, int(alp[max(0, alrg[alpr])]*3) == 2, alp[max(0, alrp[alpr])] >= 0.5)"
+    cell = f"if({tap}, altap[alpr*16 + alpc2] > 0, (alpc2*{hits}) % {steps} < {hits})"
     patv = [Loop(str(len(PAT_LAYERS)), "alpr", [
         If(row_on("alpr"), [
             Loop(steps, "alpc2", [If(cell, [SendL(OSC, [f"{PAT_X} + alpc2*{PAT_W}", "alpr*9 + 1"],

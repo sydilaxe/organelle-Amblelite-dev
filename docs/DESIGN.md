@@ -53,7 +53,7 @@ Reverb, atmospheres, character effects, Freeze, JOURNEY, PUMP/DUCK, MOSAIC (in i
   - **Rate**: the slide time, from a few ms to several seconds. Constant time (not constant rate), so a big
     leap and a step take the same time.
 - Harmony: from MIDI input or a step / chord sequencer. The composer becomes an optional assistant.
-- Scales: 12-tone with modes (to discuss).
+- Scales: 12-tone, in four families with their modes: the church modes, harmonic minor, melodic minor, pentatonic (MAIN page: Scale, Mode).
 - Playing: select a layer and play it. Each layer has a default behaviour (for example, chords on the pads) and a
   sequencing looper: record, overwrite or overdub motifs.
 - Rhythm: Euclidean patterns, live play, recorded loops, clock retrigger, and a gate sequencer with envelopes.
