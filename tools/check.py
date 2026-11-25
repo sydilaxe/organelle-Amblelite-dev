@@ -231,6 +231,15 @@ def main():
     check("an LFO moves a ringing hit (bowl Strtch)", len(set(still)) == 1 and max(moved) - min(moved) > 150,
           f"upper partial {min(moved)} .. {max(moved)} Hz (off: {sorted(set(still))})")
 
+    # a long Decay: the lane's voices are struck again while they ring - faded out first, never a step (a click)
+    ev = solo("perc1") + [(30, f"al-set {M.S('perc1', None, 'Engine')} {M.engine_value('perc1', 'wood')}"),
+                          (31, f"al-set {M.S('perc1', None, 'Decay')} 0.9"), (32, f"al-set {M.S('perc1', 'wood', 'Knock')} 0"),
+                          (33, f"al-set {M.S('perc1', None, 'Evolve')} 0"), START]
+    _, a = run(ev, 8)
+    st = np.abs(np.diff(seg(a, 1, 7.9).mean(axis=1), 2))
+    check("a ringing voice struck again doesn't click", st.max() < 0.03,
+          f"largest step {st.max():.4f} (a click: > 0.03; before the fix 0.11)")
+
     # assign: aux held, knob 1 - the FAV page's first place takes another parameter
     log, _ = H.run([(100, "al-sel-pad bang"), (300, "aux 1"), (400, "knob1 0.95"), (500, "aux 0")], 1, d=d,
                    keep=True)
