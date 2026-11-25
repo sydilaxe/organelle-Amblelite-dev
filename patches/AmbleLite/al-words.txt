@@ -84,12 +84,17 @@ XMod
 Ring
 Sub
 Mix
+Bright
+Reso
+Sweep
+Width
 Ratio
 Fine
 Index
 Fdbk
 Motion
 MoRate
+Width
 Upper
 Drift
 DrRate
@@ -216,10 +221,15 @@ EnvDec
 Detune
 Spread
 Centre
+Bright
+Reso
+Sweep
 Width
 Depth
 Rate
 Spread
+Bright
+Sweep
 Table
 Pos
 Mode
@@ -1503,6 +1513,7 @@ FAV
 LAYER
 ANALOG\ 1
 ANALOG\ 2
+ANALOG\ 3
 ENV
 PLAY
 GATE
@@ -1514,7 +1525,6 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
--
 FAV
 LAYER
 FM\ 1
@@ -1694,6 +1704,7 @@ LOOP
 FAV
 LAYER
 SAWS\ 1
+SAWS\ 2
 ENV
 PLAY
 GATE
@@ -1706,10 +1717,10 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
--
 FAV
 LAYER
 PWM\ 1
+PWM\ 2
 ENV
 PLAY
 GATE
@@ -1722,7 +1733,6 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
--
 FAV
 LAYER
 WAVE\ 1

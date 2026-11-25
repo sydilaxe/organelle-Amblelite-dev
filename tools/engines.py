@@ -65,6 +65,35 @@ def floor_s(c, x):
     return sub(c, x, c.to(x, "wrap~"))
 
 
+def widen(c, src, R, P, name):
+    """Width (Amble's drone stereo): the right side becomes a slowly moving 9-14 ms copy of src, so the two sides
+    differ and the sound opens out (one delay line: cheap)"""
+    c.to(src, f"delwrite~ $0-{name} 40")
+    dl = c.obj(f"vd~ $0-{name}")
+    c.c(c.ch(c.obj("osc~ 0.07"), "*~ 2.5", "+~ 11.5"), 0, dl, 0)
+    w = prm(c, P("Width"))
+    return add(c, mul(c, R, c.ch(w, "*~ -0.65", "+~ 1")), mul(c, dl, c.to(w, "*~ 0.8")))
+
+
+def sweep_lp(c, sig, f, P, rate, top=12, gain=1.0, reso=True):
+    """Amble's life: a resonant low-pass that follows the note (Bright: 1.5 .. top x the note), sweeping on its own
+    slow cycle (Sweep: how far; rate Hz, a little different in each voice), Reso its peak. vcf~ (kept below 6 kHz
+    and Q >= 1.5, where it is stable)"""
+    br = cx(c, [P("Bright")], f"1.5 + {top - 1.5}*{a(P('Bright'))}*{a(P('Bright'))}")
+    o = c.obj(f"osc~ {rate}")
+    c.c(c.ch(c.obj("loadbang"), "f $1", f"expr {rate}*(1 + 0.13*$f1)"), 0, o, 0)
+    sw = c.ch(mul(c, o, prm(c, P("Sweep"))), "*~ 0.6", "+~ 1")
+    cf = c.to(mul(c, mul(c, f, br), sw), "clip~ 40 6000")
+    v = c.obj("vcf~ 2")
+    c.c(sig, 0, v, 0)
+    c.c(cf, 0, v, 1)
+    if reso:
+        c.c(c.ch(c.recv(f"al-s{P('Reso')}"), "expr 1.5 + 8*$f1*$f1"), 0, v, 2)
+    else:
+        c.c(c.m(c.obj("loadbang"), "2.5"), 0, v, 2)
+    return c.to((v, 1), f"*~ {gain}")
+
+
 def morph_cheap(c, ph, slot):
     """sine -> triangle -> saw -> square from a phase (0..1) with Pd's own objects: the shapes' weights worked out
     in control (only when the knob or Evolve moves it), the shapes themselves plain (a drone is low: the naive saw and
@@ -104,7 +133,9 @@ def drone_analog(s, ins, L):
     core = add(s, ring, subv)
     L = s.to(add(s, add(s, av, s.to(bv, "*~ 0.75")), core), "*~ 0.5")
     R = s.to(add(s, add(s, s.to(av, "*~ 0.75"), bv), core), "*~ 0.5")
-    return L, R
+    # each side through its own slowly sweeping resonant low-pass (Amble's analog drone)
+    L, R = sweep_lp(s, L, f, P, 0.021, top=30, gain=2.1), sweep_lp(s, R, f, P, 0.017, top=30, gain=2.1)
+    return L, widen(s, L, R, P, "anw")
 
 
 def drone_fm(s, ins, L):
@@ -118,7 +149,7 @@ def drone_fm(s, ins, L):
     idx = mul(s, cx(s, [P("Index")], f"1.6*{a(P('Index'))}*{a(P('Index'))}"), mot)
     fb = s.to(prm(s, P("Fdbk")), "*~ 0.25")
     o = s.to(fm2(s, f, ratio, idx, fb), "*~ 0.43")
-    return o, o
+    return o, widen(s, o, o, P, "fmw")
 
 
 def drone_spectr(s, ins, L):
@@ -248,7 +279,8 @@ def pad_saws(s, ins, L):
     cen = mul(s, saws[1], prm(s, P("Centre")))
     L = add(s, add(s, mul(s, saws[0], hi), mul(s, saws[2], lo)), cen)
     R = add(s, add(s, mul(s, saws[0], lo), mul(s, saws[2], hi)), cen)
-    return s.to(L, "*~ 0.28"), s.to(R, "*~ 0.28")
+    # each side through its own resonant low-pass on the note, sweeping slowly (Amble's saws)
+    return sweep_lp(s, L, f, P, 0.021, gain=0.53), sweep_lp(s, R, f, P, 0.017, gain=0.53)
 
 
 def pad_pwm(s, ins, L):
@@ -264,8 +296,9 @@ def pad_pwm(s, ins, L):
     outs = []
     for d in (dep, depR):
         w = s.to(add(s, w0, d), "clip~ 0.03 0.97")
-        outs.append(s.to(pulse_n(s, ph, w), "*~ 0.2"))
-    return outs[0], outs[1]
+        outs.append(pulse_n(s, ph, w))
+    # each side its own slow filter sweep (a Juno-like string, as Amble's pwm)
+    return sweep_lp(s, outs[0], f, P, 0.019, gain=0.4, reso=False), sweep_lp(s, outs[1], f, P, 0.023, gain=0.4, reso=False)
 
 
 def pad_wave(s, ins, L):

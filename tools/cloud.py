@@ -62,7 +62,7 @@ def _grains(c):
     rate = c.ch((size, 0), "expr 1000/$f1", "pack f 60", "line~")
     size_ms = c.ch((size, 1), "pack f 60", "line~")
     scan = c.ch(c.recv(f"al-s{P('Scan')}"), f"expr 20 + $f1*{BUF_MS - 2200}", "sig~")
-    jit = c.ch(c.recv(f"al-s{P('Jitter')}"), "expr $f1*2000", "sig~")
+    jit = c.ch(c.recv(f"al-s{P('Jitter')}"), f"expr $f1*{BUF_MS - 2500}", "sig~")
     revt = c.ch(c.recv(f"al-s{P('Revrse')}"), "expr 1 - $f1", "sig~")      # (a grain reverses when its draw is above)
     spread = c.ch(c.recv(f"al-s{P('Spread')}"), "sig~")
     dens = c.ch(c.recv(f"al-s{P('Densty')}"), f"expr 1 + $f1*{STREAMS - 1}")
@@ -75,7 +75,8 @@ def _grains(c):
         win = c.ch(ph, "cos~", "*~ -0.5", "+~ 0.5")
         # at each grain's start (the phasor wraps: samphold~ takes a new value): position, reversal, place
         pos = c.obj("samphold~")
-        c.c(add(c, scan, mul(c, c.ch(c.obj("noise~"), "abs~"), jit)), 0, pos, 0)
+        # (anywhere from Scan back to Scan + Jitter, kept inside the buffer: wide jitter is Amble's cloud)
+        c.c(c.to(add(c, scan, mul(c, c.ch(c.obj("noise~"), "abs~"), jit)), f"clip~ 20 {BUF_MS - 2300}"), 0, pos, 0)
         c.c(ph, 0, pos, 1)
         dirn = c.obj("samphold~")
         c.c(c.ch(c.obj("noise~"), "*~ 0.5", "+~ 0.5"), 0, dirn, 0)

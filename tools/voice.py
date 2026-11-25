@@ -13,9 +13,9 @@ from model import S, ENGINES, VOICES
 from engines import BUILD
 
 # per-voice stereo place (0..1); pads spread, percussion by the Spread knob
-PAD_PAN = [0.32, 0.44, 0.56, 0.68]
+PAD_PAN = [0.12, 0.38, 0.62, 0.88]
 PERC_PAN = [-0.35, 0.0, 0.35]                               # around the lane's own place, x Spread
-LANE_PAN = dict(perc1=0.42, perc2=0.62, perc3=0.5, perc4=0.32)
+LANE_PAN = dict(perc1=0.3, perc2=0.7, perc3=0.5, perc4=0.15)
 
 
 def env_ms():
@@ -190,7 +190,7 @@ def _slow(L):
     if pad:
         orbit = v.obj("osc~ 0.01")
         v.c(v.to(fx, "* 0.61"), 0, orbit, 0)
-        orb = v.to(mul(v, orbit, edep), "*~ 0.15")
+        orb = v.to(mul(v, orbit, edep), "*~ 0.25")
         home = v.ch(v.obj("loadbang"), "f $1", "expr " + " ".join(
             f"if($f1 == {i}, {p}," for i, p in enumerate(PAD_PAN[:-1])) + f" {PAD_PAN[-1]}" + ")" * (len(PAD_PAN) - 1))
         hp = v.to(orb, "+~ 0")

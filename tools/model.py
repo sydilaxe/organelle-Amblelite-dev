@@ -138,7 +138,7 @@ LOOP_LENS = ["auto", "free", "1bar", "2bar", "4bar", "8bar", "16bar"]
 LOOP_BARS = [0, 0, 1, 2, 4, 8, 16]
 QUANTS = ["off", "1/16", "1/8", "1/8T", "1/4"]
 QUANT_CLOCKS = [1, 6, 12, 8, 24]
-MAXC = 24          # an LFO's targets: off + up to 23 of the layer's parameters
+MAXC = 32          # an LFO's targets: off + up to 31 of the layer's parameters
 
 LANES = ["perc1", "perc2", "perc3", "perc4"]
 # the keyboard zones (MIDI page Zones on): the notes each layer takes (lo, hi); (127, 0): none. The first layer
@@ -166,7 +166,7 @@ def layer_controls(layer, engines=()):
     d = LANE_DEFAULT.get(layer)
     eng = Param("Engine", d[0] if d else 0, opts=list(engines))
     common = [eng, Param("Level", 0.5), Param("Cutoff", 1.0), Param("Reso", 0.1)]
-    evolve = ("EVOLVE", [Param("Evolve", 0.4), Param("Pace", 0.4), Param("EvSync", 0, opts=["free", "bars"])]
+    evolve = ("EVOLVE", [Param("Evolve", 0.6), Param("Pace", 0.55), Param("EvSync", 0, opts=["free", "bars"])]
                + ([] if perc else [Param("Drift", 0.0)]))
     feel = ("FEEL", [Param("Swing", 0.0), Param("Feel", 0, opts=FEELS)])
     lfos = [(f"LFO {n}", [Param("Target", 0, key=f"L{n}Tgt", target=True),
@@ -186,7 +186,7 @@ def layer_controls(layer, engines=()):
                      Param("Pitch", d[5], opts=PITCHES)]),
             ("RHYTHM", [Param("Hits", d[1], lo=1, hi=16), Param("Steps", d[2], lo=2, hi=16),
                         Param("Rotate", d[3], lo=0, hi=15), Param("Rate", d[4], opts=RATES)]),
-            ("MOTION", [Param("Phase", d[6], opts=PHASES), Param("Spread", 0.6), Param("Accent", 0.3)]),
+            ("MOTION", [Param("Phase", d[6], opts=PHASES), Param("Spread", 0.8), Param("Accent", 0.3)]),
             # a motif (its Pitch 'motif'): the notes of another layer's loop, transformed
             ("MOTIF", [Param("Source", 2, opts=MOTIF_SRC, key="MSrc"), Param("Transf", 0, opts=MOTIF_TRANS, key="MTran")]),
             feel] + lfos + [breath, evolve, loop]
@@ -229,9 +229,11 @@ WAVE_TABLES = ["amble", "basic", "reson", "pulse", "formnt", "harmon", "mini"]
 ENGINES = {
     "drone": [
         ("analog", [Param("WaveA", 0.67), Param("WaveB", 0.67), Param("Intvl", 0, opts=["unison", "5th", "oct", "-oct", "4th"]),
-                    Param("Detune", 0.35), Param("XMod", 0.0), Param("Ring", 0.0), Param("Sub", 0.3), Param("Mix", 0.5)]),
+                    Param("Detune", 0.35), Param("XMod", 0.0), Param("Ring", 0.0), Param("Sub", 0.3), Param("Mix", 0.5),
+                    Param("Bright", 0.7), Param("Reso", 0.25), Param("Sweep", 0.4), Param("Width", 0.6)]),
         ("fm", [Param("Ratio", 1, opts=["0.5", "1", "1.5", "2", "3", "3.5", "4", "5", "7"]), Param("Fine", 0.5),
-                Param("Index", 0.35), Param("Fdbk", 0.0), Param("Motion", 0.3), Param("MoRate", 0.3)]),
+                Param("Index", 0.35), Param("Fdbk", 0.0), Param("Motion", 0.3), Param("MoRate", 0.3),
+                Param("Width", 0.6)]),
         ("spectr", [Param("Upper", 0.5), Param("Drift", 0.5), Param("DrRate", 0.4), Param("OddEv", 0.5),
                     Param("Tilt", 0.5), Param("Strtch", 0.0)]),
     ],
@@ -247,14 +249,16 @@ ENGINES = {
                   Param("Chorus", 0.0)]),
         ("fm", [Param("Ratio", 1, opts=["0.5", "1", "1.5", "2", "3", "3.5", "4", "5", "7"]), Param("Fine", 0.5),
                 Param("Index", 0.3), Param("Fdbk", 0.0), Param("EnvAmt", 0.4), Param("EnvDec", 0.5)]),
-        ("saws", [Param("Detune", 0.4), Param("Spread", 0.6), Param("Centre", 0.6)]),
-        ("pwm", [Param("Width", 0.5), Param("Depth", 0.4), Param("Rate", 0.3), Param("Spread", 0.6)]),
+        ("saws", [Param("Detune", 0.4), Param("Spread", 0.6), Param("Centre", 0.6), Param("Bright", 0.6),
+                  Param("Reso", 0.3), Param("Sweep", 0.4)]),
+        ("pwm", [Param("Width", 0.5), Param("Depth", 0.4), Param("Rate", 0.3), Param("Spread", 0.6),
+                 Param("Bright", 0.6), Param("Sweep", 0.4)]),
         ("wave", [Param("Table", 0, opts=WAVE_TABLES), Param("Pos", 0.3), Param("Mode", 1, opts=["8bit", "smooth"]),
                   Param("Shimr", 0.0), Param("Detune", 0.3)]),
     ],
     "cloud": [
-        ("grains", [Param("Size", 0.45), Param("Densty", 0.6), Param("Pitch", 0, opts=CLOUD_PITCHES),
-                    Param("Spread", 0.6), Param("Scan", 0.3), Param("Jitter", 0.4), Param("Revrse", 0.2),
+        ("grains", [Param("Size", 0.55), Param("Densty", 1.0), Param("Pitch", 0, opts=CLOUD_PITCHES),
+                    Param("Spread", 0.9), Param("Scan", 0.15), Param("Jitter", 0.7), Param("Revrse", 0.2),
                     Param("Source", 0, opts=["layers", "input", "both"])]),
     ],
     "perc": [
@@ -304,7 +308,7 @@ MIX_PAGES = [("MIX 1", [("drone", "Level"), ("sub", "Level"), ("pad", "Level"), 
 # ---- Evolve: what moves in each engine, and how far (a weight: the share of the knob's range at Evolve 100 %).
 # ("Cutoff", None) is the layer's filter. Each target moves on two slow sines of its own (control.evolve).
 EVOLVE = {
-    ("drone", "analog"): [("WaveA", 0.6), ("WaveB", 0.6), ("XMod", 0.3), ("Mix", 0.5), (None, 0.25)],
+    ("drone", "analog"): [("WaveA", 0.6), ("WaveB", 0.6), ("XMod", 0.3), ("Mix", 0.5), ("Bright", 0.4), (None, 0.2)],
     ("drone", "fm"): [("Index", 0.5), ("Fdbk", 0.3), ("Fine", 0.08), (None, 0.25)],
     ("drone", "spectr"): [("Upper", 0.5), ("Tilt", 0.4), ("OddEv", 0.5), (None, 0.2)],
     ("sub", "sine"): [("Harm", 0.3), ("Body", 0.3)],
@@ -313,8 +317,8 @@ EVOLVE = {
     ("sub", "fm"): [("Index", 0.4), ("Growl", 0.3)],
     ("pad", "sine"): [("Harm", 0.5), ("Slope", 0.4), ("OddEv", 0.5), (None, 0.3)],
     ("pad", "fm"): [("Index", 0.5), ("Fdbk", 0.3), ("EnvAmt", 0.3), (None, 0.3)],
-    ("pad", "saws"): [("Detune", 0.3), ("Spread", 0.4), ("Centre", 0.4), (None, 0.4)],
-    ("pad", "pwm"): [("Width", 0.5), ("Depth", 0.3), ("Rate", 0.2), (None, 0.4)],
+    ("pad", "saws"): [("Detune", 0.3), ("Spread", 0.4), ("Centre", 0.4), ("Bright", 0.4), (None, 0.3)],
+    ("pad", "pwm"): [("Width", 0.5), ("Depth", 0.3), ("Rate", 0.2), ("Bright", 0.4), (None, 0.3)],
     ("pad", "wave"): [("Pos", 0.8), ("Shimr", 0.3), ("Detune", 0.3), (None, 0.3)],
     ("cloud", "grains"): [("Scan", 0.5), ("Size", 0.4), ("Spread", 0.3), ("Jitter", 0.3), (None, 0.25)],
     ("perc", "blip"): [("Cutoff", 0.5), ("Flick", 0.3), ("FEnv", 0.3)],
