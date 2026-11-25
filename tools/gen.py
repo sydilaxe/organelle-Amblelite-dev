@@ -90,6 +90,10 @@ def main_patch():
     hm = Canvas("harmony", w=2600)
     harmony.build(hm)
     m.sub(hm, 690, 250)
+    import lines
+    ln = Canvas("lines", w=2600)
+    lines.build(ln)
+    m.sub(ln, 870, 250)
     import roadmap
     rd = Canvas("roadmap", w=2600)
     roadmap.build(rd)

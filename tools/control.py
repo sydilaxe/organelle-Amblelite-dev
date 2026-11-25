@@ -413,6 +413,7 @@ def pads(c):
         SendL("al-pad-n", ["alpj", "alptn", f"if({z} == 3 || ({z} == 2 && {ov}), {glide_ms('pad')}, 0)"]),
         If(f"{z} == 0 || {ov} == 0", [SendL("al-pad-g", ["alpj", "alptv", "0"])]),
         T("alpg", "alpj", "1"), T("alpvn", "alpj", "alptn"), T("alpa", "alpj", "1"), T("alpk", "alpj", "alpkey"),
+        T("alplh", "alpj", "alptn"), T("alpls", "alpj", "0"),      # (the voice's home, for counterpoint: lines.py)
         V("alclock", "alclock + 1"), T("alpt", "alpj", "alclock")])
     proc(c, "al-pend", [Loop("4", "alj", [If("alpa[alj] == 0 && alpg[alj]", [
         SendL("al-pad-g", ["alj", "0", "0"]), T("alpg", "alj", "0")])])])
@@ -450,7 +451,7 @@ def transport(c):
     c.c(c.recv("al-midibyte"), 0, mo, 0)
     proc(c, "al-24", [V("alc24", "alc24 + 1"),
                       If(f"{opt(clk)} == 1", [Send("al-midibyte", "248")]),
-                      Call("al-lanes"), Call("al-gates"), Call("al-loops"),
+                      Call("al-lanes"), Call("al-gates"), Call("al-loops"), Call("al-lines"),
                       If("alc24 % 3 == 0", [Call("al-tick")])])
     proc(c, "al-startstop", [If("alrun", [Call("al-stop")], [Call("al-start")])])
     proc(c, "al-start", [If("alrun == 0", [
@@ -500,7 +501,8 @@ def lane_patterns(c):
             V("allv", acc),
             V("allr", swing_ms(L)),
             If(f"{pm} == 7", [SendL(f"al-sw-{L}", [f"alch[{j}] - 12", "allv", "allr"]) for j in range(3)],
-               [SendL(f"al-sw-{L}", [note, "allv", "allr"])])]))
+               [If(f"{pm} == 8", [Call(f"al-motif{i}"), SendL(f"al-sw-{L}", ["allmn", "allv", "allr"])],
+                   [SendL(f"al-sw-{L}", [note, "allv", "allr"])])])]))
         # swing: the step's notes after their delay ([pipe] keeps each one's own)
         pp = c.ch(c.recv(f"al-sw-{L}"), "pipe f f 0")
         pk = c.obj("pack f f")
@@ -675,7 +677,8 @@ def build(c):
     import midi
     import harmony
     import roadmap
-    for g in (features.GLOBALS, midi.GLOBALS, harmony.GLOBALS, roadmap.GLOBALS):
+    import lines
+    for g in (features.GLOBALS, midi.GLOBALS, harmony.GLOBALS, roadmap.GLOBALS, lines.GLOBALS):
         for k, v in g.items():
             assert k not in GLOBALS, k
         GLOBALS.update(g)

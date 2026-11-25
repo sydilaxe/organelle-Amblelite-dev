@@ -138,7 +138,7 @@ def main():
     # 7/16 in 16ths); perc1 in 8th triplets
     on = [(20 + i, f"al-inset {M.LAYERS.index(L)} 1") for i, L in enumerate(M.LANES[1:])]
     on += [(40, f"al-set {M.S('perc1', None, 'Rate')} {(2 + 0.5) / 6}"),
-           (41, f"al-set {M.S('perc3', None, 'Pitch')} {(7 + 0.5) / 8}")]
+           (41, f"al-set {M.S('perc3', None, 'Pitch')} {(7 + 0.5) / len(M.PITCHES)}")]
     log, a = H.run(on + [START], 5, d=d, keep=True, prints=tuple(f"al-{L}-hit" for L in M.LANES))
     n = {L: sum(1 for l in log.splitlines() if l.startswith(f"al-{L}-hit")) for L in M.LANES}
     beats = 4.8 * 84 / 60
@@ -369,6 +369,29 @@ def main():
     log, _ = H.run(rd[:-1] + keys + [(2000, "notesRaw 71 100"), (2050, "notesRaw 71 0")], 3, d=d, keep=True)
     line1 = open(os.path.join(d, "roadmap.txt")).read().splitlines()[0]
     check("a layer key edits the section on the SECTN page", line1.split()[2] == str(1 + 64), f"section 1: {line1}")
+
+    # ---- counterpoint: the pads' top voice steps to a neighbour and back on every 8th (Lines 100 %); at 0, still
+    pl = M.S("pad", None, "Lines")
+    log, _ = H.run(solo("pad") + [(50, f"al-set {pl} 1"), START], 3, d=d, keep=True, prints=("al-pad-n",))
+    moves = [l for l in log.splitlines() if l.startswith("al-pad-n") and l.endswith(" 80")]
+    log0, _ = H.run(solo("pad") + [START], 3, d=d, keep=True, prints=("al-pad-n",))
+    still = [l for l in log0.splitlines() if l.startswith("al-pad-n") and l.endswith(" 80")]
+    notes_ = sorted({int(float(l.split()[2])) for l in moves})
+    # (Cm7's top voice is Bb (70): its neighbours in C dorian, C above and A below, in turn)
+    check("counterpoint: a voice steps away and back", len(moves) >= 8 and not still and notes_ == [69, 70, 72],
+          f"{len(moves)} moves between {notes_}, {len(still)} at Lines 0")
+
+    # ---- motif: the pads' loop (A, C, E) played by percussion lane 1 (Pitch motif, Source pads), an octave up
+    mo = [(30, "al-sel-pad bang"), (40, f"al-set {M.S('perc1', None, 'Pitch')} {(8 + 0.5) / len(M.PITCHES)}"),
+          (41, f"al-set {M.S('perc1', None, 'MSrc')} {(2 + 0.5) / 7}"), START, (600, "notesRaw 75 100")]
+    for i, n in enumerate((57, 60, 64)):
+        mo += [(700 + 400 * i, f"al-midi {n} 100 1"), (900 + 400 * i, f"al-midi {n} 0 1")]
+    mo += [(2400, "notesRaw 75 100")]
+    log, _ = H.run(mo, 6, d=d, keep=True, prints=("al-perc1-hit",))
+    hits_ = [int(float(l.split()[2])) for l in log.splitlines() if l.startswith("al-perc1-hit")]
+    late = hits_[len(hits_) // 2:]
+    check("motif: a lane plays another layer's loop", late and set(late) <= {69, 72, 76} and len(set(late)) >= 2,
+          f"lane notes {sorted(set(late))} (69 72 76)")
 
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()

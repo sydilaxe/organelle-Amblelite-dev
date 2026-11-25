@@ -114,7 +114,11 @@ RATE_CLOCKS = [24, 12, 8, 6, 4, 3]
 BARS = ["manual", "1", "2", "4", "8", "16"]
 BAR_N = [0, 1, 2, 4, 8, 16]
 SUBMODES = ["pedal", "root"]
-PITCHES = ["up", "down", "updown", "root", "fifth", "scl up", "scl dn", "stack"]
+PITCHES = ["up", "down", "updown", "root", "fifth", "scl up", "scl dn", "stack", "motif"]
+MOTIF_SRC = ["drone", "sub", "pads", "perc1", "perc2", "perc3", "perc4"]
+MOTIF_TRANS = ["as is", "invert", "revrse", "+5th", "+oct", "-oct"]
+LINE_VOICES = ["top", "inner", "all", "bass"]
+LINE_STYLES = ["neighb", "passing"]
 PHASES = ["off", "16bar", "8bar", "4bar", "2bar", "1bar"]
 PHASE_BARS = [0, 16, 8, 4, 2, 1]
 COMPS = ["none", "drone", "sub", "pads"]
@@ -183,6 +187,8 @@ def layer_controls(layer, engines=()):
             ("RHYTHM", [Param("Hits", d[1], lo=1, hi=16), Param("Steps", d[2], lo=2, hi=16),
                         Param("Rotate", d[3], lo=0, hi=15), Param("Rate", d[4], opts=RATES)]),
             ("MOTION", [Param("Phase", d[6], opts=PHASES), Param("Spread", 0.6), Param("Accent", 0.3)]),
+            # a motif (its Pitch 'motif'): the notes of another layer's loop, transformed
+            ("MOTIF", [Param("Source", 2, opts=MOTIF_SRC, key="MSrc"), Param("Transf", 0, opts=MOTIF_TRANS, key="MTran")]),
             feel] + lfos + [breath, evolve, loop]
     return front, [
         ("ENV", [Param("Attack", 0.45), Param("Decay", 0.6), Param("Sustn", 0.85), Param("Releas", 0.55)]),
@@ -192,6 +198,10 @@ def layer_controls(layer, engines=()):
                   Param("Rotate", 0, lo=0, hi=15)]),
         ("GATE 2", [Param("Rate", 1, opts=RATES), Param("Length", 0.5), Param("Comp", 0, opts=COMPS),
                     Param("Accent", 0.3)]),
+        # counterpoint (pads): on the hits of a pattern, a voice steps from its chord tone and back
+        ] + ([("LINES", [Param("Lines", 0.0), Param("Rate", 1, opts=RATES, key="LnRate"),
+                         Param("Voices", 0, opts=LINE_VOICES, key="LnVoic"),
+                         Param("Style", 0, opts=LINE_STYLES, key="LnStyl")])] if layer == "pad" else []) + [
         # the gate's own envelope: its hits shaped apart from the notes you play
         ("GATENV", [Param("Attack", 0.15, key="GAtk"), Param("Decay", 0.4, key="GDec"),
                     Param("Sustn", 0.6, key="GSus"), Param("Releas", 0.35, key="GRel")]),

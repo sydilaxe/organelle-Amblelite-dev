@@ -172,6 +172,10 @@ Rate
 Length
 Comp
 Accent
+Lines
+Rate
+Voices
+Style
 Attack
 Decay
 Sustn
@@ -236,6 +240,8 @@ Rate
 Phase
 Spread
 Accent
+Source
+Transf
 Swing
 Feel
 Target
@@ -294,6 +300,8 @@ Rate
 Phase
 Spread
 Accent
+Source
+Transf
 Swing
 Feel
 Target
@@ -352,6 +360,8 @@ Rate
 Phase
 Spread
 Accent
+Source
+Transf
 Swing
 Feel
 Target
@@ -410,6 +420,8 @@ Rate
 Phase
 Spread
 Accent
+Source
+Transf
 Swing
 Feel
 Target
@@ -867,6 +879,18 @@ none
 drone
 sub
 pads
+1/4
+1/8
+1/8T
+1/16
+1/16T
+1/32
+top
+inner
+all
+bass
+neighb
+passing
 swing
 lilt
 drag
@@ -980,6 +1004,7 @@ fifth
 scl\ up
 scl\ dn
 stack
+motif
 1/4
 1/8
 1/8T
@@ -992,6 +1017,19 @@ off
 4bar
 2bar
 1bar
+drone
+sub
+pads
+perc1
+perc2
+perc3
+perc4
+as\ is
+invert
+revrse
++5th
++oct
+-oct
 swing
 lilt
 drag
@@ -1080,6 +1118,7 @@ fifth
 scl\ up
 scl\ dn
 stack
+motif
 1/4
 1/8
 1/8T
@@ -1092,6 +1131,19 @@ off
 4bar
 2bar
 1bar
+drone
+sub
+pads
+perc1
+perc2
+perc3
+perc4
+as\ is
+invert
+revrse
++5th
++oct
+-oct
 swing
 lilt
 drag
@@ -1180,6 +1232,7 @@ fifth
 scl\ up
 scl\ dn
 stack
+motif
 1/4
 1/8
 1/8T
@@ -1192,6 +1245,19 @@ off
 4bar
 2bar
 1bar
+drone
+sub
+pads
+perc1
+perc2
+perc3
+perc4
+as\ is
+invert
+revrse
++5th
++oct
+-oct
 swing
 lilt
 drag
@@ -1280,6 +1346,7 @@ fifth
 scl\ up
 scl\ dn
 stack
+motif
 1/4
 1/8
 1/8T
@@ -1292,6 +1359,19 @@ off
 4bar
 2bar
 1bar
+drone
+sub
+pads
+perc1
+perc2
+perc3
+perc4
+as\ is
+invert
+revrse
++5th
++oct
+-oct
 swing
 lilt
 drag
@@ -1434,6 +1514,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+-
 FAV
 LAYER
 FM\ 1
@@ -1449,6 +1530,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+-
 FAV
 LAYER
 SPECTR\ 1
@@ -1494,6 +1576,9 @@ LOOP
 -
 -
 -
+-
+-
+-
 FAV
 LAYER
 SINE\ 1
@@ -1508,6 +1593,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+-
 -
 FAV
 LAYER
@@ -1524,6 +1610,7 @@ BREATH
 EVOLVE
 LOOP
 -
+-
 FAV
 LAYER
 PULSE\ 1
@@ -1539,6 +1626,7 @@ BREATH
 EVOLVE
 LOOP
 -
+-
 FAV
 LAYER
 FM\ 1
@@ -1553,6 +1641,8 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+-
+-
 -
 -
 -
@@ -1577,6 +1667,7 @@ ENV
 PLAY
 GATE
 GATE\ 2
+LINES
 GATENV
 FEEL
 LFO\ 1
@@ -1592,6 +1683,7 @@ ENV
 PLAY
 GATE
 GATE\ 2
+LINES
 GATENV
 FEEL
 LFO\ 1
@@ -1606,6 +1698,7 @@ ENV
 PLAY
 GATE
 GATE\ 2
+LINES
 GATENV
 FEEL
 LFO\ 1
@@ -1621,6 +1714,7 @@ ENV
 PLAY
 GATE
 GATE\ 2
+LINES
 GATENV
 FEEL
 LFO\ 1
@@ -1637,6 +1731,7 @@ ENV
 PLAY
 GATE
 GATE\ 2
+LINES
 GATENV
 FEEL
 LFO\ 1
@@ -1651,6 +1746,7 @@ BLIP\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1666,6 +1762,7 @@ LPG\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1680,6 +1777,7 @@ BOWL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1695,6 +1793,7 @@ WOOD\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1710,6 +1809,7 @@ METAL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1726,6 +1826,7 @@ BLIP\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1741,6 +1842,7 @@ LPG\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1755,6 +1857,7 @@ BOWL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1770,6 +1873,7 @@ WOOD\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1785,6 +1889,7 @@ METAL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1801,6 +1906,7 @@ BLIP\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1816,6 +1922,7 @@ LPG\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1830,6 +1937,7 @@ BOWL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1845,6 +1953,7 @@ WOOD\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1860,6 +1969,7 @@ METAL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1876,6 +1986,7 @@ BLIP\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1891,6 +2002,7 @@ LPG\ 2
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1905,6 +2017,7 @@ BOWL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1920,6 +2033,7 @@ WOOD\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1935,6 +2049,7 @@ METAL\ 1
 HIT
 RHYTHM
 MOTION
+MOTIF
 FEEL
 LFO\ 1
 LFO\ 2
@@ -1952,6 +2067,11 @@ LFO\ 1
 LFO\ 2
 BREATH
 EVOLVE
+-
+-
+-
+-
+-
 -
 -
 -
@@ -2094,9 +2214,19 @@ SECTN
 -
 -
 -
+-
+-
+-
+-
+-
 MIX\ 1
 MIX\ 2
 MIX\ 3
+-
+-
+-
+-
+-
 -
 -
 -
@@ -2443,6 +2573,7 @@ B6/9
 13/1
 14/1
 15/1
+16/1
 1/2
 2/2
 3/2
@@ -2458,6 +2589,7 @@ B6/9
 13/2
 14/2
 15/2
+16/2
 1/3
 2/3
 3/3
@@ -2473,6 +2605,7 @@ B6/9
 13/3
 14/3
 15/3
+16/3
 1/4
 2/4
 3/4
@@ -2488,6 +2621,7 @@ B6/9
 13/4
 14/4
 15/4
+16/4
 1/5
 2/5
 3/5
@@ -2503,6 +2637,7 @@ B6/9
 13/5
 14/5
 15/5
+16/5
 1/6
 2/6
 3/6
@@ -2518,6 +2653,7 @@ B6/9
 13/6
 14/6
 15/6
+16/6
 1/7
 2/7
 3/7
@@ -2533,6 +2669,7 @@ B6/9
 13/7
 14/7
 15/7
+16/7
 1/8
 2/8
 3/8
@@ -2548,6 +2685,7 @@ B6/9
 13/8
 14/8
 15/8
+16/8
 1/9
 2/9
 3/9
@@ -2563,6 +2701,7 @@ B6/9
 13/9
 14/9
 15/9
+16/9
 1/10
 2/10
 3/10
@@ -2578,6 +2717,7 @@ B6/9
 13/10
 14/10
 15/10
+16/10
 1/11
 2/11
 3/11
@@ -2593,6 +2733,7 @@ B6/9
 13/11
 14/11
 15/11
+16/11
 1/12
 2/12
 3/12
@@ -2608,6 +2749,7 @@ B6/9
 13/12
 14/12
 15/12
+16/12
 1/13
 2/13
 3/13
@@ -2623,6 +2765,7 @@ B6/9
 13/13
 14/13
 15/13
+16/13
 1/14
 2/14
 3/14
@@ -2638,6 +2781,7 @@ B6/9
 13/14
 14/14
 15/14
+16/14
 1/15
 2/15
 3/15
@@ -2653,6 +2797,23 @@ B6/9
 13/15
 14/15
 15/15
+16/15
+1/16
+2/16
+3/16
+4/16
+5/16
+6/16
+7/16
+8/16
+9/16
+10/16
+11/16
+12/16
+13/16
+14/16
+15/16
+16/16
 +
 GLOBAL
 off
