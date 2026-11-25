@@ -149,12 +149,12 @@ def main():
 
     # the gate sequencer on the pads: their level pulses in 8ths; then the sub gated where the pads' pattern is
     # silent (Comp): the two alternate
-    gp = [(30, f"al-set {M.S('pad', None, 'Gate')} 0.75"), (31, f"al-set {M.S('pad', None, 'Attack')} 0.1"),
+    gp = [(30, f"al-set {M.S('pad', None, 'Gate')} 0.5"), (31, f"al-set {M.S('pad', None, 'Attack')} 0.1"),
           (32, f"al-set {M.S('pad', None, 'Releas')} 0.2")]
     _, a = run(solo("pad") + gp + [START], 4)
     e1 = env(seg(a, 1.5, 4))
     check("gate sequencer pulses the pads", np.std(e1) / (np.mean(e1) + 1e-9) > 0.4, f"variation {np.std(e1) / (np.mean(e1) + 1e-9):.2f}")
-    gs = [(33, f"al-set {M.S('sub', None, 'Gate')} 0.75"), (34, f"al-set {M.S('sub', None, 'Comp')} {(3 + 0.5) / 4}"),
+    gs = [(33, f"al-set {M.S('sub', None, 'Gate')} 0.5"), (34, f"al-set {M.S('sub', None, 'Comp')} {(3 + 0.5) / 4}"),
           (35, f"al-set {M.S('sub', None, 'Attack')} 0.1"), (36, f"al-set {M.S('sub', None, 'Releas')} 0.2")]
     _, b = run(solo("sub") + gp + gs + [START], 4)
     e2 = env(seg(b, 1.5, 4))
@@ -426,6 +426,30 @@ def main():
     pcs = sorted({int(float(l.split()[2])) % 12 for l in log.splitlines() if l.startswith("al-perc1-hit")})
     check("the scale and mode reach the notes (C harmonic minor)", set(pcs) <= {0, 2, 3, 5, 7, 8, 11} and
           {8, 11} <= set(pcs), f"pitch classes {pcs}")
+
+    # ---- a tapped rhythm: aux + top D# with lane 1 shown, three notes at steps 0, 3 and 5 of the cycle (8 steps of a
+    # 16th): it becomes the lane's pattern - those gaps (3 2 3), and then 3 hits a cycle (2 cycles: 6)
+    ev = solo("perc1") + [(30, "al-sel-perc1 bang"), (40, f"al-set {M.S('perc1', None, 'Steps')} {6 / 14}"),
+                          (41, f"al-set {M.S('perc1', None, 'Rate')} {(3 + 0.5) / 6}"),
+                          (43, f"al-set {M.S('perc1', None, 'Phase')} 0.01"), START,
+                          (1000, "aux 1"), (1010, "notesRaw 75 100"), (1020, "aux 0")]
+    step = 60000 / (84 * 4)
+    ev += [(1030 + int(st * step), "al-note 3 60 0.8") for st in (0, 3, 5)]
+    t_end = 1010 + 8 * step + 300
+    ev += [(int(t_end), "h-q bang"), (int(t_end + 16 * step), "h-q bang")]
+
+    def tapq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "array get altap 48 8"), 0, c.obj("print TAP", 900, 760), 0)
+        c.c(c.obj("r h-q", 1100, 700), 0, c.obj("print MARK", 1100, 760), 0)
+    log, _ = H.run(ev, t_end / 1000 + 16 * step / 1000 + 0.3, d=d, keep=True, extra=tapq, prints=("al-perc1-hit",))
+    tl = [l for l in log.splitlines() if l.startswith("TAP")]
+    tsteps = [i for i, v in enumerate(tl[0].split()[1:]) if float(v) > 0] if tl else []
+    gaps = sorted((tsteps[(i + 1) % len(tsteps)] - tsteps[i]) % 8 for i in range(len(tsteps))) if tsteps else []
+    seq = [l for l in log.splitlines() if l.startswith(("MARK", "al-perc1-hit"))]
+    m = [i for i, l in enumerate(seq) if l.startswith("MARK")]
+    between = sum(1 for l in seq[m[0] + 1:m[1]] if l.startswith("al-perc1-hit")) if len(m) == 2 else -1
+    check("a tapped rhythm becomes the lane's pattern", gaps == [2, 3, 3] and between == 6,
+          f"steps {tsteps} (gaps {gaps}), {between} hits in 2 cycles")
 
     # ---- every engine of every layer sounds (one second each, in turn), and nothing in Pd complains
     for L in ("drone", "pad", "perc1"):

@@ -5,7 +5,8 @@ Hz, synced in bars and beats, or 'loop': one cycle per loop - or per pattern cyc
 and a shape. Every 20 ms each active LFO writes its movement (alfm: LFO 1, alfn: LFO 2) and the value the sound hears
 (alpe = stored + Evolve + LFOs) goes out again when it moved.
 
-Snapshots: 16, in saves.txt (one line each: every parameter, the latches, the mutes and the FAV pages). Hold top A#
+Snapshots: 16, in saves.txt (one line each: every parameter, the latches, the mutes, the FAV pages and the tapped
+patterns). Hold top A#
 and press a key (low C .. top D#) to recall, with aux to save. Recall morphs: the choices (engines, key, mode, story
 ...) switch at once, every other parameter glides over the Morph time (PERFRM page; 0 = at once). A tap of top A#
 alone: COMPARE - back to the sound before the last recall, and again forward to it (morphing too).
@@ -25,7 +26,8 @@ MAXEV = 256                 # events a loop holds
 SAVE_SLOTS = 16
 SCRATCH = SAVE_SLOTS        # (line 16 of saves.txt: the sound before the last recall, for COMPARE)
 FAVN = NL * MAXENG * 4
-SNAP = NSLOTS + 2 * NL + FAVN
+TAPN = len(M.NOTE_LAYERS) * 16          # the tapped patterns (control.taps)
+SNAP = NSLOTS + 2 * NL + FAVN + TAPN
 
 
 def tables(c):
@@ -110,7 +112,7 @@ def assign(c):
 
 
 # ---------------------------------------------------------------------------------------------- toasts
-TOASTS = ["SAVED", "LOADED", "EMPTY", "COMPARE", "BACK", "REC", "PLAY", "DUB", "STOPPED", "CLEARED", "ASSIGN",
+TOASTS = ["SAVED", "LOADED", "EMPTY", "COMPARE", "BACK", "REC", "PLAY", "DUB", "STOPPED", "CLEARED", "ASSIGN", "TAP",
           "ROAD", "NEXT", "SECTION", "HOLD"]
 
 
@@ -141,7 +143,8 @@ def saves(c):
     proc(c, "al-gather", [
         ACopy("alp", 0, NSLOTS, "alsnap", 0), ACopy("allatch", 0, NL, "alsnap", NSLOTS),
         ACopy("alin", 0, NL, "alsnap", NSLOTS + NL),
-        Loop(str(FAVN), "alsi", [T("alsnap", f"{NSLOTS + 2 * NL} + alsi", "alks[alfavix[alsi]]")])])
+        Loop(str(FAVN), "alsi", [T("alsnap", f"{NSLOTS + 2 * NL} + alsi", "alks[alfavix[alsi]]")]),
+        ACopy("altap", 0, TAPN, "alsnap", NSLOTS + 2 * NL + FAVN)])
     # write line n of saves.txt from alsnap (array get -> text set: the line replaced), then the file
     wr = c.to(c.recv("al-snapwrite"), "t b f")
     ts = c.obj("text set al-saves")
@@ -179,6 +182,7 @@ def saves(c):
                                If(f"alin[alsi] != alsnap[{NSLOTS + NL} + alsi]", [
                                    SendL("al-inset", ["alsi", f"alsnap[{NSLOTS + NL} + alsi]"])])]),
         Loop(str(FAVN), "alsi", [T("alks", "alfavix[alsi]", f"alsnap[{NSLOTS + 2 * NL} + alsi]")]),
+        ACopy("alsnap", NSLOTS + 2 * NL + FAVN, TAPN, "altap", 0),
         V("almcnt", "0"), V("almdur", mms),
         Loop(str(NSLOTS), "alsi", [If("abs(alsnap[alsi] - alp[alsi]) > 0.0005", [
             If("aln[alsi] != 0 || almdur == 0", [SendL("al-set", ["alsi", "alsnap[alsi]"])],

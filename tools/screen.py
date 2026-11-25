@@ -115,7 +115,8 @@ def rows_tables(c):
     import model as M
     sl = lambda n: [S(L, None, n) for L in PAT_LAYERS]
     tabs = dict(alrh=sl("Hits"), alrs=sl("Steps"), alro=sl("Rotate"), alrr=sl("Rate"),
-                alrg=[S(L, None, "Gate") if L in ("drone", "sub", "pad") else -1 for L in PAT_LAYERS])
+                alrg=[S(L, None, "Gate") if L in ("drone", "sub", "pad") else -1 for L in PAT_LAYERS],
+                alrp=[S(L, None, "Patt") if L in M.LANES else -1 for L in PAT_LAYERS])
     for name, vals in tabs.items():
         c.obj(f"array define {name} {len(vals)}")
         c.c(c.m(c.recv("al-init"), " ".join(str(v) for v in vals)), 0, c.obj(f"array set {name}"), 0)
@@ -221,10 +222,12 @@ def build(c):
     # ---- pattern view: a row per layer (its gate or lane pattern), hits as boxes, the length as a tick; a
     # playhead under each row, moved every 16th (al-patmark)
     def row_on(r):
-        return f"alin[{r}] && if({r} < 3, alp[alrg[{r}]] >= 0.5, 1)"
+        return f"alin[{r}] && if({r} < 3, int(alp[alrg[{r}]]*3) >= 1, 1)"
     hits = "int(1 + alp[alrh[alpr]]*15 + 0.5)"
     steps = "int(2 + alp[alrs[alpr]]*14 + 0.5)"
-    cell = f"(alpc2*{hits}) % {steps} < {hits}"
+    # (a tapped row: its tapped steps)
+    tap = "if(alpr < 3, int(alp[alrg[alpr]]*3) == 2, alp[alrp[alpr]] >= 0.5)"
+    cell = f"if({tap}, altap[alpr*16 + alpc2] > 0, (alpc2*{hits}) % {steps} < {hits})"
     patv = [Loop(str(len(PAT_LAYERS)), "alpr", [
         If(row_on("alpr"), [
             Loop(steps, "alpc2", [If(cell, [SendL(OSC, [f"{PAT_X} + alpc2*{PAT_W}", "alpr*9 + 1"],

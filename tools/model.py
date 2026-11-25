@@ -207,7 +207,8 @@ def layer_controls(layer, engines=()):
                      Param("Pitch", d[5], opts=PITCHES)]),
             ("RHYTHM", [Param("Hits", d[1], lo=1, hi=16), Param("Steps", d[2], lo=2, hi=16),
                         Param("Rotate", d[3], lo=0, hi=15), Param("Rate", d[4], opts=RATES)]),
-            ("MOTION", [Param("Phase", d[6], opts=PHASES), Param("Spread", 0.8), Param("Accent", 0.3)]),
+            ("MOTION", [Param("Phase", d[6], opts=PHASES), Param("Spread", 0.8), Param("Accent", 0.3),
+                        Param("Patt", 0, opts=["euclid", "tapped"])]),
             # a motif (its Pitch 'motif'): the notes of another layer's loop, transformed
             ("MOTIF", [Param("Source", 2, opts=MOTIF_SRC, key="MSrc"), Param("Transf", 0, opts=MOTIF_TRANS, key="MTran")]),
             feel] + lfos + [breath, evolve, loop]
@@ -215,7 +216,7 @@ def layer_controls(layer, engines=()):
         ("ENV", [Param("Attack", 0.45), Param("Decay", 0.6), Param("Sustn", 0.85), Param("Releas", 0.55)]),
         ("PLAY", [Param("Artic", 2, opts=ARTIC), Param("Glide", 0.45), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
                   Param("Pan", 0.5)]),
-        ("GATE", [Param("Gate", 0, opts=ONOFF), Param("Hits", 3, lo=1, hi=16), Param("Steps", 8, lo=2, hi=16),
+        ("GATE", [Param("Gate", 0, opts=["off", "on", "tapped"]), Param("Hits", 3, lo=1, hi=16), Param("Steps", 8, lo=2, hi=16),
                   Param("Rotate", 0, lo=0, hi=15)]),
         ("GATE 2", [Param("Rate", 1, opts=RATES), Param("Length", 0.5), Param("Comp", 0, opts=COMPS),
                     Param("Accent", 0.3)]),

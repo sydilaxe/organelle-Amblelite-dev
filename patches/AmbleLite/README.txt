@@ -47,6 +47,7 @@ AUX held + key
   top C    start / stop
   top C#   build the roadmap (the ROAD page's settings)
   top D    clear your own story
+  top D#   tap a rhythm: one cycle of what you play on the shown layer becomes its pattern (Patt / Gate: tapped)
   top E    the HARMNY page's suggestion: played now, added to your own story
   top F#   hold the roadmap's section (again: let it go)
   top G    show the CLOUD pages
@@ -73,6 +74,10 @@ tri, saw up / down, square, steps, random smooth, random stepped: a new value ea
 
 LOOP: Len (auto: rounded to bars; free: as played; or 1 - 16 bars), Quant, Follow (chord: the loop
 moves with the chord story; exact), Vel. Records what you play into the layer, and its breath.
+
+TAPPED RHYTHMS: aux + top D# records one cycle (Steps x Rate) of the shown layer's pattern from the notes
+you play on it (notes mode or MIDI), each snapped to the nearest step. The lane's Patt (MOTION page) or
+the gate's Gate turns to 'tapped'; turn it back to euclid / on for the Euclidean pattern (kept).
 
 GATE: each gate has its own envelope (GATENV). FEEL: Swing and its feel (swing, lilt, drag, limp) on
 the gates and the lanes. MORPH (PERFRM page): how long a recalled snapshot glides (0 = at once).

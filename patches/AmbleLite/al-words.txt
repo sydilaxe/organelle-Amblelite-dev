@@ -311,6 +311,7 @@ Rate
 Phase
 Spread
 Accent
+Patt
 Source
 Transf
 Swing
@@ -375,6 +376,7 @@ Rate
 Phase
 Spread
 Accent
+Patt
 Source
 Transf
 Swing
@@ -439,6 +441,7 @@ Rate
 Phase
 Spread
 Accent
+Patt
 Source
 Transf
 Swing
@@ -503,6 +506,7 @@ Rate
 Phase
 Spread
 Accent
+Patt
 Source
 Transf
 Swing
@@ -752,6 +756,7 @@ slide
 +3
 off
 on
+tapped
 1/4
 1/8
 1/8T
@@ -861,6 +866,7 @@ slide
 +3
 off
 on
+tapped
 1/4
 1/8
 1/8T
@@ -973,6 +979,7 @@ slide
 +3
 off
 on
+tapped
 1/4
 1/8
 1/8T
@@ -1135,6 +1142,8 @@ off
 4bar
 2bar
 1bar
+euclid
+tapped
 drone
 sub
 pads
@@ -1257,6 +1266,8 @@ off
 4bar
 2bar
 1bar
+euclid
+tapped
 drone
 sub
 pads
@@ -1379,6 +1390,8 @@ off
 4bar
 2bar
 1bar
+euclid
+tapped
 drone
 sub
 pads
@@ -1501,6 +1514,8 @@ off
 4bar
 2bar
 1bar
+euclid
+tapped
 drone
 sub
 pads
@@ -4774,6 +4789,7 @@ DUB
 STOPPED
 CLEARED
 ASSIGN
+TAP
 ROAD
 NEXT
 SECTION
