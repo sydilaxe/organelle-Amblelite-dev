@@ -21,17 +21,17 @@ THE OTHER KEYS (one press each): the low black keys the views, the top octave pl
   low D#   the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)
   low F#   the pattern view (every gate and lane as steps), then the roadmap view, then neither
   low G#   the global pages: MAIN (key, tempo, scale, mode), LAYERS and LANES (each layer's engine), STORY, SYNC, MIDI, MIDI 2, PERFRM, HARMNY, ROAD, ROAD 2, SECTN (again: the next one)
-  low A#   page forward
+  low A#   notes mode: the Organelle keys play the shown layer (again: back to functions)
   top C    start / stop
-  top C#   clear the shown layer (back to its default)
+  top C#   page back
   top D    previous chord
-  top D#   the shown layer's looper: record, then play, overdub, play ...
+  top D#   page forward
   top E    next chord
-  top F    page back
+  top F    the shown layer's looper: arm (it starts on the next bar; free: on your first note; again: at once), the first pass, then overdub until a press switches to play (again: overdub)
   top F#   the shown layer's loop: stop / play
   top G#   clear the shown layer's loop
   top A    latch on / off for the shown layer (drone, sub, pads)
-  top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
+  top B    clear the shown layer (back to its default)
   top A#   held + a key from low C to top D#: recall snapshot 1 - 16 (with aux: save it);
            tapped alone: COMPARE (back to the sound before the recall; again: forward)
 
@@ -40,19 +40,22 @@ AUX held + key
   low D    show the SUB pages
   low E    show the PADS pages
   low F    show the PERC1 pages
+  low F#   hold the roadmap's section (again: let it go)
   low G    show the PERC2 pages
   low A    show the PERC3 pages
-  low A#   page back
+  low A#   notes mode: the Organelle keys play the shown layer (again: back to functions)
   low B    show the PERC4 pages
   top C    start / stop
-  top C#   build the roadmap (the ROAD page's settings)
+  top C#   page back
   top D    clear your own story
-  top D#   tap a rhythm: one cycle of what you play on the shown layer becomes its pattern (Patt / Gate: tapped)
+  top D#   page forward
   top E    the HARMNY page's suggestion: played now, added to your own story
-  top F#   hold the roadmap's section (again: let it go)
+  top F    the shown layer's looper: arm (it starts on the next bar; free: on your first note; again: at once), the first pass, then overdub until a press switches to play (again: overdub)
+  top F#   tapped rhythm: arm the shown layer's (next bar; again: at once), each cycle takes what you play, a press: play
   top G    show the CLOUD pages
-  top G#   the roadmap's next section
-  top B    notes mode: the Organelle keys play the shown layer (again: back to functions)
+  top G#   clear the shown layer's loop
+  top A    build the roadmap (the ROAD page's settings)
+  top B    the roadmap's next section
   aux tap  home: the play view
   aux held + a knob: ASSIGN - that knob's place on the FAV page takes a
            parameter of the layer (the knob chooses which)
@@ -75,9 +78,16 @@ tri, saw up / down, square, steps, random smooth, random stepped: a new value ea
 LOOP: Len (auto: rounded to bars; free: as played; or 1 - 16 bars), Quant, Follow (chord: the loop
 moves with the chord story; exact), Vel. Records what you play into the layer, and its breath.
 
-TAPPED RHYTHMS: aux + top D# records one cycle (Steps x Rate) of the shown layer's pattern from the notes
-you play on it (notes mode or MIDI), each snapped to the nearest step. The lane's Patt (MOTION page) or
-the gate's Gate turns to 'tapped'; turn it back to euclid / on for the Euclidean pattern (kept).
+LOOPING: top F arms the shown layer's loop. It starts on the next bar (Len free: on your first note; a
+second press: at once, even with nothing played - a blank loop). The first pass lasts Len (auto / free: until
+the next press sets its length); then it overdubs, pass after pass, until a press switches it to play (a
+press again: overdub). Top F# stops / plays it, top G# clears it. In notes mode: aux + those keys.
+ERASE: while a loop or tapped pattern records, hold aux (alone, a moment) - what passes under the playhead
+is erased, and what you play meanwhile replaces it (in notes mode the keys play while aux erases); let go:
+it overdubs again. (While anything records, aux + a knob doesn't assign.)
+TAPPED RHYTHMS: aux + top F# arms the shown layer's pattern the same way; each cycle (Steps x Rate) takes
+the notes you play on it, snapped to the nearest step, until aux + top F# switches it to play. The lane's
+Patt (MOTION page) or the gate's Gate turns to 'tapped'; euclid / on goes back (the tapped one is kept).
 
 GATE: each gate has its own envelope (GATENV). FEEL: Swing and its feel (swing, lilt, drag, limp) on
 the gates and the lanes. MORPH (PERFRM page): how long a recalled snapshot glides (0 = at once).

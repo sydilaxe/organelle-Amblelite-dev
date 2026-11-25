@@ -40,8 +40,8 @@ def main():
     ev += tap(18000, 61) + [(18200, "notesRaw 82 100"), (18300, "aux 1"), (18400, "notesRaw 62 100"),
                             (18450, "notesRaw 62 0"), (18500, "aux 0"), (18600, "notesRaw 82 0"), (18800, "h-snap 9-toast")]
     # the roadmap view: built (aux + top C#), auto, then low F# twice
-    ev += [(19000, f"al-set {S('g', None, 'Road')} 0.9"), (19100, "aux 1"), (19200, "notesRaw 73 100"),
-           (19250, "notesRaw 73 0"), (19300, "aux 0")] + tap(21000, 66) + tap(21200, 66) + [(23000, "h-snap 10-roadmap")]
+    ev += [(19000, f"al-set {S('g', None, 'Road')} 0.9"), (19100, "aux 1"), (19200, "notesRaw 81 100"),
+           (19250, "notesRaw 81 0"), (19300, "aux 0")] + tap(21000, 66) + tap(21200, 66) + [(23000, "h-snap 10-roadmap")]
     log, _ = run(ev, 24, prints=("oscOut",), extra=snap)
     saved = oledemu.render(log, OUT)
     # a contact sheet

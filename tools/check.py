@@ -252,8 +252,8 @@ def main():
 
     # the looper: on the sub, A then E recorded in one bar; the next cycles play them again
     q = [(30, f"al-set {M.S('g', None, 'Bars')} 0.05"), (31, "al-sel-sub bang")]
-    ev3 = solo("sub") + q + [START, (1000, "notesRaw 75 100"), (1001, "al-midi 69 100 1"), (1500, "al-midi 69 0 1"),
-                             (2400, "al-midi 76 100 1"), (2900, "al-midi 76 0 1"), (3700, "notesRaw 75 100")]
+    ev3 = solo("sub") + q + [START, (998, "notesRaw 77 100"), (1000, "notesRaw 77 100"), (1001, "al-midi 69 100 1"), (1500, "al-midi 69 0 1"),
+                             (2400, "al-midi 76 100 1"), (2900, "al-midi 76 0 1"), (3700, "notesRaw 77 100")]
     _, a = run(ev3, 9.5)
     # (a bar is 2.86 s: the 2nd cycle starts at 3.86 s - A, then E 1.4 s later; the 3rd at 6.71 s)
     h1, h2, h3 = peak_hz(seg(a, 4.2, 5.0), 30, 400), peak_hz(seg(a, 5.6, 6.4), 30, 400), peak_hz(seg(a, 7.0, 7.8), 30, 400)
@@ -337,8 +337,8 @@ def main():
     zb = solo("sub") + [(50, f"al-set {zones} 0.75"), (51, f"al-set {S_('sub', None, 'BTgt')} {(2 + 0.5) / M.MAXC}"),
                         (52, f"al-set {S_('sub', None, 'BDep')} 1"), (53, f"al-set {S_('sub', None, 'Level')} 0.15"),
                         (54, f"al-set {S_('g', None, 'Bars')} 0.05"), START,
-                        (1000, "notesRaw 75 100"), (1001, "al-midi 45 100 1"), (1010, "al-cc 127 2 1"),
-                        (2000, "al-cc 0 2 1"), (3800, "al-midi 45 0 1"), (3810, "notesRaw 75 100")]
+                        (998, "notesRaw 77 100"), (1000, "notesRaw 77 100"), (1001, "al-midi 45 100 1"), (1010, "al-cc 127 2 1"),
+                        (2000, "al-cc 0 2 1"), (3800, "al-midi 45 0 1"), (3810, "notesRaw 77 100")]
     _, a = run(zb, 7.2)
     hi_, lo_ = H.rms_db(seg(a, 4.0, 4.7)), H.rms_db(seg(a, 5.2, 6.4))
     check("a zone's breath loops", hi_ - lo_ > 8, f"replayed: {hi_:.1f} dB where it blew, {lo_:.1f} after")
@@ -375,7 +375,7 @@ def main():
     g = lambda k: M.S("g", None, k)
     gpages = [n for n, _ in M.GLOBAL_PAGES]
     rd = [(50, f"al-set {g('Road')} 0.9"), (51, f"al-set {g('Mins')} 0"), (52, f"al-set {g('Tempo')} 1"),
-          (100, "aux 1"), (150, "notesRaw 73 100"), (160, "notesRaw 73 0"), (200, "aux 0"), START]
+          (100, "aux 1"), (150, "notesRaw 81 100"), (160, "notesRaw 81 0"), (200, "aux 0"), START]
     # (the first section shortened to 4 bars on the SECTN page: Bars, for the section Sect shows)
     log, _ = H.run(rd + [(300, f"al-set {g('SBars')} 0")], 9, d=d, keep=True, prints=("al-inset",))
     ins = [l for l in log.splitlines() if l.startswith("al-inset")]
@@ -399,10 +399,10 @@ def main():
 
     # ---- motif: the pads' loop (A, C, E) played by percussion lane 1 (Pitch motif, Source pads), an octave up
     mo = [(30, "al-sel-pad bang"), (40, f"al-set {M.S('perc1', None, 'Pitch')} {(8 + 0.5) / len(M.PITCHES)}"),
-          (41, f"al-set {M.S('perc1', None, 'MSrc')} {(2 + 0.5) / 7}"), START, (600, "notesRaw 75 100")]
+          (41, f"al-set {M.S('perc1', None, 'MSrc')} {(2 + 0.5) / 7}"), START, (598, "notesRaw 77 100"), (600, "notesRaw 77 100")]
     for i, n in enumerate((57, 60, 64)):
         mo += [(700 + 400 * i, f"al-midi {n} 100 1"), (900 + 400 * i, f"al-midi {n} 0 1")]
-    mo += [(2400, "notesRaw 75 100")]
+    mo += [(2400, "notesRaw 77 100")]
     log, _ = H.run(mo, 6, d=d, keep=True, prints=("al-perc1-hit",))
     hits_ = [int(float(l.split()[2])) for l in log.splitlines() if l.startswith("al-perc1-hit")]
     late = hits_[len(hits_) // 2:]
@@ -427,15 +427,51 @@ def main():
     check("the scale and mode reach the notes (C harmonic minor)", set(pcs) <= {0, 2, 3, 5, 7, 8, 11} and
           {8, 11} <= set(pcs), f"pitch classes {pcs}")
 
+    # ---- the looper's flow (the sub, Len 1 bar): armed until the bar line, the first pass, then overdub; a press:
+    # play. Aux held over the start of a pass erases the A there while the D played meanwhile replaces it
+    BARMS = 96 * 60000 / (84 * 24)
+    T0 = 200
+
+    def lq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "expr allps[1]"), 0, c.obj("print ST", 900, 760), 0)
+        c.c(c.ch(c.obj("r h-n", 1100, 700), "array get allpn 256 4"), 0, c.obj("print NOTES", 1100, 760), 0)
+    ev = solo("sub") + [(30, "al-sel-sub bang"), (31, f"al-set {M.S('sub', None, 'LpLen')} {(2 + 0.5) / 7}"), START,
+                        (1000, "notesRaw 77 100"), (1100, "h-q bang"), (int(T0 + BARMS + 100), "h-q bang"),
+                        (int(T0 + BARMS + 200), "al-midi 57 100 1"), (int(T0 + BARMS + 500), "al-midi 57 0 1"),
+                        (int(T0 + 2 * BARMS + 100), "h-q bang"), (int(T0 + 2 * BARMS + 150), "h-n bang"),
+                        (int(T0 + 3 * BARMS - 300), "aux 1"), (int(T0 + 3 * BARMS + 250), "al-midi 62 100 1"),
+                        (int(T0 + 3 * BARMS + 600), "al-midi 62 0 1"), (int(T0 + 3 * BARMS + 900), "aux 0"),
+                        (int(T0 + 4 * BARMS - 100), "h-n bang"), (int(T0 + 4 * BARMS + 100), "notesRaw 77 100"),
+                        (int(T0 + 4 * BARMS + 200), "h-q bang")]
+    log, _ = H.run(ev, (T0 + 4 * BARMS + 400) / 1000, d=d, keep=True, extra=lq)
+    st = [l.split()[-1] for l in log.splitlines() if l.startswith("ST")]
+    nt = [" ".join(l.split()[1:3]) for l in log.splitlines() if l.startswith("NOTES")]
+    check("loop: armed till the bar, first pass, overdub, a press plays", st == ["5", "1", "3", "2"],
+          "states " + " ".join(st) + " (5 armed, 1 first pass, 3 overdub, 2 play)")
+    check("loop: aux held erases, what is played meanwhile replaces it", nt == ["57 57", "62 62"],
+          f"notes before {nt[:1]}, after {nt[1:2]}")
+    # a free loop starts on its first note (not on the bar line)
+    ev = solo("sub") + [(30, "al-sel-sub bang"), (31, f"al-set {M.S('sub', None, 'LpLen')} {(1 + 0.5) / 7}"), START,
+                        (1000, "notesRaw 77 100"), (1700, "al-midi 57 100 1"), (1800, "h-q bang")]
+
+    def fq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), "expr allps[1]*1000 + allp0[1]"), 0, c.obj("print FR", 900, 760), 0)
+    log, _ = H.run(ev, 2, d=d, keep=True, extra=fq)
+    fr = [float(l.split()[-1]) for l in log.splitlines() if l.startswith("FR")]
+    p0 = fr[0] - 1000 if fr else -1
+    check("loop: free starts on the first note", fr and fr[0] >= 1000 and p0 % 96 != 0 and abs(p0 - 1500 / 29.76) < 3,
+          f"state {int(fr[0] // 1000) if fr else '-'}, from clock {p0:.0f} (the note: {1500 / 29.76:.0f})")
+
     # ---- a tapped rhythm: aux + top D# with lane 1 shown, three notes at steps 0, 3 and 5 of the cycle (8 steps of a
     # 16th): it becomes the lane's pattern - those gaps (3 2 3), and then 3 hits a cycle (2 cycles: 6)
     ev = solo("perc1") + [(30, "al-sel-perc1 bang"), (40, f"al-set {M.S('perc1', None, 'Steps')} {6 / 14}"),
                           (41, f"al-set {M.S('perc1', None, 'Rate')} {(3 + 0.5) / 6}"),
                           (43, f"al-set {M.S('perc1', None, 'Phase')} 0.01"), START,
-                          (1000, "aux 1"), (1010, "notesRaw 75 100"), (1020, "aux 0")]
+                          (1000, "aux 1"), (1008, "notesRaw 78 100"), (1010, "notesRaw 78 100"), (1020, "aux 0")]
     step = 60000 / (84 * 4)
     ev += [(1030 + int(st * step), "al-note 3 60 0.8") for st in (0, 3, 5)]
     t_end = 1010 + 8 * step + 300
+    ev += [(int(t_end) - 200, "aux 1"), (int(t_end) - 190, "notesRaw 78 100"), (int(t_end) - 180, "aux 0")]
     ev += [(int(t_end), "h-q bang"), (int(t_end + 16 * step), "h-q bang")]
 
     def tapq(c):
