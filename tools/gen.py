@@ -10,7 +10,7 @@ import voice
 import wavetables
 import filters
 import features
-from dsp import mul, add
+from dsp import mul, add, sub, div
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "patches", "AmbleLite")
@@ -45,7 +45,16 @@ def mix():
             c.c(c.ch(c.recv(f"al-s{pan}"), "t b"), 0, pb, 0)
             bl = mul(c, gl, c.ch(pb, "pack f 30", "line~"))
             br = mul(c, gl, c.ch((pb, 1), "pack f 30", "line~"))
-        oL, oR = mul(c, c.obj(f"catch~ al-{L}-L"), bl), mul(c, c.obj(f"catch~ al-{L}-R"), br)
+        cL, cR = c.obj(f"catch~ al-{L}-L"), c.obj(f"catch~ al-{L}-R")
+        if L != "cloud":            # (the layer's filter, once on its bus rather than in every voice: filters.py)
+            fl = []
+            for x in (cL, cR):
+                bq = c.obj("biquad~ 0 0 1 0 0")
+                c.c(c.recv(f"al-{L}-bq"), 0, bq, 0)
+                c.c(x, 0, bq, 0)
+                fl.append(bq)
+            cL, cR = fl
+        oL, oR = mul(c, cL, bl), mul(c, cR, br)
         c.c(oL, 0, mL, 0)
         c.c(oR, 0, mR, 0)
         if L != "cloud":            # (what the cloud records: every other layer, after its level)
@@ -54,8 +63,11 @@ def mix():
         c.col(200)
     vol = c.ch(c.recv(f"al-s{M.S('g', None, 'Volume')}"), "expr $f1*$f1*2", "pack f 30", "line~")
     for x, o in ((mL, "outL"), (mR, "outR")):
-        y = c.ch(mul(c, x, vol), "hip~ 5",
-                 "expr~ if(abs($v1) < 0.8, $v1, if($v1 > 0, 1, -1)*(0.8 + 0.2*tanh((abs($v1) - 0.8)/0.2)))")
+        # (a soft limit above 0.8: the excess e eased to 0.2 e / (0.2 + |e|), so it never passes 1)
+        y0 = c.ch(mul(c, x, vol), "hip~ 5")
+        lin = c.to(y0, "clip~ -0.8 0.8")
+        e = sub(c, y0, lin)
+        y = add(c, lin, div(c, c.to(e, "*~ 0.2"), c.ch(e, "abs~", "+~ 0.2")))
         c.c(y, 0, c.obj("throw~ " + o), 0)
     return c
 

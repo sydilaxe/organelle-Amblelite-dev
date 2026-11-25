@@ -30,6 +30,13 @@ def sub(c, a, b):
     return m
 
 
+def div(c, a, b):
+    m = c.obj("/~")
+    c.c(*(a if isinstance(a, tuple) else (a, 0)), m, 0)
+    c.c(*(b if isinstance(b, tuple) else (b, 0)), m, 1)
+    return m
+
+
 def prm(c, slot, ms=150):
     """slot as a smoothed signal 0..1 (every change ramps over ms: no zipper noise, no steps)"""
     return c.ch(c.recv(f"al-s{slot}"), f"pack f {ms}", "line~")

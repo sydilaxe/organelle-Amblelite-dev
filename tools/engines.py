@@ -1,7 +1,7 @@
 """The sound engines, by layer. Each builder takes (s, ins) - the engine canvas and its inputs (dsp.engine_canvas) -
 and returns (L, R) before the engine's own fade. Parameters by name: P(name) is the slot; prm / cx turn it into a
 signal. Nothing here is random: the only movement is what the parameters ask for."""
-from dsp import mul, add, sub, prm, saw_expr, pulse_expr, dt_of, blep
+from dsp import mul, add, sub, prm
 from model import S, ENGINES, kind
 
 FM_RATIOS = [0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7]
@@ -49,22 +49,20 @@ def fm2(c, f, ratio, index, fb):
 
 
 # =========================================================================================== drone
-WAVE_MORPH = ("max(0, 1 - abs($v3*3))*cos(6.28318*$v1) + max(0, 1 - abs($v3*3 - 1))*(1 - 4*abs($v1 - 0.5)) + "
-              f"max(0, 1 - abs($v3*3 - 2))*({saw_expr()}) + max(0, 1 - abs($v3*3 - 3))*({pulse_expr(w='0.5')})")
+def saw_n(c, f):
+    """a plain saw (-1..1) from a frequency: Pd's own phasor~, raw and cheap (as Amble's saws)"""
+    return c.ch(f, "phasor~", "*~ 2", "-~ 1")
 
 
-def morph_osc(c, f, w):
-    """an oscillator morphing sine -> triangle -> saw -> square (band-limited saw and square) by w~ (0..1)"""
-    ph = c.to(f, "phasor~")
-    return morph_from(c, ph, dt_of(c, f), w)
+def pulse_n(c, ph, w):
+    """a pulse of width w~ (0..1) from a phase: the difference of two saws (no DC at any width), -1..1"""
+    p2 = c.to(add(c, ph, c.ch(w, "*~ -1", "+~ 1")), "wrap~")
+    return c.to(sub(c, ph, p2), "*~ 2")
 
 
-def morph_from(c, ph, dt, w):
-    e = c.obj("expr~ " + WAVE_MORPH)
-    c.c(ph, 0, e, 0)
-    c.c(dt, 0, e, 1)
-    c.c(w, 0, e, 2)
-    return e
+def floor_s(c, x):
+    """floor() of a signal without [expr~]: x - wrap~(x)"""
+    return sub(c, x, c.to(x, "wrap~"))
 
 
 def morph_cheap(c, ph, slot):
@@ -117,7 +115,7 @@ def drone_fm(s, ins, L):
                                             f"*pow(2, ({a(P('Fine'))} - 0.5)/6)")
     rate = s.ch(s.recv(f"al-s{P('MoRate')}"), "expr 0.01*pow(50, $f1)", "osc~")
     mot = add(s, s.to(mul(s, rate, prm(s, P("Motion"))), "*~ 0.5"), s.obj("sig~ 1"))
-    idx = mul(s, s.ch(prm(s, P("Index")), "expr~ 1.6*$v1*$v1"), mot)
+    idx = mul(s, cx(s, [P("Index")], f"1.6*{a(P('Index'))}*{a(P('Index'))}"), mot)
     fb = s.to(prm(s, P("Fdbk")), "*~ 0.25")
     o = s.to(fm2(s, f, ratio, idx, fb), "*~ 0.43")
     return o, o
@@ -172,10 +170,7 @@ def sub_warm(s, ins, L):
 def sub_pulse(s, ins, L):
     f, env, note = ins
     P = lambda n: S("sub", "pulse", n)
-    e = s.obj("expr~ " + pulse_expr())
-    s.c(s.to(f, "phasor~"), 0, e, 0)
-    s.c(dt_of(s, f), 0, e, 1)
-    s.c(s.ch(prm(s, P("Width")), "*~ 0.45", "+~ 0.05"), 0, e, 2)
+    e = pulse_n(s, s.to(f, "phasor~"), s.ch(prm(s, P("Width")), "*~ 0.45", "+~ 0.05"))
     y = s.ch(e, "lop~ 300", "lop~ 300", "*~ 0.75")
     o = _body(s, y, P("Body"))
     return o, o
@@ -187,7 +182,7 @@ def sub_fm(s, ins, L):
     n = len(SUB_FM_RATIOS)
     ratio = cx(s, [P("Ratio")], pick(SUB_FM_RATIOS, f"min({n - 1}, int({a(P('Ratio'))}*{n}))"))
     growl = add(s, s.to(mul(s, s.obj("osc~ 0.07"), prm(s, P("Growl"))), "*~ 0.5"), s.obj("sig~ 1"))
-    idx = mul(s, s.ch(prm(s, P("Index")), "expr~ 1.2*$v1*$v1"), growl)
+    idx = mul(s, cx(s, [P("Index")], f"1.2*{a(P('Index'))}*{a(P('Index'))}"), growl)
     o = s.to(fm2(s, f, ratio, idx, s.to(prm(s, P("Fdbk")), "*~ 0.2")), "*~ 0.6")
     return o, o
 
@@ -234,7 +229,7 @@ def pad_fm(s, ins, L):
     s.c(tb, 0, ex, 0)
     s.c(s.m(ex, "1, 0 $1"), 0, ie, 0)
     ienv = mul(s, mul(s, ie, ie), s.to(prm(s, P("EnvAmt")), "*~ 2"))
-    idx = mul(s, s.ch(prm(s, P("Index")), "expr~ 1.6*$v1*$v1"), s.to(ienv, "+~ 1"))
+    idx = mul(s, cx(s, [P("Index")], f"1.6*{a(P('Index'))}*{a(P('Index'))}"), s.to(ienv, "+~ 1"))
     o = s.to(fm2(s, f, ratio, idx, s.to(prm(s, P("Fdbk")), "*~ 0.25")), "*~ 0.3")
     return o, o
 
@@ -242,14 +237,11 @@ def pad_fm(s, ins, L):
 def pad_saws(s, ins, L):
     f, env, note = ins
     P = lambda n: S("pad", "saws", n)
-    d = s.ch(prm(s, P("Detune")), "expr~ $v1*$v1*0.02")
+    d = cx(s, [P("Detune")], f"{a(P('Detune'))}*{a(P('Detune'))}*0.02")
     saws = []
     for k in (-1, 0, 1):
         fk = f if k == 0 else mul(s, f, s.ch(d, f"*~ {k}", "+~ 1"))
-        e = s.obj("expr~ " + saw_expr())
-        s.c(s.to(fk, "phasor~"), 0, e, 0)
-        s.c(dt_of(s, fk), 0, e, 1)
-        saws.append(e)
+        saws.append(saw_n(s, fk))
     sp = s.ch(prm(s, P("Spread")), "*~ 0.5")
     hi = s.to(sp, "+~ 0.5")
     lo = s.ch(sp, "*~ -1", "+~ 0.5")
@@ -263,7 +255,6 @@ def pad_pwm(s, ins, L):
     f, env, note = ins
     P = lambda n: S("pad", "pwm", n)
     ph = s.to(f, "phasor~")
-    dt = dt_of(s, f)
     lfo = s.ch(s.recv(f"al-s{P('Rate')}"), "expr 0.05*pow(100, $f1)", "osc~")
     dep = mul(s, lfo, s.to(prm(s, P("Depth")), "*~ 0.4"))
     w0 = s.ch(prm(s, P("Width")), "*~ 0.9", "+~ 0.05")
@@ -273,11 +264,7 @@ def pad_pwm(s, ins, L):
     outs = []
     for d in (dep, depR):
         w = s.to(add(s, w0, d), "clip~ 0.03 0.97")
-        e = s.obj("expr~ " + pulse_expr())
-        s.c(ph, 0, e, 0)
-        s.c(dt, 0, e, 1)
-        s.c(w, 0, e, 2)
-        outs.append(s.to(e, "*~ 0.2"))
+        outs.append(s.to(pulse_n(s, ph, w), "*~ 0.2"))
     return outs[0], outs[1]
 
 
@@ -300,19 +287,18 @@ def pad_wave(s, ins, L):
     # frames - 1 as a signal (each table change)
     fm1 = s.ch(nfr, "- 1", "sig~")
     fpos = mul(s, pos, fm1)
-    mode = prm(s, P("Mode"))           # 0..1: < 0.5 = 8-bit, above = smooth
-    gsm = s.ch(mode, "expr~ $v1 >= 0.5")
+    gsm = cx(s, [P("Mode")], f"{a(P('Mode'))} >= 0.5")
     g8 = s.ch(gsm, "*~ -1", "+~ 1")
     shim = s.to(prm(s, P("Shimr")), "*~ 0.5")
-    det = s.ch(prm(s, P("Detune")), "expr~ 1 + $v1*$v1*0.008")
+    det = cx(s, [P("Detune")], f"1 + {a(P('Detune'))}*{a(P('Detune'))}*0.008")
 
     def read(fr):
         ph = s.to(fr, "phasor~")
         idx = s.to(ph, f"*~ {CYCLE}")
-        lo = s.to(fpos, "expr~ floor($v1)")
+        lo = floor_s(s, fpos)
         frac = sub(s, fpos, lo)
-        hi2 = s.obj("expr~ min($v1 + 1, $v2)")
-        s.c(lo, 0, hi2, 0)
+        hi2 = s.obj("min~")
+        s.c(s.to(lo, "+~ 1"), 0, hi2, 0)
         s.c(fm1, 0, hi2, 1)
         r = []
         for fr_i in (lo, hi2):
@@ -323,12 +309,12 @@ def pad_wave(s, ins, L):
             r.append(t)
         smooth = add(s, r[0], mul(s, sub(s, r[1], r[0]), frac))
         # 8-bit: the nearest frame, the sample without interpolation, rounded to 8 bits
-        rnd = s.to(fpos, "expr~ floor($v1 + 0.5)")
+        rnd = floor_s(s, s.to(fpos, "+~ 0.5"))
         t8 = s.obj("tabread~ alwt-amble")
         for m in readers:
             s.c(m, 0, t8, 0)
-        s.c(add(s, s.to(rnd, f"*~ {STRIDE}"), s.ch(idx, "expr~ floor($v1) + 1")), 0, t8, 0)
-        q8 = s.to(t8, "expr~ floor($v1*127 + 0.5)/127")
+        s.c(add(s, s.to(rnd, f"*~ {STRIDE}"), s.to(floor_s(s, idx), "+~ 1")), 0, t8, 0)
+        q8 = s.to(floor_s(s, s.ch(t8, "*~ 127", "+~ 0.5")), "*~ 0.007874")
         return add(s, mul(s, smooth, gsm), mul(s, q8, g8))
 
     L0 = read(f)
@@ -375,9 +361,7 @@ def perc_blip(s, ins, L):
     for i in (2, 1, 0):
         s.c(fl, i, pk, i)
     fv = s.ch(s.m(pk, "$1, $2 $3"), "vline~")
-    saw = s.obj("expr~ " + saw_expr())
-    s.c(s.to(fv, "phasor~"), 0, saw, 0)
-    s.c(dt_of(s, fv), 0, saw, 1)
+    saw = saw_n(s, fv)
     subo = mul(s, s.ch(s.to(fv, "*~ 0.5"), "osc~"), s.to(prm(s, P("Sub")), "*~ 0.7"))
     src = add(s, saw, subo)
     # the filter: from 2 .. 11 x the note (by velocity, x Cutoff) down to 1.2 x over a share of the decay
