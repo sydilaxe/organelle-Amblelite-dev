@@ -66,7 +66,12 @@ def run(events, seconds, prints=("oscOut",), d=None, keep=False, extra=None, inp
     c.save(os.path.join(d, "h_test.pd"))
     res = subprocess.run(["pd", "-nosound", "-nomidi", "-batch", "-stderr", "-open", "h_test.pd"], cwd=d,
                          capture_output=True, text=True, timeout=1800)
-    a = audio(os.path.join(d, "h.wav"))
+    try:
+        a = audio(os.path.join(d, "h.wav"))
+    except ValueError:
+        # (no audio written: say how Pd ended - a crash shows as a negative return code - and what it said last)
+        tail = "\n".join(res.stderr.splitlines()[-25:])
+        raise RuntimeError(f"Pd wrote no audio (return code {res.returncode}); its last output:\n{tail}")
     if own and not keep:
         shutil.rmtree(d, ignore_errors=True)
     return res.stderr, a
