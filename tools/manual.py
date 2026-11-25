@@ -61,7 +61,8 @@ FUNCS = {
     "al-vis": ("VISUAL", "The visualizer: an abstract oscilloscope, each shape moved by its layer's waveform - the "
                          "master's trace across the screen, the drone a closed shape whose outline is its waveform, "
                          "the sub its waveform along the bottom, the pads a Lissajous of their sides, the cloud points "
-                         "placed by its waveform; the lanes boxes that jump with each hit. Aux tap: home."),
+                         "rings sent out from the drone's shape; each lane's hit a rock falling into water, a spreading ring. "
+                         "Aux tap: home."),
     "al-panic": ("PANIC", "Panic: everything fades out over 1.5 s, then the clock stops and every note is released "
                           "(latched ones too); silent - the cloud too - until Start. Loops are kept."),
     "al-taprec": ("TAP", "Tapped rhythm for the shown layer: arm, every cycle takes your taps, again: play."),
@@ -563,7 +564,7 @@ def story():
              ("10-roadmap", "Roadmap view: the sections as a strip, the current one filled, the layers in it, the "
                             "next role."),
              ("11-visual", "The visualizer (aux + low C#): the master's trace; the drone's outline, the sub's trace, "
-                           "the pads' Lissajous and the cloud's points, each from its own waveform; the lanes' boxes.")]
+                           "the pads' Lissajous, each from its own waveform; the hits' ripples; the cloud's rings.")]
     rows = []
     for i in range(0, len(shots), 2):
         cells = []

@@ -3,8 +3,8 @@
   drone        a closed shape in the middle: its size the drone's level, its outline the drone's waveform
   sub          its waveform as a short trace along the bottom
   pads         a Lissajous figure - the pads' left against their right - so it turns with their stereo movement
-  lanes        a box in each corner, jumping with each hit and shrinking back
-  cloud        points placed by its waveform (its phase portrait), more as it gets louder
+  lanes        rocks into water: each hit drops at its own place and sends out a spreading ring
+  cloud        rings sent out from the drone's shape, more often and further as it gets louder
 The mix (gen.mix) sends each layer's sound on s~ al-vs<n> (and the pads' sides, the master); here they are measured
 only while the view shows (its DSP is off otherwise). About 10 frames a second (fewer when the CPU is busy:
 screen.build's throttle), about 35 screen messages each."""
@@ -15,8 +15,9 @@ import model as M
 
 VIEW_VIS = 3
 OSC = "oscOut"
-CORNERS = [(1, 1), (1, 0), (0, 1), (0, 0)]       # the lanes' boxes: (right?, bottom?)
-GLOBALS = dict(alvon=0, alvfr=0, alvi=0, **{f"alvh{i}": 0 for i in range(4)},
+RIPPLES = 6                 # the lanes' rings at once
+CLOUD_RINGS = 3             # the cloud's rings at once
+GLOBALS = dict(alvon=0, alvfr=0, alvi=0, alvrn=0, alvrc=0, alvhv=0, alvhn=0, alvcn=0,
                **{f"alvl{i}": 0 for i in range(len(M.LAYERS))})
 
 
@@ -65,33 +66,45 @@ def build(c):
     pn = d.sub(p)
     d.c(d.obj("r~ al-vpl"), 0, pn, 0)
     d.c(d.obj("r~ al-vpr"), 0, pn, 1)
-    # the drone's, sub's and cloud's waveforms: 16 samples each at 1/32 of the rate (11.6 ms, about one period of a
+    # the drone's and sub's waveforms: 16 samples each at 1/32 of the rate (11.6 ms, about one period of a
     # low note) - their shapes drawn from these
     w = Canvas("shapes", w=900)
-    wins = [w.obj("inlet~", 20 + 180 * i, 5) for i in range(3)]
+    wins = [w.obj("inlet~", 20 + 180 * i, 5) for i in range(2)]
     w.obj("block~ 64 1 0.03125")
-    for x, a in zip(wins, ("alvdw", "alvsw", "alvcw")):
+    for x, a in zip(wins, ("alvdw", "alvsw")):
         t = w.obj(f"tabwrite~ {a}")
         w.c(x, 0, t, 0)
         w.c(w.recv("al-visgrab"), 0, t, 0)
     wn = d.sub(w)
-    for i, L in enumerate(("drone", "sub", "cloud")):
+    for i, L in enumerate(("drone", "sub")):
         d.c(d.obj(f"r~ al-vs{M.LAYERS.index(L)}"), 0, wn, i)
-    for a, n in (("alvisw", 128), ("alvpl", 16), ("alvpr", 16), ("alvdw", 16), ("alvsw", 16), ("alvcw", 16)):
+    for a, n in (("alvisw", 128), ("alvpl", 16), ("alvpr", 16), ("alvdw", 16), ("alvsw", 16)):
         c.obj(f"array define {a} {n}")
     # the waveform message: the scope's 128 rows in one
     c.c(c.ch(c.recv("al-viswave"), f"array get alvisw", "list prepend /oled/gWaveform 3", "list trim"), 0,
         c.obj(f"s {OSC}"), 0)
-    # the lanes' hits: each lane's box jumps to its strike's velocity
+    # the lanes' hits: rocks into water - each drops at its own place (its lane and note) and sends out a ring that
+    # spreads and fades, bigger and longer for a harder hit; six rings at once at most (the oldest gives way)
+    for name in ("alvrx", "alvry", "alvrr", "alvrl"):
+        c.obj(f"array define {name} {RIPPLES}")
+    for name in ("alvcr", "alvcl"):
+        c.obj(f"array define {name} {CLOUD_RINGS}")
     for i, L in enumerate(M.LANES):
         hv = c.ch(c.recv(f"al-{L}-hit"), "unpack f f f f")
-        c.c(c.to((hv, 2), f"expr alvh{i} = max(alvh{i}, $f1)"), 0, c.obj("f"), 0)
+        tb = c.to((hv, 2), "t b f")
+        c.c((tb, 1), 0, c.obj("v alvhv"), 0)
+        c.c(c.to((hv, 1), "t f"), 0, c.obj("v alvhn"), 0)
+        run_steps(c, (tb, 0), [If(f"alview == {VIEW_VIS}", [
+            V("alvrn", f"(alvrn + 1) % {RIPPLES}"),
+            T("alvrx", "alvrn", f"8 + (int(alvhn)*37 + {i * 29} + alvrc*7) % 112"),
+            T("alvry", "alvrn", f"6 + (int(alvhn)*13 + {i * 17} + alvrc*23) % 52"),
+            T("alvrr", "alvrn", "1"), T("alvrl", "alvrn", "int(3 + 7*min(1, alvhv))"), V("alvrc", "alvrc + 1")])])
     # the clock: while the view shows, its DSP on and a frame every 80 ms; off when it goes
     met = c.obj("metro 100")
     c.c(c.m(c.recv("al-init"), "1"), 0, met, 0)
     run_steps(c, (met, 0), [If(f"alview == {VIEW_VIS}", [
         If("alvon == 0", [V("alvon", "1"), Send("al-vison", "1")]),
-        V("alvfr", "alvfr + 1"), Call("al-redraw")] + [V(f"alvh{i}", f"alvh{i}*0.72") for i in range(4)],
+        V("alvfr", "alvfr + 1"), Call("al-redraw")],
         [If("alvon", [V("alvon", "0"), Send("al-vison", "0")])])])
     proc(c, "al-vis", [V("alview", str(VIEW_VIS)), V("alpage", "0"), V("alpop", "0"), V("alpatv", "0"),
                        V("alstick", "0"), Call("al-redraw")])
@@ -127,18 +140,20 @@ def frame():
     steps.append(If(f"{rms(LI('pad'))} > 0.001", [
         SendL(OSC, [pt("alvpl", i, 64, 1.6), pt("alvpr", i, 32, 1), pt("alvpl", i + 1, 64, 1.6),
                     pt("alvpr", i + 1, 32, 1)], "/oled/gLine 3 $1 $2 $3 $4 1") for i in range(8)]))
-    # lanes: a box in each corner, its size the last hit (decaying)
-    for i, (rx, by) in enumerate(CORNERS):
-        sz = f"int(1 + 13*min(1, alvh{i}))"
-        steps.append(If(f"alvh{i} > 0.05", [SendL(OSC, [f"{127} - {sz}" if rx else "1", f"{63} - {sz}" if by else "1", sz],
-                                                    "/oled/gBox 3 $1 $2 $3 $3 1")]))
-    # cloud: points placed by its waveform (a sample against one a little later: its phase portrait), more as it
-    # gets louder
-    n = f"int(min(7, 120*{rms(LI('cloud'))}))"
-    ncw = f"(1/max(0.004, 1.4*{rms(LI('cloud'))}))"
-    steps.append(Loop(n, "alvi", [SendL(OSC, [f"int(max(0, min(125, 63 + 55*{ncw}*alvcw[alvi*2])))",
-                                              f"int(max(0, min(61, 31 + 28*{ncw}*alvcw[alvi*2 + 1])))"],
-                                        "/oled/gFillArea 3 $1 $2 2 2 1")]))
+    # lanes: rocks into water - each ring drawn and spread (a dot where it fell, its first frame)
+    steps.append(Loop(str(RIPPLES), "alvi", [If("alvrl[alvi] > 0", [
+        If("alvrr[alvi] < 2", [SendL(OSC, ["alvrx[alvi]", "alvry[alvi]"], "/oled/gFilledCircle 3 $1 $2 2 1")],
+           [SendL(OSC, ["alvrx[alvi]", "alvry[alvi]", "int(alvrr[alvi])"], "/oled/gCircle 3 $1 $2 $3 1")]),
+        T("alvrr", "alvi", "alvrr[alvi] + 2.5"), T("alvrl", "alvi", "alvrl[alvi] - 1")])]))
+    # cloud: rings sent out from the drone's shape - more often and further as it gets louder
+    rd0 = f"(3 + 80*{rms(LI('drone'))})"
+    loud = rms(LI("cloud"))
+    steps.append(If(f"{loud} > 0.002 && alvfr % max(2, int(9 - 250*{loud})) == 0", [
+        V("alvcn", f"(alvcn + 1) % {CLOUD_RINGS}"), T("alvcr", "alvcn", f"min(30, {rd0}) + 2"),
+        T("alvcl", "alvcn", f"int(4 + 300*min(0.03, {loud}))")]))
+    steps.append(Loop(str(CLOUD_RINGS), "alvi", [If("alvcl[alvi] > 0", [
+        SendL(OSC, ["int(alvcr[alvi])"], "/oled/gCircle 3 64 32 $1 1"),
+        T("alvcr", "alvi", "alvcr[alvi] + 4"), T("alvcl", "alvi", "alvcl[alvi] - 1")])]))
     # (the next frame's scope and Lissajous: grabbed now, ready by then)
     steps.append(Send("al-visgrab"))
     return steps
