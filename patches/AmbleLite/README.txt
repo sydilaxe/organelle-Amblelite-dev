@@ -99,7 +99,7 @@ THE CHORD STORY (STORY page): a progression in the key and mode, the pads, sub a
 following it; Bars sets how often it moves on (manual: top D / top E).
 
 ENGINES
-  DRONE  analog, fm, spectr
+  DRONE  analog, fm, spectr, frost, choir, bowed, gendy
   SUB    sine, warm, pulse, fm
-  PAD    sine, fm, saws, pwm, wave
-  PERC   blip, lpg, bowl, wood, metal
+  PAD    sine, fm, saws, pwm, wave, vox, part, fold, pulsr, sync, cz, choir, vosim, lissa, chip, vector
+  PERC   blip, lpg, bowl, wood, metal, wave

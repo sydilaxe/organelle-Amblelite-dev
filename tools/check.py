@@ -100,7 +100,7 @@ def main():
     # Evolve: the pads' wave engine at full Evolve, fast pace - its brightness moves; at 0 (or the master at 0) it
     # holds still; and the same settings move the same way every time
     pe, pp = M.S("pad", None, "Evolve"), M.S("pad", None, "Pace")
-    base = solo("pad") + [(50, f"al-set {M.S('pad', None, 'Engine')} 0.9"), (51, f"al-set {pp} 1"),
+    base = solo("pad") + [(50, f"al-set {M.S('pad', None, 'Engine')} {M.engine_value('pad', 'wave')}"), (51, f"al-set {pp} 1"),
                           (52, f"al-set {M.S('pad', 'wave', 'Table')} 0.35"),
                           (53, f"al-set {M.S('g', None, 'Bars')} 0.05"), START]      # (Bars: manual - one chord)
 
@@ -315,7 +315,7 @@ def main():
     # breath (the generic profile: CC 2) -> the pads' cutoff (their BREATH page): brighter as it blows
     bt = [(50, f"al-set {S_('pad', None, 'BTgt')} {(1 + 0.5) / M.MAXC}"), (51, f"al-set {S_('pad', None, 'BDep')} 1"),
           (52, f"al-set {S_('pad', None, 'Cutoff')} 0.35"), (53, f"al-set {S_('pad', None, 'Evolve')} 0"),
-          (54, f"al-set {S_('pad', None, 'Engine')} {(2 + 0.5) / 5}")]      # (the saws: harmonics to filter)
+          (54, f"al-set {S_('pad', None, 'Engine')} {M.engine_value('pad', 'saws')}")]      # (the saws: harmonics to filter)
     _, a = run(solo("pad") + bt + [START, (2000, "al-cc 127 2 1")], 3.5)
 
     def bright(x):
@@ -408,6 +408,17 @@ def main():
     late = hits_[len(hits_) // 2:]
     check("motif: a lane plays another layer's loop", late and set(late) <= {69, 72, 76} and len(set(late)) >= 2,
           f"lane notes {sorted(set(late))} (69 72 76)")
+
+    # ---- every engine of every layer sounds (one second each, in turn), and nothing in Pd complains
+    for L in ("drone", "pad", "perc1"):
+        names = [e for e, _ in M.engines(L)]
+        ev = solo(L) + [START] + [(1000 + 1000 * i, f"al-set {M.S(L, None, 'Engine')} {M.engine_value(L, e)}")
+                                  for i, e in enumerate(names)]
+        log, a = H.run(ev, 1.2 + len(names), d=d, keep=True)
+        lv = [H.rms_db(seg(a, 1.5 + i, 1.95 + i)) for i in range(len(names))]
+        quiet = [f"{e} {v:.0f}" for e, v in zip(names, lv) if v < -50]
+        check(f"every {M.kind(L)} engine sounds ({len(names)})", not quiet and not H.errors(log),
+              f"quietest {min(lv):.0f} dB" + (f"; silent: {quiet}" if quiet else "") + (f"; {H.errors(log)[:1]}" if H.errors(log) else ""))
 
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()

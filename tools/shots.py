@@ -21,7 +21,7 @@ def tap(t, key):
 def main():
     os.makedirs(OUT, exist_ok=True)
     S = M.S
-    ev = [(10, f"al-set {S('pad', None, 'Engine')} 0.9"), (11, f"al-set {S('pad', 'wave', 'Table')} {(2 + 0.5) / 7}"),
+    ev = [(10, f"al-set {S('pad', None, 'Engine')} {M.engine_value('pad', 'wave')}"), (11, f"al-set {S('pad', 'wave', 'Table')} {(2 + 0.5) / 7}"),
           (12, f"al-set {S('pad', None, 'Gate')} 0.75"), (13, f"al-set {S('perc1', None, 'Rate')} {(3 + 0.5) / 6}")]
     ev += [(20, f"al-inset {M.LAYERS.index('perc3')} 1")]
     ev += tap(200, 72)                                            # start

@@ -236,6 +236,10 @@ ENGINES = {
                 Param("Width", 0.6)]),
         ("spectr", [Param("Upper", 0.5), Param("Drift", 0.5), Param("DrRate", 0.4), Param("OddEv", 0.5),
                     Param("Tilt", 0.5), Param("Strtch", 0.0)]),
+        ("frost", [Param("Detune", 0.4), Param("Bright", 0.5), Param("Glass", 0.4), Param("Drift", 0.4)]),
+        ("choir", [Param("Vowel", 0.5), Param("Breath", 0.3), Param("Fifth", 0.5), Param("Drift", 0.4)]),
+        ("bowed", [Param("Press", 0.5), Param("Body", 0.5), Param("Vib", 0.4), Param("Swell", 0.4)]),
+        ("gendy", [Param("Steps", 0.4), Param("Rough", 0.5), Param("Spread", 0.5)]),
     ],
     "sub": [
         ("sine", [Param("Harm", 0.0), Param("Body", 0.5)]),
@@ -255,6 +259,20 @@ ENGINES = {
                  Param("Bright", 0.6), Param("Sweep", 0.4)]),
         ("wave", [Param("Table", 0, opts=WAVE_TABLES), Param("Pos", 0.3), Param("Mode", 1, opts=["8bit", "smooth"]),
                   Param("Shimr", 0.0), Param("Detune", 0.3)]),
+        ("vox", [Param("Vowel", 0.5), Param("Motion", 0.4), Param("Reso", 0.4), Param("Body", 0.4)]),
+        ("part", [Param("Set", 0, opts=["harm", "bell", "fifths", "odd", "strtch"]), Param("Tilt", 0.5),
+                  Param("Swell", 0.4), Param("Spread", 0.6)]),
+        ("fold", [Param("Fold", 0.4), Param("Sub", 0.3), Param("Bias", 0.5), Param("Motion", 0.3)]),
+        ("pulsr", [Param("Formnt", 0.5), Param("Cycles", 0.4), Param("Sweep", 0.4), Param("Spread", 0.5)]),
+        ("sync", [Param("Ratio", 0.4), Param("Sweep", 0.4), Param("Rate", 0.3), Param("Detune", 0.3)]),
+        ("cz", [Param("Bend", 0.4), Param("Reso", 0.3), Param("Mix", 0.5), Param("Sweep", 0.4)]),
+        ("choir", [Param("Vowel", 0.5), Param("Drift", 0.5), Param("Bright", 0.5), Param("Breath", 0.2)]),
+        ("vosim", [Param("Formnt", 0.5), Param("Decay", 0.5), Param("Sweep", 0.3), Param("Spread", 0.5)]),
+        ("lissa", [Param("Ratio", 1, opts=["1:1", "3:2", "2:1", "4:3", "5:4"]), Param("Drift", 0.4),
+                   Param("Bright", 0.3), Param("Cross", 0.25)]),
+        ("chip", [Param("Duty", 2, opts=["12%", "25%", "50%"]), Param("Tri", 0.3), Param("Crush", 0.3),
+                  Param("Vib", 0.4)]),
+        ("vector", [Param("X", 0.5), Param("Y", 0.5), Param("Orbit", 0.4), Param("Rate", 0.3), Param("Detune", 0.3)]),
     ],
     "cloud": [
         ("grains", [Param("Size", 0.55), Param("Densty", 1.0), Param("Pitch", 0, opts=CLOUD_PITCHES),
@@ -268,6 +286,7 @@ ENGINES = {
         ("bowl", [Param("Hard", 0.5), Param("Beat", 0.5), Param("Strtch", 0.0), Param("Strike", 0.5)]),
         ("wood", [Param("Mallet", 0.5), Param("Matrl", 0.0), Param("Knock", 0.5)]),
         ("metal", [Param("Bright", 0.5), Param("Beat", 0.5), Param("TremR", 0.5), Param("TremD", 0.4)]),
+        ("wave", [Param("Table", 0, opts=WAVE_TABLES), Param("Pos", 0.3), Param("Bright", 0.5), Param("Shimr", 0.3)]),
     ],
 }
 LAYERS = ["drone", "sub", "pad"] + LANES + ["cloud"]
@@ -320,6 +339,22 @@ EVOLVE = {
     ("pad", "saws"): [("Detune", 0.3), ("Spread", 0.4), ("Centre", 0.4), ("Bright", 0.4), (None, 0.3)],
     ("pad", "pwm"): [("Width", 0.5), ("Depth", 0.3), ("Rate", 0.2), ("Bright", 0.4), (None, 0.3)],
     ("pad", "wave"): [("Pos", 0.8), ("Shimr", 0.3), ("Detune", 0.3), (None, 0.3)],
+    ("drone", "frost"): [("Bright", 0.4), ("Glass", 0.4), ("Detune", 0.2), (None, 0.2)],
+    ("drone", "choir"): [("Vowel", 0.5), ("Breath", 0.3), (None, 0.2)],
+    ("drone", "bowed"): [("Press", 0.4), ("Body", 0.3), (None, 0.2)],
+    ("drone", "gendy"): [("Steps", 0.4), ("Rough", 0.3), (None, 0.2)],
+    ("pad", "vox"): [("Vowel", 0.4), ("Reso", 0.2), (None, 0.3)],
+    ("pad", "part"): [("Tilt", 0.4), ("Swell", 0.3), (None, 0.3)],
+    ("pad", "fold"): [("Fold", 0.4), ("Bias", 0.3), (None, 0.25)],
+    ("pad", "pulsr"): [("Formnt", 0.4), ("Cycles", 0.3), (None, 0.3)],
+    ("pad", "sync"): [("Ratio", 0.3), (None, 0.3)],
+    ("pad", "cz"): [("Bend", 0.4), ("Mix", 0.3), (None, 0.3)],
+    ("pad", "choir"): [("Vowel", 0.5), ("Bright", 0.3), (None, 0.2)],
+    ("pad", "vosim"): [("Formnt", 0.4), ("Decay", 0.3), (None, 0.2)],
+    ("pad", "lissa"): [("Drift", 0.3), ("Bright", 0.3), ("Cross", 0.3)],
+    ("pad", "chip"): [("Tri", 0.3), ("Crush", 0.2)],
+    ("pad", "vector"): [("X", 0.6), ("Y", 0.6), (None, 0.2)],
+    ("perc", "wave"): [("Pos", 0.5), ("Bright", 0.3)],
     ("cloud", "grains"): [("Scan", 0.5), ("Size", 0.4), ("Spread", 0.3), ("Jitter", 0.3), (None, 0.25)],
     ("perc", "blip"): [("Cutoff", 0.5), ("Flick", 0.3), ("FEnv", 0.3)],
     ("perc", "lpg"): [("Fold", 0.5), ("Open", 0.5), ("Vactrl", 0.3)],
@@ -332,6 +367,12 @@ EVOLVE_MAX = max(len(v) for v in EVOLVE.values())
 
 def engines(layer):
     return ENGINES[kind(layer)]
+
+
+def engine_value(layer, name):
+    """the Engine knob's value (0..1) that selects an engine by name"""
+    names = [e for e, _ in engines(layer)]
+    return (names.index(name) + 0.5) / len(names)
 
 # ---- slots
 SLOTS = []              # [(key, Param)]
