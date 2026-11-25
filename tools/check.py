@@ -583,6 +583,13 @@ def main():
     check("a tapped rhythm becomes the lane's pattern", gaps == [2, 3, 3] and between == 6,
           f"steps {tsteps} (gaps {gaps}), {between} hits in 2 cycles")
 
+    # ---- only Pd's core objects: nothing from 'extra' (sigmund~, bonk~ ...), which some installs leave out
+    import glob as _glob
+    extra = ("sigmund~", "bonk~", "fiddle~", "bob~", "choice", "loop~", "lrshift~", "pique", "pd~", "stdout")
+    found = sorted({w for f in _glob.glob(os.path.join(d, "*.pd")) for ln in open(f)
+                    for w in ln.replace(";", " ").split()[4:5] if w in extra})
+    check("only Pd's core objects (nothing from extra)", not found, ", ".join(found) or "none")
+
     # ---- every engine of every layer sounds (one second each, in turn), and nothing in Pd complains
     for L in ("drone", "pad", "perc1"):
         names = [e for e, _ in M.engines(L)]

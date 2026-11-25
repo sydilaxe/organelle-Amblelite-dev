@@ -6,7 +6,7 @@
   morph   a 4-band vocoder: the input's bands shape the pads' (the pads speak); Amount: how much
   octave  the input with an octave below (a sine on its tracked pitch, following its level) and an octave above (the
           rectified input); Amount: below .. above
-In every mode its pitch is tracked (sigmund~): with the HARMNY page's Listen on, a steady pitch counts as a held note
+In every mode its pitch is tracked (an autocorrelation tracker, Pd's own objects): with the HARMNY page's Listen on, a steady pitch counts as a held note
 and pulls the next chord to contain it."""
 from pdlib import Canvas, proc, V, T, If, Call, run_steps
 from dsp import mul, add, sub, prm
@@ -15,7 +15,7 @@ from model import S
 
 MODES = ["off", "reso", "cloud", "bands", "morph", "octave"]
 VOC = [220, 600, 1500, 3600]           # the vocoder's band centres (Hz)
-GLOBALS = dict(alinm=0, alinp=0, alinl=-1, alinc=0, alinh=-1, alinlv=0)
+GLOBALS = dict(alinclr=0, alini2=0, alinm=0, alinp=0, alinl=-1, alinc=0, alinh=-1, alinlv=0)
 
 
 def P(name):
@@ -100,14 +100,15 @@ def _dsp(d):
         d.c(d.to(o, "*~ 0.3"), 0, R if i % 2 == 0 else L, 0)
     # ---- the pitch and the level (octave mode, listening)
     d.col(300)
-    sg = d.obj("sigmund~ -hop 1024 pitch env")
-    d.c(x, 0, sg, 0)
-    d.c((sg, 0), 0, d.obj("s al-inpitch"), 0)
-    d.c((sg, 1), 0, d.obj("s al-inenv"), 0)
+    # (the level in dB, and the pitch: Amble's autocorrelation tracker - Pd's own objects only, no extra)
+    d.c(d.ch(x, "env~ 2048 1024"), 0, d.obj("s al-inenv"), 0)
+    tr = d.sub(_tracker(), 1200, 40)
+    d.c(x, 0, tr, 0)
+    sg = d.recv("al-inpitch")
     lvl = d.ch(x, "abs~", "lop~ 12", "*~ 1.6")
     # ---- octave: below (a sine on the tracked pitch, at the input's level), above (rectified)
     wo = gate(5)
-    dn = d.ch((sg, 0), "moses 1", )
+    dn = d.ch(sg, "moses 1")
     f2 = d.ch((dn, 1), "mtof", "* 0.5", "pack f 30", "line~", "osc~")
     below = mul(d, mul(d, f2, lvl), d.ch(amt, "*~ -1", "+~ 1"))
     above = mul(d, d.ch(x, "abs~", "hip~ 60", "*~ 1.4"), amt)
@@ -122,6 +123,41 @@ def _dsp(d):
         d.c(d.ch(b, "abs~", "lop~ 20", "*~ 6"), 0, d.obj(f"s~ al-venv{i}"), 0)
     d.c(L, 0, d.obj("throw~ al-input-L"), 0)
     d.c(R, 0, d.obj("throw~ al-input-R"), 0)
+
+
+def _tracker():
+    """FFT autocorrelation pitch tracker (Amble's), at half rate (22.05 kHz): 2048-point blocks of 1024 windowed
+    samples (zero padded), every 1024 (46 ms). The strongest lag in 20..280 (79 Hz - 1.1 kHz), parabolic
+    interpolation -> al-inpitch (MIDI; -1 when unclear or quiet)"""
+    from pdlib import X
+    p = Canvas("pitch", w=1400)
+    p.comment("autocorrelation by FFT: |X|^2 -> inverse FFT; the strongest lag in 20..280 is the period")
+    p.c(p.ch(p.obj("loadbang"), "f 1"), 0, p.obj("switch~ 2048 2 0.5"), 0)
+    import math
+    win = [0.5 - 0.5 * math.cos(2 * math.pi * i / 1024) for i in range(1024)] + [0.0] * 1024
+    p.obj("array define alinwin 2048")
+    p.obj("array define alinacf 2048")
+    p.c(p.m(p.obj("loadbang"), " ".join(f"{v:.5f}" for v in win)), 0, p.obj("array set alinwin"), 0)
+    x = p.obj("inlet~", 20, 5)
+    w = mul(p, x, p.obj("tabreceive~ alinwin"))
+    ff = p.to(w, "rfft~")
+    pw = add(p, mul(p, (ff, 0), (ff, 0)), mul(p, (ff, 1), (ff, 1)))
+    p.c(p.to(pw, "rifft~"), 0, p.obj("tabsend~ alinacf"), 0)
+    p.col()
+    mx = p.obj("array max alinacf 20 260")
+    p.c(p.obj("bang~"), 0, mx, 0)
+    pk = p.obj("pack f f")
+    p.c(mx, 1, pk, 1)
+    p.c(mx, 0, pk, 0)
+    e = p.to(pk, "expr $f2; $f1/max(1e-09, alinacf[0])")
+    p.c(e, 1, p.obj("v alinclr"), 0)
+    tb = p.to(e, "t b f")
+    p.c(tb, 1, p.obj("v alini2"), 0)
+    y0, y1, y2 = "alinacf[int(alini2)-1]", "alinacf[int(alini2)]", "alinacf[int(alini2)+1]"
+    den = f"({y0} - 2*{y1} + {y2})"
+    run_steps(p, (tb, 0), [X(f"if(alinclr > 0.35 && alinlv > 48, ftom(22050/(alini2 + max(-1, min(1, if({den} < -1e-09, "
+                             f"0.5*({y0} - {y2})/{den}, 0))))), -1)", "s al-inpitch")])
+    return p
 
 
 def pad_morph(c, sides):
@@ -157,7 +193,7 @@ def pad_morph(c, sides):
 
 
 def listening(c):
-    """the input's pitch as a held note: steady (the same note over two of sigmund's hops, about 50 ms) and loud
+    """the input's pitch as a held note: steady (the same note over two of the tracker's steps, about 0.1 s) and loud
     enough - it holds that pitch class in the listening (harmony.py alhpc) until the pitch changes or it goes quiet"""
     rel = [If("alinh >= 0", [T("alhpc", "alinh % 12", "max(0, alhpc[alinh % 12] - 1)"), V("alhcnt", "max(0, alhcnt - 1)"),
                              V("alinh", "-1")])]
