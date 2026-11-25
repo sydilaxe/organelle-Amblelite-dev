@@ -186,7 +186,7 @@ def saves(c):
                                    SendL("al-inset", ["alsi", f"alsnap[{NSLOTS + NL} + alsi]"])])]),
         Loop(str(FAVN), "alsi", [T("alks", "alfavix[alsi]", f"alsnap[{NSLOTS + 2 * NL} + alsi]")]),
         ACopy("alsnap", NSLOTS + 2 * NL + FAVN, TAPN, "altap", 0),
-        V("almcnt", "0"), V("almdur", mms),
+        V("almcnt", "0"), V("almdur", f"if(alpinst, 0, {mms})"),
         Loop(str(NSLOTS), "alsi", [If("abs(alsnap[alsi] - alp[alsi]) > 0.0005", [
             If("aln[alsi] != 0 || almdur == 0", [SendL("al-set", ["alsi", "alsnap[alsi]"])],
                [T("almi", "almcnt", "alsi"), T("almf", "almcnt", "alp[alsi]"), T("almt", "almcnt", "alsnap[alsi]"),
@@ -201,6 +201,44 @@ def saves(c):
         V("almp", "min(1, (altime - almt0)*1000/max(1, almdur))"),
         Loop("almcnt", "alsi", [SendL("al-set", ["almi[alsi]", f"almf[alsi] + (almt[alsi] - almf[alsi])*{sm}"])]),
         If("almp >= 1", [Send("al-morphclock", "0"), V("almcnt", "0")])])
+
+
+# ---------------------------------------------------------------------------------------------- pieces
+PIECES = 8
+PIECE = SNAP + 1 + 4 * M.MAXSEC       # a piece: a snapshot (everything), then the roadmap: its count and sections
+
+
+def pieces(c):
+    """pieces.txt: 8 pieces, a line each - everything a snapshot holds (every parameter - key, tempo, scale, mode,
+    engines - the layers in, FAV pages, tapped rhythms) and the roadmap. On the PIECE page: top A# loads the
+    Piece knob's, aux + top A# saves to it. A piece loads at once (no morph); its layers come and go by FadeBy"""
+    c.comment("pieces: pieces.txt, a line each (a snapshot and the roadmap)")
+    tx = c.obj("text define al-pieces")
+    c.c(c.m(c.recv("al-init"), "read -c pieces.txt"), 0, tx, 0)
+    c.c(c.m(c.recv("al-piecewrite"), "write -c pieces.txt"), 0, tx, 0)
+    c.obj(f"array define alpc {PIECE}")
+    slot = f"{opt(S('g', None, 'Piece'))}"
+    road = [("alrsL", 0), ("alrsS", 1), ("alrsM", 2), ("alrsR", 3)]
+    proc(c, "al-psave", [Call("al-gather"), ACopy("alsnap", 0, SNAP, "alpc", 0), T("alpc", str(SNAP), "alrn")] +
+         [ACopy(a_, 0, M.MAXSEC, "alpc", SNAP + 1 + k * M.MAXSEC) for a_, k in road] +
+         [SendL("al-pcwrite", [slot])] + toast("SAVED", f"{slot} + 1"))
+    wr = c.to(c.recv("al-pcwrite"), "t b f")
+    ts = c.obj("text set al-pieces")
+    c.c((wr, 1), 0, ts, 1)
+    c.c(c.ch((wr, 0), "array get alpc"), 0, ts, 0)
+    c.c(c.ch(c.recv("al-pcwrite"), "t b", "delay 0"), 0, c.obj("s al-piecewrite"), 0)
+    rd = c.to(c.recv("al-pcread"), "t f b")
+    c.c(c.m((rd, 1), "0"), 0, c.obj("v alpcv"), 0)
+    tg = c.obj("text get al-pieces")
+    c.c((rd, 0), 0, tg, 0)
+    ln = c.to(tg, "t l l")
+    c.c(c.ch((ln, 1), "list length", f"expr $f1 == {PIECE}"), 0, c.obj("v alpcv"), 0)
+    c.c(c.ch((ln, 0), f"list split {PIECE}"), 0, c.obj("array set alpc"), 0)
+    proc(c, "al-pload", [SendL("al-pcread", [slot]), If("alpcv", [
+        ACopy("alpc", 0, SNAP, "alsnap", 0), V("alrn", f"alpc[{SNAP}]")] +
+        [ACopy("alpc", SNAP + 1 + k * M.MAXSEC, M.MAXSEC, a_, 0) for a_, k in road] +
+        [V("alpinst", "1"), Call("al-apply"), V("alpinst", "0"), V("alrc", "0"), V("alrb0", "0"),
+         Call("al-rsave"), Call("al-rsectload")] + toast("LOADED", f"{slot} + 1"), toast("EMPTY"))])
 
 
 # ---------------------------------------------------------------------------------------------- the looper
@@ -339,7 +377,7 @@ def opt_layer(key, n):
     return f"min({n - 1}, int(alp[{sl}]*{n}))"
 
 
-GLOBALS = dict(allj=0, allq=0, alftg=-1, alfold=0, alfnew=0, alfph=0, alfv=0, altw=-1, altn=-1, alslot=0, allast=-1,
+GLOBALS = dict(alpinst=0, alpcv=0, allj=0, allq=0, alftg=-1, alfold=0, alfnew=0, alfph=0, alfv=0, altw=-1, altn=-1, alslot=0, allast=-1,
                alcmp=0, alsnv=0, alsi=0, almdur=0, almt0=0, almp=0, almcnt=0, alslh=0, alslu=0, alasv=0,
                allx=0, allrt=0, allk=0, alli=0, allsz=0, allpos=0, alzl=0, allbp=0, albdirty=0)
 for _li in range(NL):
@@ -347,7 +385,7 @@ for _li in range(NL):
 
 
 def build(c):
-    for fn in (tables, lfo, assign, toasts, saves, looper):
+    for fn in (tables, lfo, assign, toasts, saves, pieces, looper):
         sc = Canvas("m3-" + fn.__name__, w=2600)
         c.sub(sc)
         fn(sc)

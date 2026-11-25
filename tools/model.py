@@ -324,6 +324,10 @@ GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, l
                           Param("Mode", 1, opts=[str(i + 1) for i in range(MAX_MODES)])]),
                 ("LAYERS", [("drone", "Engine"), ("sub", "Engine"), ("pad", "Engine"), ("cloud", "Source")]),
                 ("LANES", [("perc1", "Engine"), ("perc2", "Engine"), ("perc3", "Engine"), ("perc4", "Engine")]),
+                # pieces (features.pieces): the slot (top A#: load it; aux + top A#: save to it), and how layers
+                # enter and leave - over the Fade time, or by their own envelope (FadeBy env: Attack in, Release out)
+                ("PIECE", [Param("Piece", 0, opts=[str(i + 1) for i in range(8)]), Param("Fade", 0.62),
+                           Param("FadeBy", 0, opts=["time", "env"])]),
                 ("STORY", [Param("Story", 0, opts=[n for n, _, _ in STORIES]), Param("Bars", 3, opts=BARS),
                            Param("SubTo", 1, opts=SUBMODES), Param("Voicng", 0.4)]),
                 ("SYNC", [Param("Sync", 0, opts=["int", "ext"]), Param("ClkOut", 1, opts=ONOFF)]),
@@ -333,7 +337,7 @@ GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, l
                 ("MIDI", [Param("Profil", 0, opts=PROFILES), Param("Chans", 0, opts=["layers", "mpe"]),
                           Param("Zones", 0, opts=ONOFF), Param("LastCC", 0, lo=0, hi=127)]),
                 ("MIDI 2", [Param("Bend", 3, opts=["2", "12", "24", "48"]), Param("Press", 1, opts=["off", "expr", "breath"])]),
-                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Fade", 0.62), Param("Volume", 0.55)]),
+                ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Volume", 0.55)]),
                 # the harmony assistant: the next chords ranked (Sugg shows one by name: aux + top E plays it and
                 # adds it to your own story), which kind, and listening (held notes pull the next chord)
                 ("HARMNY", [Param("Sugg", 0, opts=["1", "2", "3", "4"], key="Sugg"),

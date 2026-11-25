@@ -182,6 +182,9 @@ def build(out=OUT):
     rm = os.path.join(out, "roadmap.txt")        # (the roadmap: kept across builds too)
     if not os.path.exists(rm):
         open(rm, "w").write("")
+    pc = os.path.join(out, "pieces.txt")         # (the pieces: kept across builds too; 8 empty lines)
+    if not os.path.exists(pc):
+        open(pc, "w").write("-1;\n" * features.PIECES)
     sv = os.path.join(out, "saves.txt")
     if not os.path.exists(sv):
         open(sv, "w").write("-1;\n" * (features.SCRATCH + 2))

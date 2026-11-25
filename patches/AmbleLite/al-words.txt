@@ -2,6 +2,9 @@ Key
 Tempo
 Scale
 Mode
+Piece
+Fade
+FadeBy
 Story
 Bars
 SubTo
@@ -16,7 +19,6 @@ Bend
 Press
 Evolve
 Morph
-Fade
 Volume
 Sugg
 Group
@@ -606,6 +608,16 @@ pent
 5
 6
 7
+1
+2
+3
+4
+5
+6
+7
+8
+time
+env
 modal
 home
 descend
@@ -3714,6 +3726,7 @@ EVOLVE
 MAIN
 LAYERS
 LANES
+PIECE
 STORY
 SYNC
 MIDI
@@ -3723,7 +3736,6 @@ HARMNY
 ROAD
 ROAD\ 2
 SECTN
--
 -
 -
 -

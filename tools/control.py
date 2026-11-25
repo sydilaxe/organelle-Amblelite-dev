@@ -13,6 +13,7 @@ LX = {"drone": "d", "sub": "s"}
 FIRST_LANE = LAYERS.index(LANES[0])
 VIEW_LAYER, VIEW_GLOBAL, VIEW_MIX = 0, 1, 2
 SECTN_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("SECTN")
+PIECE_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("PIECE")
 MODE_SLOT, SCALE_SLOT = S("g", None, "Mode"), S("g", None, "Scale")
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
@@ -245,6 +246,17 @@ def fade_ms():
     return f"if(alp[{f}] < 0.02, 0, 50*pow(400, alp[{f}]))"
 
 
+def by_env(L):
+    """whether layer L enters and leaves by its own envelope (PIECE page FadeBy env: the drone, sub and pads; the
+    lanes and the cloud, which have none, by the Fade time)"""
+    return f"({opt(S('g', None, 'FadeBy'))} == 1)" if L in ("drone", "sub", "pad") else "0"
+
+
+def release_ms(L):
+    """the layer's envelope Release in ms (as the voices: voice.env_ms)"""
+    return f"5*pow(4000, alpe[{S(L, None, 'Releas')}])"
+
+
 def layer_switches(c):
     """each layer is in or out (alin). In: its level fades up (the PERFRM page's Fade) and it plays - the drone,
     sub and pads their default or latched notes, a lane its pattern. Out: its level fades down, then its notes
@@ -258,13 +270,20 @@ def layer_switches(c):
         proc(c, f"al-tog-{L}", [If(f"alview == {VIEW_GLOBAL} && alpage == {SECTN_PAGE}",
                                    [V("alrq", str(li)), Call("al-rtog")],
                                    [SendL("al-inset", [str(li), f"1 - alin[{li}]"])])])
-        # (the level's fade: 'in fade_ms' to the mix)
+        # (the level's fade: 'in fade_ms' to the mix. By envelope: the level at once, the notes' own Attack; out,
+        # the notes released at once, their Release heard, then the level down)
+        env = by_env(L)
         proc(c, f"al-inset-{L}", [
             If(f"aliv != alin[{li}]", [
-                T("alin", str(li), "aliv"), SendL(f"al-in{li}", ["aliv", fade_ms()]),
-                If("aliv", [Send(f"al-outstop-{L}"), Call(f"al-inon-{L}")],
-                   [Arm(f"al-outrel-{L}", f"{fade_ms()} + 20", stop=f"al-outstop-{L}")]),
+                T("alin", str(li), "aliv"),
+                If(f"{env} && aliv", [SendL(f"al-in{li}", ["1", "5"])],
+                   [If(f"{env} == 0", [SendL(f"al-in{li}", ["aliv", fade_ms()])])]),
+                If("aliv", [Send(f"al-outstop-{L}"), Send(f"al-outlvlstop-{L}"), Call(f"al-inon-{L}")],
+                   [If(env, [Call(f"al-outrel-{L}"), Arm(f"al-outlvl-{L}", f"{release_ms(L) if L in ('drone', 'sub', 'pad') else 0} + 50",
+                                                         stop=f"al-outlvlstop-{L}")],
+                       [Arm(f"al-outrel-{L}", f"{fade_ms()} + 20", stop=f"al-outstop-{L}")])]),
                 Call("al-redraw")])])
+        proc(c, f"al-outlvl-{L}", [If(f"alin[{li}] == 0", [SendL(f"al-in{li}", ["0", "20"])])])
         if L in ("drone", "sub"):
             x = LX[L]
             proc(c, f"al-outrel-{L}", [If(f"alin[{li}] == 0 && al{x}on", [
@@ -374,9 +393,13 @@ def organelle(c):
     slots = [If("alslh && alkvel > 0 && alkn >= 60 && alkn <= 75",
                 [V("alslot", "alkn - 60"), V("alslu", "1"), V("alauxu", "if(alaux, 1, alauxu)"),
                  If("alaux", [Call("al-save")], [Call("al-recall")])], normal)]
+    # (top A# tapped: COMPARE - or, on the PIECE page, load the Piece knob's piece; with aux: save to it)
+    piece = f"alview == {VIEW_GLOBAL} && alpage == {PIECE_PAGE}"
     run_steps(c, (r, 0), [If(f"alkn == {SLOT_KEY}",
                              [If("alkvel > 0", [V("alslh", "1"), V("alslu", "0")],
-                                 [V("alslh", "0"), If("alslu == 0", [Call("al-compare")])])], slots)])
+                                 [V("alslh", "0"), If("alslu == 0", [
+                                     If(piece, [If("alaux", [V("alauxu", "1"), Call("al-psave")], [Call("al-pload")])],
+                                        [Call("al-compare")])])])], slots)])
     tg = c.ch(c.recv("al-togk"), "route " + " ".join(str(k) for k in LAYER_KEYS))
     hx = c.ch(c.recv("al-khold"), "t b", "expr alhd = 1; alhk")
     hl = c.to((hx, 1), "route " + " ".join(str(k) for k in LAYER_KEYS))

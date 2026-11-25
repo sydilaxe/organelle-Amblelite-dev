@@ -151,11 +151,13 @@ def store(c):
         c.c((up, i), 0, e, i + 1)
     c.c((up, 0), 0, e, 1)
     c.c(tcnt, 0, e, 0)
-    c.c(c.to((ld, 0), "t b"), 0, c.obj("s al-rsectload"), 0)
+    c.c(c.ch((ld, 0), "t b", "expr alrn = if(alrsL[0] < 1, 0, alrn)"), 0, c.obj("s al-rsectload"), 0)
     # write: every section, then the file (a little after an edit, so a turning knob writes once)
     c.c(c.ch(c.recv("al-rsavelater"), "delay 400"), 0, c.obj("s al-rsave"), 0)
+    # (no sections: one line of zeros - Pd can't write an empty file - read back as none)
     proc(c, "al-rsave", [Send("al-roadclear"), Loop("alrn", "alri", [SendL(
-        "al-roadline", ["alri", "alrsL[alri]", "alrsS[alri]", "alrsM[alri]", "alrsR[alri]"])]), Send("al-roadwrite")])
+        "al-roadline", ["alri", "alrsL[alri]", "alrsS[alri]", "alrsM[alri]", "alrsR[alri]"])]),
+        If("alrn == 0", [SendL("al-roadline", ["0", "0", "0", "0", "0"])]), Send("al-roadwrite")])
     c.c(c.m(c.recv("al-roadclear"), "clear"), 0, tx, 0)
     c.c(c.m(c.recv("al-roadwrite"), "write roadmap.txt"), 0, tx, 0)
     # (one line at a time, appended: [text insert] at the end)

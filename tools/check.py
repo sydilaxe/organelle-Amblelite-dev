@@ -443,6 +443,21 @@ def main():
     cr = hf(xm[int(2.0 * SR):int(5.0 * SR)]) - hf(xm[int(0.8 * SR):int(1.9 * SR)])
     check("the filter doesn't crackle when turned", cr < 8, f"highs while moving {cr:+.1f} dB (the old filter: +28)")
 
+    # ---- pieces: on the PIECE page, aux + top A# saves (key F), the key changes (D), top A# loads it back (F)
+    gp_ = [n for n, _ in M.GLOBAL_PAGES]
+    key_ = M.S('g', None, 'Key')
+
+    def pq(c):
+        c.c(c.ch(c.obj("r h-q", 900, 700), f"expr int(alp[{key_}]*12)"), 0, c.obj("print PK", 900, 760), 0)
+    ev = [(30, f"al-set {key_} {(5 + 0.5) / 12}")] + [(100 + 60 * i, "notesRaw 68 100") for i in range(gp_.index("PIECE") + 1)]
+    ev += [(800, "aux 1"), (850, "notesRaw 82 100"), (900, "notesRaw 82 0"), (950, "aux 0"),
+           (1200, f"al-set {key_} {(2 + 0.5) / 12}"), (1300, "h-q bang"),
+           (1500, "notesRaw 82 100"), (1550, "notesRaw 82 0"), (1800, "h-q bang")]
+    log, _ = H.run(ev, 2, d=d, keep=True, extra=pq)
+    pk = [l.split()[-1] for l in log.splitlines() if l.startswith("PK")]
+    check("a piece saves and loads (its key)", pk == ["2", "5"] and not H.errors(log),
+          f"key after the change {pk[:1]}, after loading {pk[1:2]} (F = 5)" + (f"; {H.errors(log)[:1]}" if H.errors(log) else ""))
+
     # ---- the looper's flow (the sub, Len 1 bar): armed until the bar line, the first pass, then overdub; a press:
     # play. Aux held over the start of a pass erases the A there while the D played meanwhile replaces it
     BARMS = 96 * 60000 / (84 * 24)

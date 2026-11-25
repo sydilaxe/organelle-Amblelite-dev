@@ -3,8 +3,8 @@ AMBLE LITE
 
 Drone, sub, pads and four percussion lanes for real-time building. Loads silent: top C starts and stops.
 
-THE LAYERS: the low white keys, one each. A tap: the layer in / out (it fades over the PERFRM page's
-Fade time; out, a loop keeps its place, silent). Held (400 ms): its parameter pages.
+THE LAYERS: the low white keys, one each. A tap: the layer in / out (it fades as the PIECE page's Fade and
+FadeBy set; out, a loop keeps its place, silent). Held (400 ms): its parameter pages.
 AUX TAPPED: home - the play view, from any page or view. Pages you open stay until then; the page a
 knob pops up in the play view closes 3 s after the last turn.
   low C    DRONE
@@ -113,6 +113,13 @@ MIDI (the MIDI and MIDI 2 global pages):
 SCALES (MAIN page): Scale picks the family - modes (the seven church modes), harmin (harmonic minor),
 melmin (melodic minor), pent (pentatonic) - and Mode which of its modes, by name (dorian, phrdom ...).
 Everything follows them: the chords, the lanes' scale runs, the counterpoint and the suggestions.
+
+PIECES (PIECE page): a piece is your whole setup - every parameter (key, tempo, scale, mode, engines),
+which layers are in, the FAV pages, the tapped rhythms - and the roadmap. 8 of them, in pieces.txt. With
+the PIECE page shown: top A# loads the Piece knob's piece, aux + top A# saves to it. A piece loads at
+once; snapshots (16, top A# held + a key) stay the quick sound changes, and morph.
+FADE (PIECE page): how layers enter and leave - FadeBy time: over Fade; env: the drone, sub and pads by
+their own envelope (Attack in, Release out), the lanes and cloud by Fade.
 
 THE CHORD STORY (STORY page): a progression in the key and mode, the pads, sub and percussion
 following it; Bars sets how often it moves on (manual: top D / top E).
