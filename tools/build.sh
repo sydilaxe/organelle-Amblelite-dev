@@ -4,6 +4,7 @@
 set -e
 cd "$(dirname "$0")"
 python3 gen.py
+python3 korg.py >/dev/null
 python3 planner.py >/dev/null
 # the manual and key chart (docs/*.pdf), when reportlab is installed (CI: always)
 if python3 -c "import reportlab" 2>/dev/null; then python3 manual.py >/dev/null; else echo "(no reportlab: the PDFs are not rebuilt)"; fi

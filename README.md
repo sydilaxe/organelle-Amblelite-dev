@@ -11,6 +11,7 @@ the roadmap, MIDI / MPE / breath, the audio input's modes and your own wavetable
   (both built from the patch's own tables by `tools/manual.py`; also in each release).
 - Install: copy `patches/AmbleLite` into the Organelle's `Patches` folder. Quick reference: `patches/AmbleLite/README.txt`.
 - Amble Lite Editor (a web page): `docs/planner.html` - open pieces.txt / saves.txt, edit any piece or snapshot page by page (every parameter, layers, latches, FAV pages, tapped rhythms, a piece's roadmap), copy the file back to the patch folder.
+- KORG controllers: `docs/controllers/AmbleLite.nktrl_st_set` (nanoKONTROL Studio) and `AmbleLite.nanokey_st_set` (nanoKEY Studio) - write them with KORG KONTROL Editor, choose Profil nanoktl / nanokey / korg (both); the editor's Controllers section changes what each control does (controllers/user.txt). Built by `tools/korg.py` from KORG's own files (`tools/korg/`).
 - Design: `docs/DESIGN.md` (decisions), `docs/PARAMETERS.md`, `docs/WAVETABLES.md`, `docs/ROADMAP.md`.
 
 ## Source (`tools/`)

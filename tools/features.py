@@ -138,12 +138,28 @@ def toasts(c):
 
 # ---------------------------------------------------------------------------------------------- snapshots
 def read_padded(c, tx, name, fname, n, fill):
-    """at load: the file read into [text define name], then lines added at its end until it has n - a missing or
-    short file (a fresh install) still has every slot in its place, so saving to slot k writes line k"""
-    go = c.to(c.recv("al-init"), "t b b")
-    c.c(c.m((go, 1), f"read -c {fname}"), 0, tx, 0)
-    k = c.ch((go, 0), f"text size {name}", f"expr max(0, {n} - $f1)", "until")
+    """at load: the file read into [text define name], then made exactly n lines, slot k on line k - lines added at
+    its end (a missing or short file: a fresh install), an empty line within the slots made 'fill' (an empty slot;
+    an older file, written with ';' at each line's end, read as a line and an empty one after it), the lines past
+    the last slot dropped"""
+    go = c.to(c.recv("al-init"), "t b b b b")
+    c.c(c.m((go, 3), f"read -c {fname}"), 0, tx, 0)
+    k = c.ch((go, 2), f"text size {name}", f"expr max(0, {n} - $f1)", "until")
     c.c(c.m(k, fill), 0, c.obj(f"text insert {name} 1e+06"), 0)
+    # (each slot's line: empty -> fill)
+    cnt = c.obj("f")
+    c.c(c.m((go, 1), "0"), 0, cnt, 1)
+    u = c.to(c.m((go, 1), str(n)), "until")
+    c.c(u, 0, cnt, 0)
+    c.c(c.to(cnt, "+ 1"), 0, cnt, 1)
+    tl = c.to(cnt, "t f f")
+    ts = c.obj(f"text set {name}")
+    c.c((tl, 1), 0, ts, 1)
+    emp = c.ch((tl, 0), f"text get {name}", "list length", "sel 0")
+    c.c(c.m(emp, fill), 0, ts, 0)
+    # (the lines past the last slot)
+    c.c(c.ch((go, 0), f"text size {name}", f"expr max(0, $f1 - {n})", "until", f"f {n}"), 0,
+        c.obj(f"text delete {name}"), 0)
 
 
 def saves(c):

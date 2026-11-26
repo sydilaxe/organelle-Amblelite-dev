@@ -12,6 +12,11 @@ START = (200, "notesRaw 72 100")
 FAILS = []
 
 
+def features_piece_len():
+    import features
+    return features.PIECE
+
+
 def solo(L, t=60):
     """only L in (every other layer out; L in)"""
     return [(t + i, f"al-inset {i} {1 if o == L else 0}") for i, o in enumerate(M.LAYERS)]
@@ -344,13 +349,22 @@ def main():
     # ---- milestone 4: controllers, MPE, breath, zones
     S_ = M.S
     pr, chans, zones, bend = (S_("g", None, k) for k in ("Profil", "Chans", "Zones", "Bend"))
-    # a profile: the nanoKONTROL Studio's slider 1 sets the drone's level, its M button 1 takes it out, knob 1 the
-    # first parameter on the page shown
-    log, _ = H.run([(100, f"al-set {pr} {(2 + 0.5) / 5}"), (300, "al-cc 20 0 1"), (400, "al-cc 127 48 1"),
-                    (500, "al-cc 100 16 1")], 1, d=d, keep=True, prints=("al-set", "al-inset"))
-    lv = f"al-set: {S_('drone', None, 'Level')} 0.15748"
-    check("controller profile (nanoKONTROL Studio)", lv in log and "al-inset: 0 0" in log and
-          any(l.startswith("al-set:") and l.endswith(" 0.787402") for l in log.splitlines()), "slider, M button, knob")
+    # a profile: the nanoKONTROL Studio with the Amble Lite set (korg.py) - scene 5 (channel 15): slider 1 the drone's
+    # level, M 1 takes it out, knob 2 the page's second knob; scene 1 (channel 11): knob 2 the sub's filter (a
+    # parameter by name); scene 2 (channel 12): knob 1 the drone's engine's first parameter; the same CC on channel 1
+    # does nothing
+    ki = M.PROFILES.index("nanoktl")
+    log, _ = H.run([(100, f"al-set {pr} {(ki + 0.5) / len(M.PROFILES)}"), (300, "al-cc 20 2 15"), (400, "al-cc 127 21 15"),
+                    (500, "al-cc 100 14 15"), (600, "al-cc 64 14 11"), (700, "al-cc 32 13 12"), (800, "al-cc 90 14 1")],
+                   1, d=d, keep=True, prints=("al-set", "al-inset"))
+    got = [l for l in log.splitlines() if l.startswith("al-set:")]
+    want = [f"al-set: {S_('drone', None, 'Level')} 0.15748", f"al-set: {S_('sub', None, 'Cutoff')} 0.503937",
+            f"al-set: {S_('drone', 'analog', 'WaveA')} 0.251969"]
+    ok = all(w in got for w in want) and "al-inset: 0 0" in log and any(l.endswith(" 0.787402") for l in got) \
+        and not any(l.endswith(" 0.708661") for l in got)
+    check("controller profile (nanoKONTROL Studio, Amble Lite set)", ok,
+          "slider, M button, page knob, a named parameter, an engine's parameter, channels apart" if ok else
+          f"missing: {[w for w in want if w not in got]}")
 
     # MPE: a note on channel 3 bent up a semitone (range 2) on its own, then its pressure lowers its level
     mp = solo("sub") + [(50, f"al-set {chans} 0.75"), (51, f"al-set {bend} 0.1"), (52, "al-sel-sub bang"), START,
@@ -672,6 +686,18 @@ def main():
           f"loops.txt line 15: {lines[14][:24] if len(lines) > 14 else '-'}; notes after clearing {seen.get('B', 0)}, "
           f"after loading {seen.get('C', 0)}")
 
+    # an older pieces.txt (made with ';' at each line's end - Pd read a line and an empty one - and written back so,
+    # 16 lines) with a piece saved in slot 4 (line 3, as the older patch did): loaded, it is made 8 lines, the piece still slot 4 - saving piece 2 keeps it there
+    old = ["-1", "", "-1", " ".join(["0.5"] * features_piece_len()), "-1", "", "-1", "", "-1", "", "-1", "", "-1", "",
+           "-1", ""]
+    open(os.path.join(dl, "pieces.txt"), "w").write("".join(l + "\n" for l in old))      # (as Pd wrote it)
+    H.run([(50, f"al-set {M.S('g', None, 'Piece')} {(1 + 0.5) / 8}"), (300, "al-psave bang")], 0.6, d=dl, keep=True)
+    pl = open(os.path.join(dl, "pieces.txt")).read().split("\n")
+    pl = pl[:-1] if pl and pl[-1] == "" else pl
+    lens = [len(l.split()) for l in pl]
+    check("an older pieces.txt keeps its slots", len(pl) == 8 and lens[3] == features_piece_len() and
+          lens[1] == features_piece_len() and lens[0] == 1, f"{len(pl)} lines, fields {lens}")
+
     # ... and the web editor reads that loops.txt (the loop: 4 events, playing) and writes it back the same
     import shutil as _sh2
     if _sh2.which("node"):
@@ -698,7 +724,7 @@ console.log(JSON.stringify({ kind: C.kindOf(t), n: lp.n, state: lp.state, bars: 
         shutil.rmtree(dw, ignore_errors=True)
         shutil.copytree(d, dw)
         for f in ("pieces.txt", "saves.txt"):
-            open(os.path.join(dw, f), "w").write("-1;\n" * (8 if f == "pieces.txt" else 18))
+            open(os.path.join(dw, f), "w").write("-1\n" * (8 if f == "pieces.txt" else 18))
         open(os.path.join(dw, "roadmap.txt"), "w").write("")       # (no roadmap left by the checks above)
         H.run([(100, "al-psave bang"), (200, "al-save bang")], 0.5, d=dw, keep=True)
         core = "const D = " + json.dumps(planner.data()) + ";\n" + planner.CORE + r"""

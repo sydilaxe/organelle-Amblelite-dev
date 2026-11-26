@@ -239,7 +239,8 @@ DESC = {
     "g:SYNC:Sync": "The clock: internal, or an external MIDI clock.",
     "g:SYNC:ClkOut": "Send MIDI clock out.",
     "g:MIDI:Profil": "The controller profile: generic, nanokey (nanoKEY Studio), nanoktl (nanoKONTROL Studio), "
-                     "dm48x, user (controllers/<name>.txt).",
+                     "dm48x, user (controllers/<name>.txt), korg (both KORGs at once). The KORG ones expect the "
+                     "Amble Lite sets (docs/controllers) written to the controllers with KORG KONTROL Editor.",
     "g:MIDI:Chans": "layers: channel 1 plays the shown layer, 2-9 one layer each; mpe: every channel plays, each "
                     "note its own bend and pressure (the DM48X).",
     "g:MIDI:Zones": "Keyboard zones: each layer takes its own range (its BREATH page), each zone's breath its own.",
@@ -704,10 +705,23 @@ def story():
             "pressure (the DM48X). Zones: each layer takes its own key range, and each zone's breath shapes its own "
             "layer. Clock in and out (SYNC page)."),
           P("Profil chooses a controller profile, read from controllers/&lt;name&gt;.txt: lines 'cc &lt;n&gt; "
-            "&lt;action&gt; [arg];' or 'note &lt;ch&gt; &lt;n&gt; &lt;action&gt; [arg];'. Actions: knob 1-8, "
-            "level / toggle / show &lt;layer 1-8&gt;, breath, start, stop, startstop, chordnext, chordprev, loop, "
-            "loopstop, loopclear, pgnext, pgprev, play, mix, pattern. LastCC shows the last CC that came in; "
-            "controllers/user.txt is kept when a new version is copied over.")]
+            "&lt;action&gt; [arg];' (any channel), 'chcc &lt;channel&gt; &lt;n&gt; &lt;action&gt; [arg];' or 'note "
+            "&lt;ch&gt; &lt;n&gt; &lt;action&gt; [arg];'. Actions: knob 1-8 (the page shown and the next), level / "
+            "toggle / show &lt;layer 1-8&gt;, loopl &lt;layer&gt; (its loop key), param &lt;name&gt; (one parameter, "
+            "always: drone.Cutoff, pad.fm.Index, g.Tempo - the names are in slots.txt), engp &lt;layer x 10 + k&gt; "
+            "(the layer's engine's k-th parameter, whichever engine it plays), breath, start, stop, startstop, "
+            "chordnext, chordprev, loop, loopstop, loopclear, pgnext, pgprev, play, mix, pattern. LastCC shows the "
+            "last CC that came in; controllers/user.txt is kept when a new version is copied over."),
+          P("<b>The KORG sets.</b> docs/controllers holds a scene set for each KORG: AmbleLite.nktrl_st_set "
+            "(nanoKONTROL Studio) and AmbleLite.nanokey_st_set (nanoKEY Studio). Open it in KORG KONTROL Editor and "
+            "write it to the controller; then choose Profil nanoktl, nanokey or korg (both). nanoKONTROL Studio: a "
+            "strip a layer (drone, sub, pads, perc 1-4, cloud) - S / Select show it, M takes it in / out, R is its "
+            "loop key; the scenes: 1 Mix (levels, filters), 2 Tone (each engine's first two parameters), 3 Move "
+            "(Evolve, LFO 1 depth), 4 Space (resonance, release / decay), 5 Pages (the page knobs, levels); the "
+            "transport: play, stop, rec (loop), cycle (loop stop), rew / ff (the chord), track &lt; &gt; (the pages), "
+            "marker set / &lt; / &gt; (MIX, play view, pattern view). nanoKEY Studio: the knobs the page shown and "
+            "the next; the pads layers 1-5 in / out, start / stop, loop, MIX. The web editor's MIDI tab changes any "
+            "of it and writes controllers/user.txt.")]
     s += [P("Files", H2),
           table([["File", "Holds", "Kept over an update"],
                  ["saves.txt", "the 16 snapshots", "yes (not in the release zip)"],

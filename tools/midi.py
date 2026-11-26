@@ -18,11 +18,16 @@ pattern. A note that is mapped does that instead of playing. LastCC (MIDI page) 
 import os
 from pdlib import Canvas, proc, V, T, Send, Call, SendL, If, Loop, run_steps
 import model as M
+import korg
 from model import S, LAYERS, NOTE_LAYERS, MAXENG, MAXPAGES, MAXC
 from control import opt, num, ctx, npages, NL
 
 ACTIONS = ["knob", "level", "toggle", "show", "breath", "start", "stop", "startstop", "chordnext", "chordprev",
-           "loop", "loopstop", "loopclear", "pgnext", "pgprev", "play", "mix", "pattern"]
+           "loop", "loopstop", "loopclear", "pgnext", "pgprev", "play", "mix", "pattern",
+           # param <key>: one parameter, always (its key: layer.Name, layer.engine.Name, g.Name - slots.txt);
+           # engp <layer*10 + k>: the layer's engine's k-th parameter, whichever engine it plays; loopl <layer>: that
+           # layer's loop key (shown, then the loop pressed)
+           "param", "engp", "loopl"]
 # what the one-press actions call
 CALLS = dict(start="al-start", stop="al-stop", startstop="al-startstop", chordnext="al-chordnext",
              chordprev="al-chordprev", loop="al-loop", loopstop="al-loopstop", loopclear="al-loopclear",
@@ -33,17 +38,12 @@ CALLS = dict(start="al-start", stop="al-stop", startstop="al-startstop", chordne
 PROFILES = {
     "generic": ["# a general keyboard: the mod wheel and CC 2 as breath; CC 70-77 the 8 knobs",
                 "cc 1 breath;", "cc 2 breath;"] + [f"cc {70 + k} knob {k + 1};" for k in range(8)],
-    "nanokey": ["# Korg nanoKEY Studio: knobs 1-8 (CC 20-27) the page shown and the next; the X-Y pad's Y as",
-                "# breath; the 8 pads (channel 10, notes 36-43): the first five layers in / out, start, loop, MIX"]
-               + [f"cc {20 + k} knob {k + 1};" for k in range(8)] + ["cc 2 breath;"]
-               + [f"note 10 {36 + k} toggle {k + 1};" for k in range(5)]
-               + ["note 10 41 startstop;", "note 10 42 loop;", "note 10 43 mix;"],
-    "nanoktl": ["# Korg nanoKONTROL Studio: sliders 1-8 (CC 0-7) the 8 layers' levels; knobs (CC 16-23) the",
-                "# page shown and the next; S buttons (CC 32-39) show a layer; M buttons (CC 48-55) in / out;",
-                "# transport: play 41, stop 42, rec 45, cycle 46, track < > 58 59"]
-               + [f"cc {k} level {k + 1};" for k in range(8)] + [f"cc {16 + k} knob {k + 1};" for k in range(8)]
-               + [f"cc {32 + k} show {k + 1};" for k in range(8)] + [f"cc {48 + k} toggle {k + 1};" for k in range(8)]
-               + ["cc 41 start;", "cc 42 stop;", "cc 45 loop;", "cc 46 loopstop;", "cc 58 pgprev;", "cc 59 pgnext;"],
+    # (the KORG controllers with the Amble Lite sets: korg.py)
+    "nanokey": korg.profile_key(),
+    "nanoktl": korg.profile_ktl(),
+    "korg": ["# both KORGs at once, with the Amble Lite sets (their channels apart): the nanoKEY Studio and the",
+             "# nanoKONTROL Studio as in nanokey.txt and nanoktl.txt"]
+            + [l for l in korg.profile_key() + korg.profile_ktl() if not l.startswith("#")],
     "dm48x": ["# Lekholm DM48X (MPE): every channel plays, each note its own bend and pressure; breath on CC 2",
               "# (and CC 11)", "mode mpe;", "cc 2 breath;", "cc 11 breath;"],
     "user": ["# your own profile: kept when a new version is copied over (edit it to match your controller)",
@@ -51,10 +51,23 @@ PROFILES = {
 }
 
 
+def slot_key(i):
+    """a parameter's name in a profile: layer.Name, layer.engine.Name (an engine's), g.Name (a global one)"""
+    L, e, k = M.SLOTS[i][0]
+    return f"{L}.{e}.{k}" if e else f"{L}.{k}"
+
+
 def write_profiles(out):
     d = os.path.join(out, "controllers")
     os.makedirs(d, exist_ok=True)
+    # (the parameters' names, a line each in slot order: 'param <key>' finds its slot here)
+    open(os.path.join(out, "slots.txt"), "w").write("".join(slot_key(i) + "\n" for i in range(M.NSLOTS)))
+    keys = {slot_key(i) for i in range(M.NSLOTS)}
     for name, lines in PROFILES.items():
+        for l in lines:
+            w = l.rstrip(";").split()
+            if "param" in w:
+                assert w[w.index("param") + 1] in keys, (name, l)
         p = os.path.join(d, f"{name}.txt")
         if name == "user" and os.path.exists(p):
             continue
@@ -63,7 +76,7 @@ def write_profiles(out):
                                      for l in lines) + "\n")
 
 
-GLOBALS = dict(almlay=0, albr=0, alcv2=0, alcc2=0, alact=0, alarg=0, alpl=0, albrq=0, albtg=-1, albl=0, alpfx=0,
+GLOBALS = dict(alcch=1, alpch=0, alpcc=0, almlay=0, albr=0, alcv2=0, alcc2=0, alact=0, alarg=0, alpl=0, albrq=0, albtg=-1, albl=0, alpfx=0,
                alpfn=0)
 
 
@@ -75,7 +88,12 @@ def build(c):
 
 
 def tables(c):
-    rows = dict(albrT=[S(L, None, "BTgt") for L in LAYERS], albrD=[S(L, None, "BDep") for L in LAYERS],
+    # (each layer and engine: how many parameters its engine has - engp k goes no further)
+    nep = [0] * (NL * MAXENG)
+    for li, L in enumerate(LAYERS):
+        for ei, (e, ps) in enumerate(M.engines(L)):
+            nep[li * MAXENG + ei] = len(ps)
+    rows = dict(alnep=nep, albrT=[S(L, None, "BTgt") for L in LAYERS], albrD=[S(L, None, "BDep") for L in LAYERS],
                 alznL=[S(L, None, "ZnLo") for L in LAYERS], alznH=[S(L, None, "ZnHi") for L in LAYERS])
     for name, vals in rows.items():
         c.obj(f"array define {name} {len(vals)}")
@@ -196,9 +214,11 @@ def profiles(c):
     note) when it is chosen. Each line in turn: [list append 0] gives every line an argument, [unpack] spreads it
     (right to left: the argument, the action, the number), [sel] turns the action's word into its number."""
     c.comment("controller profiles: controllers/<name>.txt -> the CC and note maps")
-    for name, n in (("alcca", 128), ("alccb", 128), ("alnta", 16 * 128), ("alntb", 16 * 128)):
+    for name, n in (("alcca", 16 * 128), ("alccb", 16 * 128), ("alnta", 16 * 128), ("alntb", 16 * 128)):
         c.obj(f"array define {name} {n}")
     tx = c.obj("text define al-ctl")
+    keys = c.obj("text define al-keys")
+    c.c(c.m(c.recv("al-init"), "read -c slots.txt"), 0, keys, 0)
     prof = S("g", None, "Profil")
     sel = c.ch(c.recv(f"al-s{prof}"), f"expr min({len(M.PROFILES) - 1}, int($f1*{len(M.PROFILES)}))", "change -1",
                "t f f")
@@ -207,7 +227,7 @@ def profiles(c):
         c.c(c.m((names, i), f"read controllers/{name}.txt"), 0, tx, 0)
     # (then: the maps cleared, each line parsed)
     go = c.to((sel, 0), "t b b b")
-    c.c(c.m((go, 2), " ".join(["0"] * 128)), 0, c.obj("array set alcca"), 0)
+    c.c(c.m((go, 2), " ".join(["0"] * (16 * 128))), 0, c.obj("array set alcca"), 0)
     c.c(c.m((go, 1), " ".join(["0"] * (16 * 128))), 0, c.obj("array set alnta"), 0)
     sz = c.to(c.to((go, 0), "text size al-ctl"), "t f b")
     cnt = c.obj("f")
@@ -215,15 +235,29 @@ def profiles(c):
     u = c.to((sz, 0), "until")
     c.c(u, 0, cnt, 0)
     c.c(c.to(cnt, "+ 1"), 0, cnt, 1)
-    rt = c.ch(cnt, "text get al-ctl", "list trim", "route cc note mode")
+    rt = c.ch(cnt, "text get al-ctl", "list trim", "route cc note mode chcc")
     sels = "sel " + " ".join(ACTIONS)
-    # cc <n> <action> [arg]
-    cu = c.ch(rt, "t l b")
-    c.c(c.m((cu, 1), "0"), 0, c.obj("v alact"), 0)
-    up = c.ch((cu, 0), "list append 0", "unpack f s f")
-    c.c((up, 2), 0, c.obj("v alarg"), 0)
-    _codes(c, c.to((up, 1), sels))
-    c.c((up, 0), 0, c.obj("expr alcca[$f1] = alact; alccb[$f1] = alarg"), 0)
+    # cc <n> <action> [arg] (every channel), chcc <channel> <n> <action> [arg]: the argument first - a number, or a
+    # parameter's name looked up in slots.txt - then the action, the CC, the channel (0: all), and the map is set
+    cm = c.obj("list append 0")
+    c.c(c.to((rt, 0), "list prepend 0"), 0, cm, 0)
+    c.c((rt, 3), 0, cm, 0)
+    head = c.to(cm, "list split 3")
+    argv = c.to(c.to((head, 1), "list split 1"), "route float")
+    av = c.obj("v alarg")
+    c.c((argv, 0), 0, av, 0)
+    c.c(c.to((argv, 1), "text search al-keys"), 0, av, 0)
+    tl = c.to((head, 0), "t l b")
+    c.c(c.m((tl, 1), "0"), 0, c.obj("v alact"), 0)        # (an action it doesn't know: none)
+    hu = c.to(tl, "unpack f f s")
+    _codes(c, c.to((hu, 2), sels))
+    c.c((hu, 1), 0, c.obj("v alpcc"), 0)
+    hc = c.to((hu, 0), "t b f")
+    c.c((hc, 1), 0, c.obj("v alpch"), 0)
+    c.c((hc, 0), 0, c.obj("s al-ccmap"), 0)
+    proc(c, "al-ccmap", [If("alpch == 0", [Loop("16", "alj", [T("alcca", "alj*128 + alpcc", "alact"),
+                                                               T("alccb", "alj*128 + alpcc", "alarg")])],
+                            [T("alcca", "(alpch - 1)*128 + alpcc", "alact"), T("alccb", "(alpch - 1)*128 + alpcc", "alarg")])])
     # note <ch> <n> <action> [arg]
     nu = c.ch((rt, 1), "t l b")
     c.c(c.m((nu, 1), "0"), 0, c.obj("v alact"), 0)
@@ -255,12 +289,14 @@ def ccs(c):
     c.c(cp, 0, c.obj("s al-cc"), 0)
     r = c.ch(c.recv("al-cc"), "t b l")
     up = c.to((r, 1), "unpack f f f")
+    c.c((up, 2), 0, c.obj("v alcch"), 0)
     c.c((up, 1), 0, c.obj("v alcc2"), 0)
     c.c((up, 0), 0, c.obj("v alcv2"), 0)
     last = S("g", None, "LastCC")
+    at = "((alcch - 1) % 16)*128 + alcc2"
     run_steps(c, (r, 0), [
         T("alp", str(last), "alcc2/127"), Call("al-redraw"),
-        If("alcca[alcc2] > 0", [V("alact", "alcca[alcc2]"), V("alarg", "alccb[alcc2]"), Call("al-action")])])
+        If(f"alcca[{at}] > 0", [V("alact", f"alcca[{at}]"), V("alarg", f"alccb[{at}]"), Call("al-action")])])
     # the actions: alact (1 ..), alarg its argument, alcv2 the value (0 .. 127)
     knob = ACTIONS.index("knob") + 1
     steps = [
@@ -271,12 +307,21 @@ def ccs(c):
         If(f"alact == {ACTIONS.index('level') + 1} && alarg >= 1 && alarg <= {NL}",
            [SendL("al-set", [_pick([S(L, None, 'Level') for L in LAYERS], "alarg - 1"), "alcv2/127"])]),
         If(f"alact == {ACTIONS.index('breath') + 1}", [SendL("al-breath", ["alcv2/127"])]),
+        If(f"alact == {ACTIONS.index('param') + 1} && alarg >= 0", [SendL("al-set", ["alarg", "alcv2/127"])]),
+        # (an engine's k-th parameter: its pages come after FAV and LAYER, four a page)
+        If(f"alact == {ACTIONS.index('engp') + 1} && alarg >= 11 && alarg <= {NL}8 && alarg % 10 >= 1 && "
+           f"alarg % 10 <= alnep[(int(alarg/10) - 1)*{MAXENG} + aleng[int(alarg/10) - 1]]", [
+            V("alpl", f"alks[(((int(alarg/10) - 1)*{MAXENG} + aleng[int(alarg/10) - 1])*{MAXPAGES} + 2 + "
+                      f"int((alarg % 10 - 1)/4))*4 + (alarg % 10 - 1) % 4]"),
+            If("alpl >= 0", [SendL("al-set", ["alpl", "alcv2/127"])])]),
         # the buttons act on a press (64 and up)
         If("alcv2 >= 64", [
             If(f"alact == {ACTIONS.index('toggle') + 1} && alarg >= 1 && alarg <= {NL}",
                [SendL("al-togn", ["alarg - 1"])]),
             If(f"alact == {ACTIONS.index('show') + 1} && alarg >= 1 && alarg <= {NL}",
-               [SendL("al-shown", ["alarg - 1"])])] +
+               [SendL("al-shown", ["alarg - 1"])]),
+            If(f"alact == {ACTIONS.index('loopl') + 1} && alarg >= 1 && alarg <= {len(NOTE_LAYERS)}",
+               [SendL("al-shown", ["alarg - 1"]), Call("al-loop")])] +
            [If(f"alact == {ACTIONS.index(a) + 1}", [Call(cl)]) for a, cl in CALLS.items()])]
     proc(c, "al-action", steps)
     for name, pre in (("al-togn", "al-tog-"), ("al-shown", "al-sel-")):

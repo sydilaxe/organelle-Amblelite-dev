@@ -209,13 +209,13 @@ def build(out=OUT):
         open(rm, "w").write("")
     pc = os.path.join(out, "pieces.txt")         # (the pieces: kept across builds too; 8 empty lines)
     if not os.path.exists(pc):
-        open(pc, "w").write("-1;\n" * features.PIECES)
+        open(pc, "w").write("-1\n" * features.PIECES)
     lp = os.path.join(out, "loops.txt")          # (the pieces' loops: kept across builds too)
     if not os.path.exists(lp):
-        open(lp, "w").write("0 0 0 0;\n" * (features.PIECES * features.LOOP_LAYERS))
+        open(lp, "w").write("0 0 0 0\n" * (features.PIECES * features.LOOP_LAYERS))
     sv = os.path.join(out, "saves.txt")
     if not os.path.exists(sv):
-        open(sv, "w").write("-1;\n" * (features.SCRATCH + 2))
+        open(sv, "w").write("-1\n" * (features.SCRATCH + 2))
     import readme
     open(os.path.join(out, "README.txt"), "w").write(readme.text())
     return out

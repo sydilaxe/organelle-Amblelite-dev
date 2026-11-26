@@ -683,6 +683,7 @@ nanokey
 nanoktl
 dm48x
 user
+korg
 layers
 mpe
 off

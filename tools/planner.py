@@ -10,6 +10,8 @@ import os
 import sys
 import model as M
 import roadmap as R
+import korg
+import midi
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs",
                                                          "planner.html")
@@ -57,7 +59,9 @@ def data():
         key=M.S("g", None, "Key"), tempo=M.S("g", None, "Tempo"),
         roles=ROLE_NAMES, arcs=ARC_NAMES, arcRoles=[M.ARC_ROLES[a] for a in M.ARCS], weights=R.WEIGHTS,
         tension=R.TENSION, masks=R.MASKS, pools=[[names.index(n) for n in p] for p in R.POOLS], stories=names,
-        llabels=[M.LAYER_LABEL[L] for L in M.LAYERS], short=[M.SHORT[L] for L in M.LAYERS])
+        llabels=[M.LAYER_LABEL[L] for L in M.LAYERS], short=[M.SHORT[L] for L in M.LAYERS],
+        midi=dict(devices=korg.tables(), keys=[midi.slot_key(i) for i in range(M.NSLOTS)],
+                  noteLayers=len(M.NOTE_LAYERS)))
 
 
 # ---- the files and values (no page): parse / write the patch's text files, read and set parameters as the patch
@@ -75,15 +79,22 @@ const C = (() => {
     D.fav0.forEach((v, i) => r[Y.fav + i] = v);
     return r;
   }
-  // a file: a record a line (Pd: 'write -c' - a line each, maybe blank lines between); '-1' an empty slot
+  // a file's lines as Pd reads it ('read -c'): a ';' or a newline ends a line, so slot k is line k - an empty
+  // line is an empty slot (an older file, ';' then a newline at each line's end, reads as a line and an empty one)
+  function lines(text) {
+    const t = text.replace(/\r/g, "").split(/[;\n]/);
+    if (t.length && t[t.length - 1].trim() === "") t.pop();
+    return t.map(l => l.trim());
+  }
+  // a file: a record a line; '-1' (or an empty line) an empty slot
   function parse(text, len) {
-    return text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => {
-      const a = l.split(/\s+/).map(Number);
+    return lines(text).map(l => {
+      const a = l ? l.split(/\s+/).map(Number) : [];
       return a.length === len && a.every(Number.isFinite) ? a : null;
     });
   }
   let kindOf = function (text) {
-    const lens = text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => l.split(/\s+/).length);
+    const lens = lines(text).filter(Boolean).map(l => l.split(/\s+/).length);
     if (lens.includes(Y.piece)) return "piece";
     if (lens.includes(Y.snap)) return "snap";
     return null;
@@ -148,12 +159,12 @@ const C = (() => {
   // breath line's length and values
   const okLoop = a => a.length >= 4 && a.every(Number.isFinite) && a[2] >= 0 && a.length === 4 + 4 * a[2] + (a[3 + 4 * a[2]] || 0);
   function parseLoops(text) {
-    const lines = text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => l.split(/\s+/).map(Number));
-    return Array.from({ length: Y.pieces * Y.loopLayers }, (_, i) => lines[i] && okLoop(lines[i]) ? lines[i] : [0, 0, 0, 0]);
+    const ls = lines(text).map(l => l ? l.split(/\s+/).map(Number) : []);
+    return Array.from({ length: Y.pieces * Y.loopLayers }, (_, i) => ls[i] && okLoop(ls[i]) ? ls[i] : [0, 0, 0, 0]);
   }
   function isLoops(text) {
-    const lines = text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => l.split(/\s+/).map(Number));
-    return lines.length > 0 && lines.every(okLoop);
+    const ls = lines(text).filter(Boolean).map(l => l.split(/\s+/).map(Number));
+    return ls.length > 0 && ls.every(okLoop);
   }
   function loop(a) {
     const n = a[2], bn = a[3 + 4 * n] || 0, at = k => a.slice(3 + k * n, 3 + (k + 1) * n);
@@ -275,7 +286,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
 <div class="wrap">
   <header>
     <h1>Amble Lite Editor</h1>
-    <p class="lede">Open your pieces.txt, saves.txt and loops.txt from the AmbleLite folder, edit any piece or snapshot page by page as on the Organelle, then copy the files back. A piece also holds its roadmap and its loops.</p>
+    <p class="lede">Open your pieces.txt, saves.txt and loops.txt from the AmbleLite folder, edit any piece or snapshot page by page as on the Organelle, then copy the files back. A piece also holds its roadmap and its loops. Below: what your KORG controllers do.</p>
   </header>
 
   <section class="panel" aria-labelledby="h-lib">
@@ -303,6 +314,20 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
       </div></div>
     <p class="note warn" id="confirm" hidden></p>
     <div id="editor"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-midi">
+    <div class="row between"><h2 id="h-midi">Controllers</h2>
+      <div class="row">
+        <label class="toggle"><span class="label">Controller</span><select id="mdev"></select></label>
+        <label class="toggle"><span class="label">Scene</span><select id="mscene"></select></label>
+        <button id="mreset" type="button">Back to the Amble Lite set</button>
+      </div></div>
+    <p class="note">Write the Amble Lite set to your KORG with KORG KONTROL Editor first (docs/controllers in the repository: AmbleLite.nktrl_st_set, AmbleLite.nanokey_st_set). Then change what any control does here, copy user.txt into the AmbleLite folder's controllers folder, and choose Profil: user on the MIDI page. user.txt holds both controllers.</p>
+    <p class="summary" id="mabout"></p>
+    <div id="mgrid" class="pages"></div>
+    <div class="field"><span class="label">controllers/user.txt</span><textarea class="out" id="outm" readonly></textarea>
+      <div class="row"><button class="primary" id="cpm" type="button">Copy user.txt</button><button id="dlm" type="button">Download</button></div></div>
   </section>
 
   <section class="panel" aria-labelledby="h-files">
@@ -681,6 +706,86 @@ $("dlp").onclick = () => download($("outp").value, "pieces.txt");
 $("dls").onclick = () => download($("outs").value, "saves.txt");
 $("cpl").onclick = () => copy($("outl").value, $("outl"), "Copied loops.txt.");
 $("dll").onclick = () => download($("outl").value, "loops.txt");
+
+// ---- controllers: the KORGs' controls, what each does (korg.py's design to start), user.txt
+const MD = D.midi;
+const ACTS = [["", "—"], ["knob", "Page knob"], ["level", "Layer level"], ["param", "A parameter"], ["engp", "Engine parameter"],
+  ["breath", "Breath"], ["toggle", "Layer in / out"], ["show", "Show layer"], ["loopl", "Layer's loop key"],
+  ["start", "Start"], ["stop", "Stop"], ["startstop", "Start / stop"], ["chordnext", "Next chord"], ["chordprev", "Previous chord"],
+  ["loop", "Loop key"], ["loopstop", "Loop stop"], ["loopclear", "Loop clear"], ["pgnext", "Next page"], ["pgprev", "Previous page"],
+  ["play", "Play view"], ["mix", "MIX view"], ["pattern", "Pattern view"]];
+const fresh = () => JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(MD.devices).map(([k, d]) => [k, d.scenes.map(x => x.map)]))));
+let mmap = fresh(), mdev = "nanoktl", mscene = 0;
+try { const m = JSON.parse(localStorage.getItem("al-midi") || "null"); if (m && m.nanoktl && m.nanokey) mmap = m; } catch (e) {}
+const mstore = () => { try { localStorage.setItem("al-midi", JSON.stringify(mmap)); } catch (e) {} };
+const keyName = k => { const i = MD.keys.indexOf(k); if (i < 0) return k; const sl = D.slots[i], li = D.layers.findIndex(l => l.id === sl.L);
+  return `${li >= 0 ? D.llabels[li] : "GLOBAL"} · ${sl.e ? `${sl.n} (${sl.e})` : sl.n}`; };
+function argControl(act, arg, set, id) {
+  const sel = el("select", { id });
+  if (act === "knob") for (let k = 1; k <= 8; k++) sel.add(new Option(`Knob ${k}`, k));
+  else if (["level", "toggle", "show"].includes(act)) D.llabels.forEach((n, i) => sel.add(new Option(n, i + 1)));
+  else if (act === "loopl") D.llabels.slice(0, MD.noteLayers).forEach((n, i) => sel.add(new Option(n, i + 1)));
+  else if (act === "engp") D.llabels.forEach((n, i) => { for (let k = 1; k <= 8; k++) sel.add(new Option(`${n} ${k}`, (i + 1) * 10 + k)); });
+  else if (act === "param") {
+    const groups = {};
+    MD.keys.forEach(k => { const g = k.split(".")[0]; (groups[g] = groups[g] || []).push(k); });
+    Object.entries(groups).forEach(([g, ks]) => {
+      const og = el("optgroup", { label: g === "g" ? "GLOBAL" : D.llabels[D.layers.findIndex(l => l.id === g)] });
+      ks.forEach(k => og.append(new Option(keyName(k), k))); sel.append(og);
+    });
+  } else return null;
+  if (arg !== null && arg !== undefined) sel.value = String(arg);
+  if (sel.value === "" && sel.options.length) sel.selectedIndex = 0;
+  sel.onchange = () => set(act === "param" ? sel.value : +sel.value);
+  return sel;
+}
+function midiRender() {
+  const dev = MD.devices[mdev], ds = $("mdev"), sc = $("mscene");
+  if (!ds.options.length) Object.entries(MD.devices).forEach(([k, d]) => ds.add(new Option(d.name, k)));
+  ds.value = mdev;
+  sc.replaceChildren(); dev.scenes.forEach((x, i) => sc.add(new Option(`${i + 1} ${x.name}`, i)));
+  mscene = Math.min(mscene, dev.scenes.length - 1); sc.value = mscene;
+  const scene = dev.scenes[mscene], map = mmap[mdev][mscene];
+  $("mabout").textContent = `${scene.about}. Channel ${scene.ch}${scene.padch ? `, pads on channel ${scene.padch}` : ""}.`;
+  const groups = {};
+  dev.controls.forEach(c => { const g = /^(Play|Stop|Rec|Rew|FF|Cycle|Button \d+|Marker.*|Track.*)$/.test(c.name) ? "Transport" : c.name.replace(/ \d+$/, "");
+    (groups[g] = groups[g] || []).push(c); });
+  const grid = $("mgrid"); grid.replaceChildren();
+  Object.entries(groups).forEach(([g, cs]) => {
+    const p = el("div", { className: "page" }, el("h3", { textContent: g.toUpperCase() }, el("span", { textContent: cs[0].kind === "pad" ? `notes, ch ${scene.padch}` : `CC, ch ${scene.ch}` })));
+    cs.forEach(c => {
+      const cur = map[c.name] || ["", null], id = `m-${mdev}-${c.name.replace(/\W/g, "")}`;
+      const act = el("select", { id }); ACTS.forEach(([v, t]) => act.add(new Option(t, v))); act.value = cur[0];
+      const set = (a, arg) => { if (a) map[c.name] = [a, arg]; else delete map[c.name]; mstore(); midiFile(); };
+      act.onchange = () => { const a = act.value, ac = argControl(a, null, () => {}, "x"); set(a, ac ? (a === "param" ? ac.value : +ac.value) : null); midiRender(); };
+      const row = el("div", { className: "knob", style: "grid-template-columns:100px 1fr" },
+        el("label", { className: "nm", htmlFor: id, textContent: `${c.name.replace(/^(Knob|Slider|Pad) /, "")} · ${c.num}`, title: `${c.name}: ${c.kind === "pad" ? "note" : "CC"} ${c.num}` }), act);
+      p.append(row);
+      const ac = argControl(cur[0], cur[1], v => set(cur[0], v), id + "-arg");
+      if (ac) { ac.style.gridColumn = "2"; p.append(el("div", { className: "knob", style: "grid-template-columns:100px 1fr" }, el("span", { className: "nm" }), ac)); }
+    });
+    grid.append(p);
+  });
+  midiFile();
+}
+function midiFile() {
+  const out = ["comment your profile (Amble Lite Editor): the KORGs with the Amble Lite sets;"];
+  Object.entries(MD.devices).forEach(([k, dev]) => dev.scenes.forEach((scene, si) => {
+    if (k === "nanokey") out.push("chcc 1 1 breath;");
+    dev.controls.forEach(c => {
+      const m = mmap[k][si][c.name]; if (!m || !m[0]) return;
+      const tail = m[1] !== null && m[1] !== undefined ? ` ${m[1]}` : "";
+      out.push(c.kind === "pad" ? `note ${scene.padch} ${c.num} ${m[0]}${tail};` : `chcc ${scene.ch} ${c.num} ${m[0]}${tail};`);
+    });
+  }));
+  $("outm").value = out.join("\n") + "\n";
+}
+$("mdev").onchange = () => { mdev = $("mdev").value; mscene = 0; midiRender(); };
+$("mscene").onchange = () => { mscene = +$("mscene").value; midiRender(); };
+$("mreset").onclick = () => { mmap = fresh(); mstore(); midiRender(); };
+$("cpm").onclick = () => copy($("outm").value, $("outm"), "Copied user.txt.");
+$("dlm").onclick = () => download($("outm").value, "user.txt");
+midiRender();
 
 if (!restore()) { lib.pieces[0] = C.defaults("piece"); example = true; }
 render();

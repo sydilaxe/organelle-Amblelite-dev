@@ -165,7 +165,7 @@ LANES = ["perc1", "perc2", "perc3", "perc4"]
 # the keyboard zones (MIDI page Zones on): the notes each layer takes (lo, hi); (127, 0): none. The first layer
 # whose zone holds a note plays it
 ZONE_DEFAULT = dict(sub=(0, 47), pad=(48, 71), perc1=(72, 127))
-PROFILES = ["generic", "nanokey", "nanoktl", "dm48x", "user"]
+PROFILES = ["generic", "nanokey", "nanoktl", "dm48x", "user", "korg"]      # (korg: both KORGs at once)
 OCT_DEFAULT = dict(drone=2, sub=1, pad=3, perc1=4, perc2=4, perc3=3, perc4=5)      # -1, -2, 0, +1 ...
 # the lanes' defaults: a cascade that interlocks (engine, hits, steps, rotate, rate, pitch, phase, decay)
 LANE_DEFAULT = dict(perc1=(3, 5, 8, 0, 3, 0, 0, 0.45), perc2=(4, 3, 8, 2, 1, 4, 0, 0.5),
