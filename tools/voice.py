@@ -114,7 +114,9 @@ def voice(L):
         bend = d.ch(d.recv(f"al-{L}-b"), "route $1", "pack f 12", "line~")
         expr_ = d.ch(d.recv(f"al-{L}-x"), "route $1", "pack f 20", "line~")
         d.c(d.m(d.obj("loadbang"), "1"), 0, expr_, 0)
-        f = d.to(add(d, add(d, d.to(d.recv("$0-pitch"), "vline~"), (sl, 0)), bend), "mtof~")
+        # (the pitch's glide: [line~], which keeps no queue - a silent voice, switched off, still hears every
+        # chord change, and a [vline~] would pile them up until it played again)
+        f = d.to(add(d, add(d, d.to(d.recv("$0-pitch"), "line~"), (sl, 0)), bend), "mtof~")
         ev = d.ch(d.recv("$0-env"), "vline~")
         env = mul(d, ev, ev)
         note = d.recv("$0-note")
@@ -129,13 +131,19 @@ def voice(L):
         Lo, Ro = BUILD[(M.kind(L), en)](ec, ins, L)
         out(ec, Lo, Ro, gain)
         node = d.sub(ec)
-        d.c(d.to((esel, ne - 1 - k), f"expr $f1 == {k}"), 0, node, 0)
+        on = d.to((esel, ne - 1 - k), f"expr $f1 == {k}")
+        d.c(on, 0, node, 0)
+        # (the messages - a strike, a note - only to the engine that plays: one switched off would queue them in its
+        # [vline~]s, never played out, a little more at every note - the CPU climbing over a long session)
+        gate = d.obj("spigot")
+        d.c(on, 0, gate, 1)
+        d.c(gate, 0, node, 1 if perc else 3)
         if perc:
-            d.c(strike, 0, node, 1)
+            d.c(strike, 0, gate, 0)
         else:
             d.c(f, 0, node, 1)
             d.c(env, 0, node, 2)
-            d.c(note, 0, node, 3)
+            d.c(note, 0, gate, 0)
         d.c(node, 0, sL, 0)
         d.c(node, 1, sR, 0)
     d.col(260)

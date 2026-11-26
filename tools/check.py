@@ -751,6 +751,24 @@ if (step === "1") {
         check(f"every {M.kind(L)} engine sounds ({len(names)})", not quiet and not H.errors(log),
               f"quietest {min(lv):.0f} dB" + (f"; silent: {quiet}" if quiet else "") + (f"; {H.errors(log)[:1]}" if H.errors(log) else ""))
 
+    # nothing piles up over a long session: the four lanes (the busiest messages) for 8 minutes - the last minutes'
+    # CPU no more than the first's (a strike sent to every engine queued in the switched-off ones' [vline~]s: the CPU
+    # doubled in 25 minutes)
+    def clock(c):
+        met = c.obj("metro 60000", 900, 700)
+        c.c(c.obj("loadbang", 900, 680), 0, met, 0)
+        rt = c.obj("realtime", 900, 730)
+        tb = c.to(met, "t b b")
+        c.c((tb, 0), 0, rt, 0)
+        c.c((tb, 1), 0, rt, 1)
+        c.c(rt, 0, c.obj("print RT", 900, 760), 0)
+    lanes = [(20 + i, f"al-inset {i} {1 if L in M.LANES else 0}") for i, L in enumerate(M.LAYERS)]
+    log, _ = H.run(lanes + [START], 8 * 60 + 1, d=d, keep=True, extra=clock, prints=())
+    rts = [float(l.split()[-1]) for l in log.splitlines() if l.startswith("RT")][1:]
+    first, last = sum(rts[:2]) / 2, sum(rts[-2:]) / 2
+    check("nothing piles up over a long session", len(rts) >= 6 and last < first * 1.25,
+          f"minutes 1-2: {first / 600:.2f} %, minutes 7-8: {last / 600:.2f} %")
+
     # CPU: everything playing, offline speed vs real time (x86; the Organelle's CM3 is roughly 10-15x slower)
     t0 = time.time()
     run(on + [(25, f"al-inset {M.LAYERS.index('cloud')} 1"), START], 30)        # (all four lanes and the cloud in)
