@@ -10,7 +10,7 @@ the roadmap, MIDI / MPE / breath, the audio input's modes and your own wavetable
 - **Manual:** [`docs/AmbleLite-manual.pdf`](docs/AmbleLite-manual.pdf) - **key chart:** [`docs/AmbleLite-keys.pdf`](docs/AmbleLite-keys.pdf)
   (both built from the patch's own tables by `tools/manual.py`; also in each release).
 - Install: copy `patches/AmbleLite` into the Organelle's `Patches` folder. Quick reference: `patches/AmbleLite/README.txt`.
-- Roadmap planner (a web page): `docs/planner.html` - build a roadmap on a computer, copy its roadmap.txt to the patch folder.
+- Amble Lite Editor (a web page): `docs/planner.html` - open pieces.txt / saves.txt, edit any piece or snapshot page by page (every parameter, layers, latches, FAV pages, tapped rhythms, a piece's roadmap), copy the file back to the patch folder.
 - Design: `docs/DESIGN.md` (decisions), `docs/PARAMETERS.md`, `docs/WAVETABLES.md`, `docs/ROADMAP.md`.
 
 ## Source (`tools/`)
@@ -29,7 +29,7 @@ The patch is generated: edit the generator, not the `.pd` files.
 | `harmony.py` | chord suggestions, your own story, listening |
 | `roadmap.py` | the roadmap: sections built from a few settings, guide / auto, roadmap.txt |
 | `lines.py` | counterpoint (pad lines) and motifs (lanes playing another layer's loop) |
-| `planner.py` | `docs/planner.html`: the web roadmap planner, from the same tables |
+| `planner.py` | `docs/planner.html`: the web editor for pieces and snapshots, from the same tables |
 | `screen.py` | the OLED |
 | `wavetables.py` | the factory wavetables (WAV files) |
 | `gen.py` | the patch: `python3 gen.py` |

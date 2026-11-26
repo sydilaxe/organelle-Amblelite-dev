@@ -1,5 +1,6 @@
 """Offline checks in Pure Data: python3 check.py. Each check builds nothing new (one build, reused) and prints
 PASS / FAIL with what it measured."""
+import os
 import sys
 import time
 import numpy as np
@@ -639,6 +640,98 @@ def main():
     between = sum(1 for l in seq[m[0] + 1:m[1]] if l.startswith("al-perc1-hit")) if len(m) == 2 else -1
     check("a tapped rhythm becomes the lane's pattern", gaps == [2, 3, 3] and between == 6,
           f"steps {tsteps} (gaps {gaps}), {between} hits in 2 cycles")
+
+    # ---- a piece keeps its loops (loops.txt), even on a fresh install (no pieces.txt, no loops.txt: each file is
+    # filled out to all its slots when it loads, so piece 3 saves to piece 3's lines): a loop recorded, saved with
+    # piece 3, cleared - silent - then piece 3 loaded: it plays again
+    import shutil as _sh
+    dl = d.rstrip("/") + "-loops"
+    _sh.rmtree(dl, ignore_errors=True)
+    _sh.copytree(d, dl)
+    for f in ("loops.txt", "pieces.txt"):
+        os.remove(os.path.join(dl, f))
+    ev = [(50, f"al-set {M.S('g', None, 'Piece')} {(2 + 0.5) / 8}"), (200, "notesRaw 72 100"), (210, "notesRaw 72 0"),
+          (998, "notesRaw 77 100"), (999, "notesRaw 77 0"), (1000, "notesRaw 77 100"), (1001, "notesRaw 77 0"),
+          (1010, "al-midi 45 100 1"), (1300, "al-midi 45 0 1"), (1600, "al-midi 52 90 1"), (1900, "al-midi 52 0 1"),
+          (3800, "notesRaw 77 100"), (3801, "notesRaw 77 0"), (3810, "notesRaw 77 100"), (3811, "notesRaw 77 0"),
+          (6300, "al-psave bang"), (6600, "al-loopclear bang"), (7000, "h-mark B"), (9000, "h-mark C"),
+          (9100, "al-pload bang"), (13000, "h-mark D")]
+
+    def marks(c):
+        c.c(c.obj("r h-mark", 900, 700), 0, c.obj("print MARK", 900, 730), 0)
+    log, _ = H.run(ev, 13.2, d=dl, keep=True, prints=("al-in-drone",), extra=marks)
+    cur, seen = "start", {}
+    for l in log.splitlines():
+        if l.startswith("MARK"):
+            cur = l.split()[-1]
+        elif l.startswith("al-in-drone"):
+            seen[cur] = seen.get(cur, 0) + 1
+    lines = [l for l in open(os.path.join(dl, "loops.txt")).read().split("\n") if l.strip()]
+    kept = len(lines) == 56 and lines[14].split()[:3] == ["2", "96", "4"]
+    check("a piece keeps its loops (fresh install too)", kept and seen.get("B", 0) == 0 and seen.get("C", 0) >= 4,
+          f"loops.txt line 15: {lines[14][:24] if len(lines) > 14 else '-'}; notes after clearing {seen.get('B', 0)}, "
+          f"after loading {seen.get('C', 0)}")
+
+    # ... and the web editor reads that loops.txt (the loop: 4 events, playing) and writes it back the same
+    import shutil as _sh2
+    if _sh2.which("node"):
+        import json as _js
+        import subprocess as _sp
+        import planner as _pl
+        open(os.path.join(dl, "tl.js"), "w").write("const D = " + _js.dumps(_pl.data()) + ";\n" + _pl.CORE + r"""
+const fs = require("fs"), t = fs.readFileSync(process.argv[2] + "/loops.txt", "utf8");
+const a = C.parseLoops(t), b = C.parseLoops(C.write(a)), lp = C.loop(a[14]);
+console.log(JSON.stringify({ kind: C.kindOf(t), n: lp.n, state: lp.state, bars: lp.len / C.Y.bar, same: JSON.stringify(a) === JSON.stringify(b) }));
+""")
+        o = _js.loads(_sp.run(["node", os.path.join(dl, "tl.js"), dl], capture_output=True, text=True).stdout)
+        check("web editor: reads and writes loops.txt", o == dict(kind="loops", n=4, state=2, bars=1, same=True), str(o))
+
+    # ---- the web editor (planner.py) reads what the patch saves and writes what it loads: Pd saves its defaults (a
+    # piece, a snapshot) - the page's own defaults must be them; the page edits the piece and writes pieces.txt - Pd
+    # loads it and saves it again, unchanged (but the SECTN knobs, which show the roadmap's first section)
+    import shutil
+    import json
+    import subprocess
+    if shutil.which("node"):
+        import planner
+        dw = d.rstrip("/") + "-web"            # (a copy of the build: its pieces.txt and saves.txt its own)
+        shutil.rmtree(dw, ignore_errors=True)
+        shutil.copytree(d, dw)
+        for f in ("pieces.txt", "saves.txt"):
+            open(os.path.join(dw, f), "w").write("-1;\n" * (8 if f == "pieces.txt" else 18))
+        open(os.path.join(dw, "roadmap.txt"), "w").write("")       # (no roadmap left by the checks above)
+        H.run([(100, "al-psave bang"), (200, "al-save bang")], 0.5, d=dw, keep=True)
+        core = "const D = " + json.dumps(planner.data()) + ";\n" + planner.CORE + r"""
+const fs = require("fs"), dir = process.argv[2], step = process.argv[3];
+const near = (a, b, skip) => a.map((v, i) => [i, v, b[i]]).filter(([i, v, w]) => !skip.includes(i) && Math.abs(v - w) > 1e-5);
+const li = n => D.layers.findIndex(l => l.id === n);
+if (step === "1") {
+  const p = C.parse(fs.readFileSync(dir + "/pieces.txt", "utf8"), C.Y.piece), s = C.parse(fs.readFileSync(dir + "/saves.txt", "utf8"), C.Y.snap);
+  const dp = near(p[0], C.defaults("piece"), []), ds = near(s[0], C.defaults("snap"), []);
+  const r = p[0];
+  C.setNumber(D.tempo, r, 120);
+  C.setIndex(D.layers[li("pad")].eng, r, D.layers[li("pad")].engines.indexOf("fm"));
+  r[C.Y.inn + li("drone")] = 0; r[C.Y.inn + li("perc2")] = 1; r[C.Y.latch + li("sub")] = 0; r[C.Y.tap + 3 * 16 + 5] = 1;
+  C.setIndex(D.slots.findIndex(x => x.L === "perc1" && x.n === "Target" && x.e === null), r, 2);
+  r[C.favAt(li("pad"), C.optIndex(D.layers[li("pad")].eng, r), 3)] = C.targets(r, li("pad"))[4];
+  C.setRoad(r, [{bars: 8, story: 2, mask: 7, role: 0}, {bars: 16, story: 3, mask: 255, role: 4}]);
+  fs.writeFileSync(dir + "/pieces.txt", C.write(p)); fs.writeFileSync(dir + "/edited.json", JSON.stringify(r));
+  console.log(JSON.stringify({ pieces: p.length, saves: s.length, dp: dp.length, ds: ds.length }));
+} else {
+  const a = JSON.parse(fs.readFileSync(dir + "/edited.json", "utf8"));
+  const b = C.parse(fs.readFileSync(dir + "/pieces.txt", "utf8"), C.Y.piece)[0];
+  console.log(JSON.stringify({ diff: b ? near(a, b, [__SECTN__]).length : -1 }));
+}
+""".replace("__SECTN__", ", ".join(str(M.S("g", None, k)) for k in ("Sect", "SBars", "SStory", "SRole")))
+        open(os.path.join(dw, "t.js"), "w").write(core)
+        o1 = json.loads(subprocess.run(["node", os.path.join(dw, "t.js"), dw, "1"], capture_output=True, text=True).stdout)
+        H.run([(300, "al-pload bang"), (2500, "al-psave bang")], 3, d=dw, keep=True)
+        o2 = json.loads(subprocess.run(["node", os.path.join(dw, "t.js"), dw, "2"], capture_output=True, text=True).stdout)
+        check("web editor: reads the patch's files, its defaults are the patch's", o1 == dict(pieces=8, saves=18, dp=0, ds=0), str(o1))
+        check("web editor: a piece it edits loads on the Organelle as edited", o2["diff"] == 0,
+              f"{o2['diff']} values differ after Pd loaded and saved it again")
+    else:
+        print("(no node: the web editor's checks skipped)")
 
     # ---- only Pd's core objects: nothing from 'extra' (sigmund~, bonk~ ...), which some installs leave out
     import glob as _glob

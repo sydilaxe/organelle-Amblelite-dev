@@ -137,10 +137,19 @@ def toasts(c):
 
 
 # ---------------------------------------------------------------------------------------------- snapshots
+def read_padded(c, tx, name, fname, n, fill):
+    """at load: the file read into [text define name], then lines added at its end until it has n - a missing or
+    short file (a fresh install) still has every slot in its place, so saving to slot k writes line k"""
+    go = c.to(c.recv("al-init"), "t b b")
+    c.c(c.m((go, 1), f"read -c {fname}"), 0, tx, 0)
+    k = c.ch((go, 0), f"text size {name}", f"expr max(0, {n} - $f1)", "until")
+    c.c(c.m(k, fill), 0, c.obj(f"text insert {name} 1e+06"), 0)
+
+
 def saves(c):
     c.comment("the snapshots: saves.txt, a line each (parameters, latches, mutes, FAV pages); line 16: COMPARE's")
     tx = c.obj("text define al-saves")
-    c.c(c.m(c.recv("al-init"), "read -c saves.txt"), 0, tx, 0)
+    read_padded(c, tx, "al-saves", "saves.txt", SCRATCH + 2, "-1")
     c.c(c.m(c.recv("al-savewrite"), "write -c saves.txt"), 0, tx, 0)
     for name, n in (("alsnap", SNAP), ("almf", NSLOTS), ("almt", NSLOTS), ("almi", NSLOTS)):
         c.obj(f"array define {name} {n}")
@@ -236,14 +245,14 @@ def pieces(c):
     Piece knob's, aux + top A# saves to it. A piece loads at once (no morph); its layers come and go by FadeBy"""
     c.comment("pieces: pieces.txt, a line each (a snapshot and the roadmap)")
     tx = c.obj("text define al-pieces")
-    c.c(c.m(c.recv("al-init"), "read -c pieces.txt"), 0, tx, 0)
+    read_padded(c, tx, "al-pieces", "pieces.txt", PIECES, "-1")
     c.c(c.m(c.recv("al-piecewrite"), "write -c pieces.txt"), 0, tx, 0)
     c.obj(f"array define alpc {PIECE}")
     slot = f"{opt(S('g', None, 'Piece'))}"
     road = [("alrsL", 0), ("alrsS", 1), ("alrsM", 2), ("alrsR", 3)]
     proc(c, "al-psave", [Call("al-gather"), ACopy("alsnap", 0, SNAP, "alpc", 0), T("alpc", str(SNAP), "alrn")] +
          [ACopy(a_, 0, M.MAXSEC, "alpc", SNAP + 1 + k * M.MAXSEC) for a_, k in road] +
-         [SendL("al-pcwrite", [slot])] + toast("SAVED", f"{slot} + 1"))
+         [SendL("al-pcwrite", [slot]), Call("al-lpsave")] + toast("SAVED", f"{slot} + 1"))
     wr = c.to(c.recv("al-pcwrite"), "t b f")
     ts = c.obj("text set al-pieces")
     c.c((wr, 1), 0, ts, 1)
@@ -256,11 +265,101 @@ def pieces(c):
     ln = c.to(tg, "t l l")
     c.c(c.ch((ln, 1), "list length", f"expr $f1 == {PIECE}"), 0, c.obj("v alpcv"), 0)
     c.c(c.ch((ln, 0), f"list split {PIECE}"), 0, c.obj("array set alpc"), 0)
+    loops_store(c, slot)
     proc(c, "al-pload", [SendL("al-pcread", [slot]), If("alpcv", [
         ACopy("alpc", 0, SNAP, "alsnap", 0), V("alrn", f"alpc[{SNAP}]")] +
         [ACopy("alpc", SNAP + 1 + k * M.MAXSEC, M.MAXSEC, a_, 0) for a_, k in road] +
-        [V("alpinst", "1"), Call("al-apply"), V("alpinst", "0"), V("alrc", "0"), V("alrb0", "0"),
+        [V("alpinst", "1"), Call("al-apply"), V("alpinst", "0"), Call("al-lpload"), V("alrc", "0"), V("alrb0", "0"),
          Call("al-rsave"), Call("al-rsectload")] + toast("LOADED", f"{slot} + 1"), toast("EMPTY"))])
+
+
+LOOP_LAYERS = len(M.NOTE_LAYERS)
+
+
+def loops_store(c, slot):
+    """loops.txt: each piece's loops, a line a piece and layer (piece*7 + layer): 'state length count', the events'
+    times, notes, velocities and chord roots (count each), then the breath line's length and its values. state: 2
+    playing, 4 stopped, 0 none (a loop being recorded or armed is not kept). A piece saves its loops with it and
+    loads them in time with the bar (each loop's place in its cycle is where the bar line puts it)"""
+    c.comment("a piece's loops: loops.txt, a line a piece and layer")
+    tx = c.obj("text define al-loops")
+    read_padded(c, tx, "al-loops", "loops.txt", PIECES * LOOP_LAYERS, "0 0 0 0")
+    c.c(c.m(c.recv("al-lpwrite"), "write -c loops.txt"), 0, tx, 0)
+    st = "if(allps[allx] == 4, 4, if(allps[allx] == 2 || allps[allx] == 3, 2, 0))"
+    # ---- one layer's line (allx) built from the looper's arrays: the header, then each part appended in turn
+    tt = c.to(c.recv("al-lpline"), "t " + " ".join(["b"] * 8))
+    acc, app = c.obj("list"), c.obj("list append")
+    c.c(acc, 0, app, 0)
+    c.c(app, 0, acc, 1)
+    # (first: what is kept - the counts)
+    c.to((tt, 7), f"expr allcn = if({st} > 0, allpc[allx], 0); allbn = if({st} > 0, min(allpl[allx], {MAXCLK}), 0)")
+    hd = c.obj(f"expr {st}; allpl[allx]*({st} > 0); allcn")
+    c.c((tt, 6), 0, hd, 0)
+    pk = c.obj("pack f f f")
+    for i in (2, 1, 0):
+        c.c(hd, i, pk, i)
+    c.c(pk, 0, acc, 1)
+
+    def part(src, onset, n, arr):
+        tb = c.to(src, "t b b")
+        e = c.to((tb, 1), f"expr {onset}; {n}")
+        pp = c.obj("pack f f")
+        c.c(e, 1, pp, 1)
+        c.c(e, 0, pp, 0)
+        c.c(c.to(pp, f"array get {arr}"), 0, app, 1)
+        c.c((tb, 0), 0, acc, 0)
+    for o, arr in zip((5, 4, 3, 2), ("allpt", "allpn", "allpv", "allpq")):
+        part((tt, o), f"allx*{MAXEV}", "allcn", arr)
+    bt = c.to((tt, 1), "t b b b")
+    c.c(c.to((bt, 2), "expr allbn"), 0, app, 1)
+    c.c((bt, 1), 0, acc, 0)
+    part((bt, 0), f"allx*{MAXCLK}", "allbn", "albk")
+    # (the finished line only - the gate open just for it - to its place in the text)
+    fin = c.to((tt, 0), "t b b b b")
+    ts = c.obj("text set al-loops")
+    gate = c.obj("spigot")
+    c.c(c.to((fin, 3), f"expr {slot}*{LOOP_LAYERS} + allx"), 0, ts, 1)
+    c.c(c.m((fin, 2), "1"), 0, gate, 1)
+    c.c((fin, 1), 0, acc, 0)
+    c.c(c.m((fin, 0), "0"), 0, gate, 1)
+    c.c(acc, 0, gate, 0)
+    c.c(gate, 0, ts, 0)
+    proc(c, "al-lpsave", [Loop(str(LOOP_LAYERS), "allx", [Send("al-lpline")])])
+    c.c(c.ch(c.recv("al-lpsave"), "t b", "delay 0"), 0, c.obj("s al-lpwrite"), 0)
+    # ---- one layer's line read back into the looper's arrays: the header first (the counts), then the parts
+    rd = c.to(c.recv("al-lpread"), "t b b")
+    tg = c.obj("text get al-loops")
+    c.c(c.to((rd, 1), f"expr {slot}*{LOOP_LAYERS} + allx"), 0, tg, 0)
+    ln = c.to(tg, "t l l")
+    hdr = c.to(c.to((ln, 1), "list split 3"), "t b l")
+    up = c.to((hdr, 1), "unpack f f f")
+    for i, v in enumerate(("allst", "allln", "allcn")):
+        c.c((up, i), 0, c.obj(f"v {v}"), 0)
+    splits = [c.obj("list split") for _ in range(4)]
+    sets = [c.obj(f"array set {a}") for a in ("allpt", "allpn", "allpv", "allpq")]
+    bsplit, bset = c.obj("list split 1"), c.obj("array set albk")
+    ex = c.to((hdr, 0), f"expr allcn; allx*{MAXEV}; allx*{MAXCLK}")
+    for k in range(4):
+        c.c((ex, 0), 0, splits[k], 1)
+        c.c((ex, 1), 0, sets[k], 1)
+    c.c((ex, 2), 0, bset, 1)
+    body = c.to((ln, 0), "list split 3")
+    prev = (body, 1)
+    for k in range(4):
+        c.c(prev, 0, splits[k], 0)
+        c.c(c.to((splits[k], 0), "route bang"), 1, sets[k], 0)
+        prev = (splits[k], 1)
+    c.c(prev, 0, bsplit, 0)
+    c.c(c.to((bsplit, 1), "route bang"), 1, bset, 0)
+    base = f"allx*{MAXEV}"
+    proc(c, "al-lpload", [Loop(str(LOOP_LAYERS), "allx", [
+        SendL("al-bkclearat", ["allx"]), Send("al-bkclear"), Send("al-lpread"),
+        T("allps", "allx", "allst"), T("allpl", "allx", "if(allst > 0, allln, 0)"), T("allpc", "allx", "if(allst > 0, allcn, 0)"),
+        T("allp0", "allx", f"int(max(0, alc24)/{BAR})*{BAR}"), T("allpx", "allx", "alcr"), T("alblp", "allx", "0"),
+        V("allpos", "(max(0, alc24) - allp0[allx]) % max(1, allpl[allx])"), T("allpi", "allx", "0"),
+        Loop("allpc[allx]", "alli", [T("allpw", f"{base} + alli", "-1"),
+                                     If(f"allpt[{base} + alli] < allpos", [T("allpi", "allx", "allpi[allx] + 1")])])]),
+        Call("al-breathapply"), Call("al-redraw")])
 
 
 # ---------------------------------------------------------------------------------------------- the looper
@@ -401,7 +500,7 @@ def opt_layer(key, n):
 
 GLOBALS = dict(alhasbase=0, alchg=0, alapl=0, alcmpg=0, alpinst=0, alpcv=0, allj=0, allq=0, alftg=-1, alfold=0, alfnew=0, alfph=0, alfv=0, allftime=0, altw=-1, altn=-1, alslot=0, allast=-1,
                alcmp=0, alsnv=0, alsi=0, almdur=0, almt0=0, almp=0, almcnt=0, alslh=0, alslu=0, alasv=0,
-               allx=0, allrt=0, allk=0, alli=0, allsz=0, allpos=0, alzl=0, allbp=0, albdirty=0)
+               allx=0, allst=0, allln=0, allcn=0, allbn=0, allrt=0, allk=0, alli=0, allsz=0, allpos=0, alzl=0, allbp=0, albdirty=0)
 for _li in range(NL):
     GLOBALS.update({f"allrn{_li}": 0, f"allrv{_li}": 0})
 

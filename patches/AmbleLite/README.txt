@@ -119,7 +119,8 @@ melmin (melodic minor), pent (pentatonic) - and Mode which of its modes, by name
 Everything follows them: the chords, the lanes' scale runs, the counterpoint and the suggestions.
 
 PIECES (PIECE page): a piece is your whole setup - every parameter (key, tempo, scale, mode, engines),
-which layers are in, the FAV pages, the tapped rhythms - and the roadmap. 8 of them, in pieces.txt. With
+which layers are in, the FAV pages, the tapped rhythms - the roadmap and every layer's loop. 8 of them,
+in pieces.txt (their loops in loops.txt). With
 the PIECE page shown: top A# loads the Piece knob's piece, aux + top A# saves to it. A piece loads at
 once; snapshots (16, top A# held + a key) stay the quick sound changes, and morph.
 FADE (PIECE page): how layers enter and leave - FadeBy time: over Fade; env: the drone, sub and pads by
