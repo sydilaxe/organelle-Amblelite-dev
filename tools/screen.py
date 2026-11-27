@@ -201,7 +201,7 @@ def build(c):
                     If(f"allps[{li}] == 4", [Fill(x + TILE_W // 2, ICON_Y + 6, 1, 1, 1)])]
         play += sign + [
                  Send(OSC, f"/oled/gPrintln 3 {x + 2} {LABEL_Y} 8 1 {lab}"),
-                 If(f"allayer == {li}", [Send(OSC, f"/oled/gInvertArea 3 {x} {LABEL_Y - 1} {TILE_W} 9")])]
+                 If(f"allayer == {li}", [Send(OSC, f"/oled/gInvertArea 3 {x} {LABEL_Y - 1} 8 9")])]     # (the letter only: a loop's beside it stays clear)
         if li < len(M.NOTE_LAYERS):
             play += [If(f"allps[{li}] > 0", [Call(f"al-r-lp{li}")])]
     play += [If("alnotes", [Send(OSC, f"/oled/gPrintln 3 121 {LABEL_Y} 8 1 N")])]

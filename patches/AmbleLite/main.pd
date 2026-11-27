@@ -7507,7 +7507,7 @@
 #X obj 20 740 expr allayer == 0;
 #X obj 20 764 sel 0;
 #X obj 20 788 b;
-#X msg 20 812 /oled/gInvertArea 3 0 53 13 9;
+#X msg 20 812 /oled/gInvertArea 3 0 53 8 9;
 #X obj 20 836 s oscOut;
 #X obj 20 860 expr allps[0] > 0;
 #X obj 20 884 sel 0;
@@ -7678,7 +7678,7 @@
 #X obj 20 68 expr allayer == 1;
 #X obj 20 92 sel 0;
 #X obj 20 116 b;
-#X msg 20 140 /oled/gInvertArea 3 15 53 13 9;
+#X msg 20 140 /oled/gInvertArea 3 15 53 8 9;
 #X obj 20 164 s oscOut;
 #X obj 20 188 expr allps[1] > 0;
 #X obj 20 212 sel 0;
@@ -7733,7 +7733,7 @@
 #X obj 20 716 expr allayer == 2;
 #X obj 20 740 sel 0;
 #X obj 20 764 b;
-#X msg 20 788 /oled/gInvertArea 3 30 53 13 9;
+#X msg 20 788 /oled/gInvertArea 3 30 53 8 9;
 #X obj 20 812 s oscOut;
 #X obj 20 836 expr allps[2] > 0;
 #X obj 20 860 sel 0;
@@ -7845,7 +7845,7 @@
 #X obj 20 68 expr allayer == 3;
 #X obj 20 92 sel 0;
 #X obj 20 116 b;
-#X msg 20 140 /oled/gInvertArea 3 45 53 13 9;
+#X msg 20 140 /oled/gInvertArea 3 45 53 8 9;
 #X obj 20 164 s oscOut;
 #X obj 20 188 expr allps[3] > 0;
 #X obj 20 212 sel 0;
@@ -7881,7 +7881,7 @@
 #X obj 20 932 expr allayer == 4;
 #X obj 20 956 sel 0;
 #X obj 20 980 b;
-#X msg 20 1004 /oled/gInvertArea 3 60 53 13 9;
+#X msg 20 1004 /oled/gInvertArea 3 60 53 8 9;
 #X obj 20 1028 s oscOut;
 #X obj 20 1052 expr allps[4] > 0;
 #X obj 20 1076 sel 0;
@@ -8002,7 +8002,7 @@
 #X obj 20 68 expr allayer == 5;
 #X obj 20 92 sel 0;
 #X obj 20 116 b;
-#X msg 20 140 /oled/gInvertArea 3 75 53 13 9;
+#X msg 20 140 /oled/gInvertArea 3 75 53 8 9;
 #X obj 20 164 s oscOut;
 #X obj 20 188 expr allps[5] > 0;
 #X obj 20 212 sel 0;
@@ -8038,7 +8038,7 @@
 #X obj 20 932 expr allayer == 6;
 #X obj 20 956 sel 0;
 #X obj 20 980 b;
-#X msg 20 1004 /oled/gInvertArea 3 90 53 13 9;
+#X msg 20 1004 /oled/gInvertArea 3 90 53 8 9;
 #X obj 20 1028 s oscOut;
 #X obj 20 1052 expr allps[6] > 0;
 #X obj 20 1076 sel 0;
@@ -8058,7 +8058,7 @@
 #X obj 20 1412 expr allayer == 7;
 #X obj 20 1436 sel 0;
 #X obj 20 1460 b;
-#X msg 20 1484 /oled/gInvertArea 3 105 53 13 9;
+#X msg 20 1484 /oled/gInvertArea 3 105 53 8 9;
 #X obj 20 1508 s oscOut;
 #X obj 20 1532 expr alnotes;
 #X obj 20 1556 sel 0;
