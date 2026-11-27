@@ -19,6 +19,11 @@ def Fill(x, y, w, h, c=1):
     return SendL(OSC, [str(x), str(y), str(w), str(h), str(c)], "/oled/gFillArea 3 $1 $2 $3 $4 $5")
 
 
+def gen_dz():
+    import gen
+    return gen.FILTER_DZ
+
+
 def _sym(c, w, dest):
     """a word as a symbol (a word that reads as a number - an option like 0.5 or 16 - comes out of [text get] as a
     float)"""
@@ -57,9 +62,13 @@ def row(c, name, x, y, parts):
                             f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1)))))")
             mo = sc.to(wl, "moses 0")
             _sym(sc, sc.ch((mo, 1), "text get al-words"), (pk, i))
+            # (SHAPE's Filter: its place from the middle - minus: high-pass, plus: low-pass, 0 in the neutral zone)
+            fsl, dz = S("g", None, "Filter"), gen_dz()
+            fpos = (f"if(abs(alp[{sl}] - 0.5) <= {dz}, 0, if(alp[{sl}] < 0.5, -int((0.5 - alp[{sl}])*100 + 0.5), "
+                    f"int((alp[{sl}] - 0.5)*100 + 0.5)))")
             nv = sc.to(sc.to((mo, 0), "t b"),
-                       f"expr if(aln[{sl}] < 0, int(allo[{sl}] + alp[{sl}]*(alhi[{sl}] - allo[{sl}]) + 0.5), "
-                       f"int(alp[{sl}]*100 + 0.5))")
+                       f"expr if({sl} == {fsl}, {fpos}, if(aln[{sl}] < 0, int(allo[{sl}] + alp[{sl}]*(alhi[{sl}] - allo[{sl}]) + 0.5), "
+                       f"int(alp[{sl}]*100 + 0.5)))")
             sc.c(sc.to(nv, "makefilename %d"), 0, pk, i)
     lp = sc.ch(pk, f"list prepend /oled/gPrintln 3 {x} {y} 8 1", "list trim")
     sc.c(lp, 0, sc.obj("s " + OSC), 0)
@@ -250,10 +259,17 @@ def build(c):
         row(c, f"al-r-k{k}", 0, 22 + 10 * k, [("w", f"if(alsl{k} < 0, {misc('-')}, if(alview == {VIEW_GLOBAL} && {gl} >= 0, "
                                                     f"{OFF['layer']} + {gl}, {OFF['name']} + alsl{k}))"),
                                               ("v", k)])
+        fsl = S("g", None, "Filter")
+        y = 23 + 10 * k
+        # (SHAPE's Filter: a mark at the middle, its bar from there to the left (high-pass) or the right (low-pass))
+        fpx = f"(80 + int(alp[{fsl}]*46))"
         lay += [Call(f"al-r-k{k}"),
-                If(f"alsl{k} >= 0 && (aln[alsl{k}] == 0 || aln[alsl{k}] == -1)",
-                   [SendL(OSC, [str(23 + 10 * k), f"max(1, int(alp[alsl{k}]*46))"],
-                          "/oled/gFillArea 3 80 $1 $2 5 1")])]
+                If(f"alsl{k} == {fsl}", [Fill(103, y - 1, 1, 7, 1),
+                                         SendL(OSC, [f"min(103, {fpx})", f"max(1, abs({fpx} - 103))"],
+                                               f"/oled/gFillArea 3 $1 {y + 1} $2 3 1")],
+                   [If(f"alsl{k} >= 0 && (aln[alsl{k}] == 0 || aln[alsl{k}] == -1)",
+                       [SendL(OSC, [str(y), f"max(1, int(alp[alsl{k}]*46))"],
+                              "/oled/gFillArea 3 80 $1 $2 5 1")])])]
     # ---- mix view: every layer's level as a column, the master volume at the right; the shown page's columns
     # underlined
     row(c, "al-r-mixhead", 0, 0, [("w", f"{OFF['page']} + {ctx()}*{M.MAXPAGES} + alpage"),

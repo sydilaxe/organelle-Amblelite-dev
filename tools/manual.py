@@ -39,9 +39,11 @@ def key_name(k):
 
 # the SHAPE page's knobs (model.SHAPE)
 SHAPE_DESC = {
-    "Filter": "One sweep from high-pass to low-pass. Left of the middle a high-pass rises from 20 Hz to 6 kHz "
-              "(thinner); at the middle (50) nothing is filtered; right of it a low-pass falls from 20 kHz to 100 Hz "
-              "(darker).",
+    "Filter": "One sweep from high-pass to low-pass, shown from the middle (-50 .. 0 .. 50, its bar from a mark "
+              "at the middle). Left of the middle a high-pass rises from 20 Hz to 6 kHz (thinner); right of it a "
+              "low-pass falls from 20 kHz to 100 Hz (darker). The knob upright - anywhere within 4 of the middle, "
+              "shown as 0 - filters nothing and costs nothing; that is its default. Like every knob it takes over "
+              "only once it passes the stored value (pickup).",
     "Reso": "The filter's resonance: a peak at the moving cutoff, rising as Filter leaves the middle - up high it "
             "sings.",
     "Drive": "Soft saturation of the whole mix, a little lopsided for even harmonics: warm at first, raw and electric "
