@@ -403,12 +403,15 @@ def organelle(c):
     # (top A# tapped: COMPARE - or, on the PIECE page, load the Piece knob's piece; with aux: save to it)
     # (alone: a tap flips COMPARE, a hold hears the saved snapshot until it is let go)
     piece = f"alview == {VIEW_GLOBAL} && alpage == {PIECE_PAGE}"
+    # (on the SECTN page: capture the changes into the chosen section; with aux: clear them - roadmap.changes)
+    sectn = f"alview == {VIEW_GLOBAL} && alpage == {SECTN_PAGE}"
     run_steps(c, (r, 0), [If(f"alkn == {SLOT_KEY}",
                              [If("alkvel > 0", [V("alslh", "1"), V("alslu", "0"), V("alcmph", "0"),
-                                                If(f"({piece}) == 0", [Arm("al-cmphold", "400", stop="al-cmphstop")])],
+                                                If(f"({piece}) == 0 && ({sectn}) == 0", [Arm("al-cmphold", "400", stop="al-cmphstop")])],
                                  [V("alslh", "0"), Send("al-cmphstop"), If("alslu == 0", [
                                      If(piece, [If("alaux", [V("alauxu", "1"), Call("al-psave")], [Call("al-pload")])],
-                                        [If("alcmph", [Call("al-cmpoff")], [Call("al-compare")])])])])], slots)])
+                                        [If(sectn, [If("alaux", [V("alauxu", "1"), Call("al-rcclear")], [Call("al-rccapture")])],
+                                            [If("alcmph", [Call("al-cmpoff")], [Call("al-compare")])])])])])], slots)])
     proc(c, "al-cmphold", [If("alslh && alslu == 0", [V("alcmph", "1"), Call("al-cmpon")])])
     tg = c.ch(c.recv("al-togk"), "route " + " ".join(str(k) for k in LAYER_KEYS))
     hx = c.ch(c.recv("al-khold"), "t b", "expr alhd = 1; alhk")

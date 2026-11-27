@@ -12,7 +12,7 @@ aux + top F#: hold the section (again: let it go); aux + top G#: on to the next.
 
 The roadmap is kept in roadmap.txt (a line a section: bars story mask role) - read at load, written when built or
 edited; the web planner writes the same file."""
-from pdlib import Canvas, proc, V, T, Send, Call, SendL, If, Loop
+from pdlib import Canvas, proc, V, T, Send, Call, SendL, If, Loop, ACopy
 import model as M
 from model import S, LAYERS
 from control import opt, num, pick
@@ -53,11 +53,11 @@ def tables(c):
 
 
 GLOBALS = dict(alrn=0, alrc=0, alrb0=0, alrhold=0, alri=0, alrtot=0, alrsw=0, alrt=0, alrdn=0, alrl=0, alrsec=0,
-               alrq=0, alrbar=0)
+               alrq=0, alrbar=0, alrcn=0, alrcj=0, alrck=0, alrcf=0, alrcs=0)
 
 
 def build(c):
-    for fn in (tables, generate, run, edit, store):
+    for fn in (tables, generate, run, edit, store, changes):
         sc = Canvas("road-" + fn.__name__, w=2600)
         c.sub(sc)
         fn(sc)
@@ -93,7 +93,7 @@ def run(c):
         Loop(str(NL), "alrl", [If("alin[alrl] != (int(alrsM[alrc]/pow(2, alrl)) % 2)", [
             SendL("al-inset", ["alrl", "int(alrsM[alrc]/pow(2, alrl)) % 2"])])]),
         V("alstep", "0"),
-        SendL("al-set", [str(st), f"(alrsS[alrc] + 0.5)/{len(M.STORIES)}"])])])
+        SendL("al-set", [str(st), f"(alrsS[alrc] + 0.5)/{len(M.STORIES)}"]), Call("al-rcapply")])])
     # each bar: the section ends? on to the next (unless held); guide: a toast a bar before
     proc(c, "al-rbar", [If(f"{opt(road)} > 0 && alrn > 0", [
         V("alrbar", "altick/32"),
@@ -164,3 +164,95 @@ def store(c):
     li = c.ch(c.recv("al-roadline"), "list split 1")
     ins = c.obj("text insert al-road 1e+06")
     c.c((li, 1), 0, ins, 0)
+
+
+# ---------------------------------------------------------------------------------------------- section changes
+MAXCH = 32          # parameter changes a section holds
+# the parameters a section's changes may hold: the sound's - every layer's, MAIN, INPUT, Evolve and Volume, SHAPE,
+# the story's Bars, SubTo and Voicing - not the settings (pieces, roadmap, MIDI, sync, the assistant, Morph ...) nor
+# the Story, which the section sets itself
+_KEEP_PAGES = {"MAIN", "INPUT", "STORY"}
+_DROP = {("g", None, k) for k in ("Story", "Morph", "CmpGl")}
+
+
+def capturable():
+    gp = {("g", None, p.key): n for n, ps in M.GLOBAL_PAGES for p in ps if isinstance(p, M.Param)}
+    return [0 if key in _DROP or (key in gp and gp[key] not in _KEEP_PAGES and key[2] not in ("Evolve", "Volume"))
+            else 1 for key, _ in M.SLOTS]
+
+
+def changes(c):
+    """Each section's parameter changes, cumulative: when a section starts (Road auto) its changes are applied on
+    top of the sound as it is - knob values glide over Morph (as a recall does), choices switch at once.
+    roadchg.txt: the roadmap's, a line a section: 'n slot value slot value ...' (n pairs); sections.txt: each
+    piece's, a line a piece and section (piece*MAXSEC + section) - saved and loaded with the piece.
+    Capture (SECTN page, top A#): what you changed since the section started, since you chose it on the SECTN page
+    or since the last capture, merged into the chosen section's changes; aux + top A#: that section's changes
+    cleared."""
+    import features as F
+    n = 1 + 2 * MAXCH
+    c.obj(f"array define alrct {n}")
+    c.obj(f"array define alrbase {M.NSLOTS}")
+    c.obj(f"array define alrcx {M.NSLOTS}")
+    c.c(c.m(c.recv("al-init"), " ".join(str(v) for v in capturable())), 0, c.obj("array set alrcx"), 0)
+    for name, fname, lines in (("al-roadchg", "roadchg.txt", M.MAXSEC),
+                               ("al-sections", "sections.txt", F.PIECES * M.MAXSEC)):
+        tx = c.obj(f"text define {name}")
+        F.read_padded(c, tx, name, fname, lines, "0")
+        c.c(c.m(c.recv(f"{name}-write"), f"write -c {fname}"), 0, tx, 0)
+        c.col(300)
+    # a line into alrct ('al-rcget line': alrct[0] the count, then the pairs); alrct back into a line
+    g = c.ch(c.recv("al-rcget"), "text get al-roadchg", "list append 0")
+    c.c(g, 0, c.obj("array set alrct"), 0)
+    # ('al-rcput line': alrct's count and pairs as that line - the line number first, then the list: the whole
+    # array, split after the count's pairs)
+    put = c.to(c.recv("al-rcput"), "t b b f")
+    ts = c.obj("text set al-roadchg")
+    c.c((put, 2), 0, ts, 1)
+    sp = c.obj("list split 1")
+    c.c(c.to((put, 1), "expr 1 + 2*alrct[0]"), 0, sp, 1)
+    c.c(c.to((put, 0), "array get alrct"), 0, sp, 0)
+    c.c(sp, 0, ts, 0)
+    # a piece's lines and the roadmap's: 'al-rc2p from to' (roadmap -> piece), 'al-p2rc from to'
+    for rcv, src, dst in (("al-rc2p", "al-roadchg", "al-sections"), ("al-p2rc", "al-sections", "al-roadchg")):
+        u = c.to(c.recv(rcv), "unpack f f")
+        tset = c.obj(f"text set {dst}")
+        c.c((u, 1), 0, tset, 1)
+        c.c(c.ch((u, 0), f"text get {src}"), 0, tset, 0)
+    morph = S("g", None, "Morph")
+    mms = f"if(alp[{morph}] < 0.02, 0, 100*pow(200, alp[{morph}]))"
+    slot, val = "alrct[1 + 2*alrcj]", "alrct[2 + 2*alrcj]"
+    # applying: the playing section's changes (choices at once, the rest over Morph), then the baseline for capture
+    proc(c, "al-rcapply", [
+        SendL("al-rcget", ["alrc"]), V("alrcn", f"min({MAXCH}, alrct[0])"),
+        V("almcnt", "0"), V("almdur", mms), V("alapl", "1"),
+        Loop("alrcn", "alrcj", [If(f"{slot} >= 0 && {slot} < {M.NSLOTS}", [
+            If(f"aln[int({slot})] != 0 || almdur == 0", [SendL("al-set", [slot, val])],
+               [T("almi", "almcnt", slot), T("almf", "almcnt", f"alp[int({slot})]"), T("almt", "almcnt", val),
+                V("almcnt", "almcnt + 1")])])]),
+        V("alapl", "0"), If("almcnt > 0", [V("almt0", "altime"), Send("al-morphclock", "1")]),
+        ACopy("alp", 0, M.NSLOTS, "alrbase", 0),
+        Loop("alrcn", "alrcj", [If(f"{slot} >= 0 && {slot} < {M.NSLOTS}", [T("alrbase", f"int({slot})", val)])])])
+    # the baseline: also when a section is chosen on the SECTN page (and at load, at a piece's load)
+    proc(c, "al-rcbase", [ACopy("alp", 0, M.NSLOTS, "alrbase", 0)])
+    c.c(c.ch(c.recv("al-rsectload"), "t b"), 0, c.obj("s al-rcbase"), 0)
+    # capture: each changed parameter (that may be held) into the chosen section - its pair updated, else added
+    proc(c, "al-rccapture", [If("alrn > 0 && alrsec < alrn", [
+        SendL("al-rcget", ["alrsec"]), V("alrcn", f"min({MAXCH}, alrct[0])"), V("alrcf", "0"),
+        Loop(str(M.NSLOTS), "alrck", [If("alrcx[alrck] && abs(alp[alrck] - alrbase[alrck]) > 0.0005", [
+            V("alrcs", "-1"),
+            Loop("alrcn", "alrcj", [If(f"{slot} == alrck", [V("alrcs", "alrcj")])]),
+            If("alrcs >= 0", [T("alrct", "2 + 2*alrcs", "alp[alrck]")],
+               [If(f"alrcn < {MAXCH}", [T("alrct", "1 + 2*alrcn", "alrck"), T("alrct", "2 + 2*alrcn", "alp[alrck]"),
+                                       V("alrcn", "alrcn + 1")], [V("alrcf", "1")])])])]),
+        T("alrct", "0", "alrcn"), SendL("al-rcput", ["alrsec"]), Send("al-roadchg-write"), Call("al-rcbase")]
+        + toast("CAPTURED", "alrcn") + [If("alrcf", toast("FULL"))], toast("NO ROAD"))])
+    proc(c, "al-rcclear", [If("alrn > 0 && alrsec < alrn", [
+        T("alrct", "0", "0"), SendL("al-rcput", ["alrsec"]), Send("al-roadchg-write"), Call("al-rcbase")]
+        + toast("CLEARED"))])
+    # with a piece: saved from the roadmap's (features.pieces: al-psave), loaded into it (al-pload)
+    pc = opt(S("g", None, "Piece"))
+    proc(c, "al-rcpsave", [Loop(str(M.MAXSEC), "alrcj", [SendL("al-rc2p", ["alrcj", f"{pc}*{M.MAXSEC} + alrcj"])]),
+                           Send("al-sections-write")])
+    proc(c, "al-rcpload", [Loop(str(M.MAXSEC), "alrcj", [SendL("al-p2rc", [f"{pc}*{M.MAXSEC} + alrcj", "alrcj"])]),
+                           Send("al-roadchg-write")])

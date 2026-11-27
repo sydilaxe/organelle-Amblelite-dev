@@ -121,7 +121,7 @@ def assign(c):
 # ---------------------------------------------------------------------------------------------- toasts
 TOASTS = ["SAVED", "LOADED", "EMPTY", "COMPARE", "YOURS", "REC", "PLAY", "DUB", "STOPPED", "CLEARED", "ASSIGN", "TAP",
           "ARMED", "ERASE",
-          "ROAD", "NEXT", "SECTION", "HOLD"]
+          "ROAD", "NEXT", "SECTION", "HOLD", "CAPTURED", "FULL", "NO ROAD"]
 
 
 def toast(name, number=None):
@@ -291,7 +291,7 @@ def pieces(c):
     road = [("alrsL", 0), ("alrsS", 1), ("alrsM", 2), ("alrsR", 3)]
     proc(c, "al-psave", [Call("al-gather"), ACopy("alsnap", 0, SNAP, "alpc", 0), T("alpc", str(SNAP), "alrn")] +
          [ACopy(a_, 0, M.MAXSEC, "alpc", SNAP + 1 + k * M.MAXSEC) for a_, k in road] +
-         [SendL("al-pcwrite", [slot]), Call("al-lpsave")] + toast("SAVED", f"{slot} + 1"))
+         [SendL("al-pcwrite", [slot]), Call("al-lpsave"), Call("al-rcpsave")] + toast("SAVED", f"{slot} + 1"))
     wr = c.to(c.recv("al-pcwrite"), "t b f")
     ts = c.obj("text set al-pieces")
     c.c((wr, 1), 0, ts, 1)
@@ -308,7 +308,7 @@ def pieces(c):
     proc(c, "al-pload", [SendL("al-pcread", [slot]), If("alpcv", [
         ACopy("alpc", 0, SNAP, "alsnap", 0), V("alrn", f"alpc[{SNAP}]")] +
         [ACopy("alpc", SNAP + 1 + k * M.MAXSEC, M.MAXSEC, a_, 0) for a_, k in road] +
-        [V("alpinst", "1"), Call("al-apply"), V("alpinst", "0"), Call("al-lpload"), V("alrc", "0"), V("alrb0", "0"),
+        [V("alpinst", "1"), Call("al-apply"), V("alpinst", "0"), Call("al-lpload"), Call("al-rcpload"), V("alrc", "0"), V("alrb0", "0"),
          Call("al-rsave"), Call("al-rsectload")] + toast("LOADED", f"{slot} + 1"), toast("EMPTY"))])
 
 

@@ -476,6 +476,35 @@ def main():
     line1 = open(os.path.join(d, "roadmap.txt")).read().splitlines()[0]
     check("a layer key edits the section on the SECTN page", line1.split()[2] == str(1 + 64), f"section 1: {line1}")
 
+    # ---- a section's parameter changes (roadmap.changes): on the SECTN page with section 2 chosen, Filter and the
+    # pads' Cutoff turned, top A# captures them (roadchg.txt line 2); playing on, section 2 sets them again (the
+    # Filter turned back in between); saving piece 1 keeps them (sections.txt), loading it brings them back
+    fl_, pc_ = g("Filter"), M.S("pad", None, "Cutoff")
+    sect2 = [(300 + 40 * i, "notesRaw 68 100") for i in range(gpages.index("SECTN") + 1)] + \
+        [(1000, f"al-set {g('Sect')} {1 / (M.MAXSEC - 1)}"), (1200, f"al-set {fl_} 0.8"), (1210, f"al-set {pc_} 0.2"),
+         (1400, "notesRaw 82 100"), (1450, "notesRaw 82 0")]
+    H.run(rd[:-1] + [(250, f"al-set {g('Morph')} 0")] + sect2, 2, d=d, keep=True)
+    rc = open(os.path.join(d, "roadchg.txt")).read().splitlines()
+    pairs = rc[1].split() if len(rc) > 1 else []
+    got = dict(zip(pairs[1::2], pairs[2::2]))
+    check("a section captures its changes (SECTN, top A#)", len(rc) == M.MAXSEC and pairs[:1] == ["2"] and
+          got.get(str(fl_)) == "0.8" and got.get(str(pc_)) == "0.2", f"line 2: {rc[1] if len(rc) > 1 else '-'}")
+    log, _ = H.run([(50, f"al-set {g('Road')} 0.9"), (60, f"al-set {g('Morph')} 0"), START,
+                    (400, f"al-set {fl_} 0.5"), (600, "al-rnext bang")], 1, d=d, keep=True, prints=("al-set",))
+    after = log[log.find(f"al-set: {fl_} 0.5"):]
+    check("a section sets its changes when it starts", f"al-set: {fl_} 0.8" in after and f"al-set: {pc_} 0.2" in after,
+          "Filter back to 0.8, pads' Cutoff 0.2" if f"al-set: {fl_} 0.8" in after else "not applied")
+    piece_keys = [(100 + 40 * i, "notesRaw 68 100") for i in range(gpages.index("PIECE") + 1)]
+    H.run(piece_keys + [(800, f"al-set {g('Piece')} 0.01"), (900, "aux 1"), (950, "notesRaw 82 100"),
+                        (1000, "notesRaw 82 0"), (1050, "aux 0")], 1.3, d=d, keep=True)
+    sec = open(os.path.join(d, "sections.txt")).read().splitlines()
+    open(os.path.join(d, "roadchg.txt"), "w").write("0\n" * M.MAXSEC)
+    H.run(piece_keys + [(800, f"al-set {g('Piece')} 0.01"), (950, "notesRaw 82 100"), (1000, "notesRaw 82 0")], 1.3,
+          d=d, keep=True)
+    rc2 = open(os.path.join(d, "roadchg.txt")).read().splitlines()
+    check("a piece keeps its sections' changes", len(sec) == 8 * M.MAXSEC and sec[1] == rc[1] and rc2[1] == rc[1],
+          f"sections.txt line 2: {sec[1] if len(sec) > 1 else '-'}; loaded back: {rc2[1] if len(rc2) > 1 else '-'}")
+
     # ---- counterpoint: the pads' top voice steps to a neighbour and back on every 8th (Lines 100 %); at 0, still
     pl = M.S("pad", None, "Lines")
     log, _ = H.run(solo("pad") + [(50, f"al-set {pl} 1"), START], 3, d=d, keep=True, prints=("al-pad-n",))

@@ -347,6 +347,10 @@ def build(out=OUT):
     lp = os.path.join(out, "loops.txt")          # (the pieces' loops: kept across builds too)
     if not os.path.exists(lp):
         open(lp, "w").write("0 0 0 0\n" * (features.PIECES * features.LOOP_LAYERS))
+    import roadmap      # (the sections' parameter changes: the roadmap's, and each piece's - kept across builds)
+    for fn, lines in (("roadchg.txt", M.MAXSEC), ("sections.txt", features.PIECES * M.MAXSEC)):
+        if not os.path.exists(os.path.join(out, fn)):
+            open(os.path.join(out, fn), "w").write("0\n" * lines)
     sv = os.path.join(out, "saves.txt")
     if not os.path.exists(sv):
         open(sv, "w").write("-1\n" * (features.SCRATCH + 2))

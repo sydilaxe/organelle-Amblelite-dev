@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 VERSION="${1:-dev}"
 rm -rf dist && mkdir -p dist/stage
 cp -r patches/AmbleLite dist/stage/
-rm -f dist/stage/AmbleLite/saves.txt dist/stage/AmbleLite/pieces.txt dist/stage/AmbleLite/roadmap.txt dist/stage/AmbleLite/loops.txt dist/stage/AmbleLite/controllers/user.txt
+rm -f dist/stage/AmbleLite/saves.txt dist/stage/AmbleLite/pieces.txt dist/stage/AmbleLite/roadmap.txt dist/stage/AmbleLite/loops.txt dist/stage/AmbleLite/controllers/user.txt dist/stage/AmbleLite/roadchg.txt dist/stage/AmbleLite/sections.txt
 printf 'Amble Lite %s\n' "$VERSION" > dist/stage/AmbleLite/VERSION.txt
 # the manual and key chart, stamped with the version, beside the patch
 python3 tools/manual.py "$VERSION" >/dev/null
