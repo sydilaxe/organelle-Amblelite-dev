@@ -107,6 +107,11 @@ def misc(w):
 
 PAT_X, PAT_W = 16, 7         # the pattern view: cells from x 16, 7 pixels each (16 steps)
 MIX_X0, MIX_DX, MIX_W = 1, 13, 9    # the MIX view's columns (the 8 layers; the master volume at x 112)
+# the play view: the roadmap strip, then the layer tiles (8 across, x 0 .. 118), a bar under the shown one, the
+# loops' states under that
+ROAD_Y, ROAD_H = 23, 10
+TILE_DX, TILE_W, TILE_Y, TILE_H = 15, 13, 37, 11
+LOOP_Y = 54
 PAT_LAYERS = M.NOTE_LAYERS          # the pattern view's rows (the cloud has no pattern)
 
 
@@ -147,30 +152,28 @@ def build(c):
     row(c, "al-r-head", 0, 0, [("w", f"{OFF['note']} + {opt(key)}"), ("w", f"{OFF['mode']} + {opt(mode)}"),
                                ("n", num(tempo), "%d"), ("w", f"if(alrun, {misc('RUN')}, {misc('STOP')}) + 6*alchg")])      # (*: changed since the snapshot)
     # (at most 21 characters - the small font is 6 px a character, and a longer line wraps: so the tempo without
-    # 'bpm', and notes mode shown as N in place of > on the shown layer's row)
-    mark = f"if(alnotes, {misc('N')}, {misc('>')})"
+    # 'bpm'; notes mode is an N at the right edge, below)
     row(c, "al-r-chord", 0, 11, [("w", f"{OFF['chord']} + alcr*{len(QUALS)} + alcq"), ("w", misc(">")),
                                  ("w", f"{OFF['chord']} + alnxr*{len(QUALS)} + alnxq")])
-    for li in range(3):
-        L = LAYERS[li]
-        row(c, f"al-r-l{li}", 0, 22 + 10 * li, [
-            ("w", f"if(allayer == {li}, {mark}, {misc('-')})"), ("w", f"{OFF['layer']} + {li}"),
-            ("w", f"{OFF['eng-' + L]} + aleng[{li}]"), ("w", f"if(alin[{li}] == 0, {OFF['out']}, {OFF['loopst']} + allps[{li}])")])
-    # the percussion row: the lane last shown, its engine, and which lanes play (their numbers; '.' silent)
-    ci = LAYERS.index("cloud")
-    lanes_on = " + ".join(f"{2 ** i}*alin[{fl + i}]" for i in range(nl)) + f" + {2 ** nl}*alin[{ci}]"
-    row(c, "al-r-perc", 0, 52, [
-        ("w", f"if(allayer >= {fl}, {mark}, {misc('-')})"), ("w", f"{OFF['layer']} + alplane"),
-        ("w", eng_word("alplane")), ("w", f"{OFF['lanes']} + {lanes_on}")])
+    # the layers as tiles (D S P 1 2 3 4 C): in - filled from the bottom as high as its Level; out - an empty outline.
+    # Under each its letter (the shown layer's inverted), and a loop's state (R recording, P playing, O overdub,
+    # s stopped). The right edge: the MIDI-in light, N in notes mode
+    for li in range(len(M.NOTE_LAYERS)):
+        row(c, f"al-r-lp{li}", TILE_DX * li + 4, LOOP_Y, [("w", f"{OFF['loopst']} + allps[{li}]")])
     row(c, "al-r-toast", 0, 0, [("w", f"{OFF['toast']} + altw"), ("n", "altn", "%d")])
     row(c, "al-r-toast0", 0, 0, [("w", f"{OFF['toast']} + altw")])
     play = [If("altw >= 0", [If("altn >= 0", [Call("al-r-toast")], [Call("al-r-toast0")])], [Call("al-r-head")]),
             Call("al-r-chord")]
-    for li in range(3):
-        lvl = S(LAYERS[li], None, "Level")
-        play += [Call(f"al-r-l{li}"),
-                 SendL(OSC, [str(23 + 10 * li), f"max(1, int(alp[{lvl}]*20))"], "/oled/gFillArea 3 106 $1 $2 5 1")]
-    play += [Call("al-r-perc")]
+    for li, L in enumerate(LAYERS):
+        x = TILE_DX * li
+        lab = M.SHORT[L][1] if M.kind(L) == "perc" else M.SHORT[L][0]
+        play += [If(f"alin[{li}]", [Fill(x, TILE_Y, TILE_W, TILE_H, 1), Send(OSC, f"/oled/gPrintln 3 {x + 4} {TILE_Y + 2} 8 0 {lab}")],
+                    [Send(OSC, f"/oled/gBox 3 {x} {TILE_Y} {TILE_W} {TILE_H} 1"),
+                     Send(OSC, f"/oled/gPrintln 3 {x + 4} {TILE_Y + 2} 8 1 {lab}")]),
+                 If(f"allayer == {li}", [Fill(x, TILE_Y + TILE_H + 2, TILE_W, 2, 1)])]
+        if li < len(M.NOTE_LAYERS):
+            play += [If(f"allps[{li}] > 0", [Call(f"al-r-lp{li}")])]
+    play += [If("alnotes", [Send(OSC, f"/oled/gPrintln 3 121 {LOOP_Y} 8 1 N")])]
     # the roadmap, when there is one and Road isn't off: the section (n/count) at the chord line's end, and under the
     # top line its progress - a line as long as the piece's bars so far, a tick where each section starts
     road = S("g", None, "Road")
@@ -184,12 +187,17 @@ def build(c):
         Loop("alrn", "alri", [If("alri < alrc", [V("alrsw", "alrsw + alrsL[alri]")]), V("alrtot", "alrtot + alrsL[alri]")]),
         V("alrsw", "alrsw + min(alrsL[alrc], max(0, altick/32 - alrb0))"),
         If(f"{psw} == 4", [Call("al-r-psec4")], [If(f"{psw} == 5", [Call("al-r-psec5")], [Call("al-r-psec6")])]),
-        SendL(OSC, ["max(1, int(alrsw*128/max(1, alrtot)))"], "/oled/gFillArea 3 0 10 $1 1 1"),
-        V("alrsw", "0"),
-        Loop("alrn", "alri", [If("alri > 0", [SendL(OSC, ["int(alrsw*128/max(1, alrtot))"], "/oled/gFillArea 3 $1 9 1 2 1")]),
-                              V("alrsw", "alrsw + alrsL[alri]")])])]
+        # (each section a box as wide as its bars - the playing one filled - and the playhead: an inverted line)
+        V("alrt", "alrsw"), V("alrsw", "0"),
+        Loop("alrn", "alri", [
+            If("alri == alrc", [SendL(OSC, ["int(alrsw*127/alrtot)", "max(2, int(alrsL[alri]*127/alrtot))"],
+                                      f"/oled/gFillArea 3 $1 {ROAD_Y} $2 {ROAD_H} 1")],
+               [SendL(OSC, ["int(alrsw*127/alrtot)", "max(2, int(alrsL[alri]*127/alrtot) + 1)"],
+                      f"/oled/gBox 3 $1 {ROAD_Y} $2 {ROAD_H} 1")]),
+            V("alrsw", "alrsw + alrsL[alri]")]),
+        SendL(OSC, ["min(126, int(alrt*127/alrtot))"], f"/oled/gInvertArea 3 $1 {ROAD_Y + 2} 2 {ROAD_H - 4}")])]
     # the MIDI-in light: a small square at the bottom right, on while a MIDI note is held (and 150 ms after each)
-    play += [If("alminh > 0 || altime - almint < 0.15", [Fill(123, 55, 4, 4, 1)])]
+    play += [If("alminh > 0 || altime - almint < 0.15", [Fill(122, TILE_Y + 3, 5, 5, 1)])]
     # ---- layer view
     lay = [If(f"alview == {VIEW_MIX}", [Send(OSC, "/oled/gPrintln 3 0 0 8 1 MIX")],
               [If("alview", [Call("al-r-ghead")], [Call("al-r-lhead")])]), Call("al-r-page")]

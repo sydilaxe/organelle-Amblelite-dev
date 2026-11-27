@@ -247,8 +247,9 @@ def main():
           f"largest step {st.max():.4f} (a click: > 0.03; before the fix 0.11)")
 
     # assign: aux held, knob 1 - the FAV page's first place takes another parameter
-    log, _ = H.run([(100, "al-sel-pad bang"), (300, "aux 1"), (400, "knob1 0.95"), (500, "aux 0")], 1, d=d,
-                   keep=True)
+    # (the pads' page opened again after aux is let go - which goes home - shows knob 1's new parameter)
+    log, _ = H.run([(100, "al-sel-pad bang"), (300, "aux 1"), (400, "knob1 0.95"), (500, "aux 0"),
+                    (700, "al-sel-pad bang")], 1, d=d, keep=True)
     lines = [l for l in log.splitlines() if "gPrintln 3 0 22" in l]
     check("assign mode puts a parameter on FAV", len(lines) >= 2 and lines[-1] != lines[0], lines[-1][-30:] if lines else "-")
     fav = [l for l in lines if " 1 Engine " in l or l.endswith(" 1 Engine")]

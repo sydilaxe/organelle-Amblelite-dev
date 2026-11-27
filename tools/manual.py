@@ -61,7 +61,7 @@ FUNCS = {
     "al-patview": ("PATT", "The pattern view (every gate and lane as steps, a playhead under each), then the "
                               "roadmap view, then neither."),
     "al-global": ("GLOB", "The global pages (MAIN first); again: the next one."),
-    "al-notesmode": ("NOTES", "Notes mode (N in place of > before the shown layer on the play view): the Organelle keys play the shown layer; aux + low A# goes back to "
+    "al-notesmode": ("NOTES", "Notes mode (N at the play view's right edge): the Organelle keys play the shown layer; aux + low A# goes back to "
                               "functions."),
     "al-startstop": ("START", "Start / stop the clock (the patch loads silent and waits for it)."),
     "al-pgprev": ("PAGE <", "Page back (the shown layer's or the global pages)."),
@@ -576,7 +576,11 @@ def story():
     # ---- screens
     s += [PageBreak(), P("Screens", H1)]
     shots = [("1-play", "Play view (home): key, mode, tempo, RUN / STOP (RUN*: changed since the snapshot); the "
-                        "chord now and next; a row per layer - engine, level, loop state."),
+                        "chord now and next (with a roadmap: the section, n / count); the roadmap as a strip - a box "
+                        "a section, as wide as its bars, the playing one filled, a playhead moving through it; a tile "
+                        "a layer (D S P 1 2 3 4 C) - filled when it is in, an outline when out - a bar under the "
+                        "shown one, and under that a loop's state (R recording, P playing, O overdub, s stopped); at "
+                        "the right edge the MIDI-in light and N in notes mode."),
              ("2-layer-fav", "A layer's pages: the layer and engine, the page (n / count), the four knobs."),
              ("4-layer-lfo", "An LFO page: its target is any of the layer's parameters."),
              ("6-mix", "MIX: each layer's level as a column (hollow: out), V the master; cpu / pk on top."),
