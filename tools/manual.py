@@ -37,16 +37,33 @@ def key_name(k):
     return ("low " if k < 72 else "top ") + NAMES[k % 12]
 
 
+# the SHAPE page's knobs (model.SHAPE)
+SHAPE_DESC = {
+    "Filter": "One sweep from high-pass to low-pass, shown from the middle (-50 .. 0 .. 50, its bar from a mark "
+              "at the middle). Left of the middle a high-pass rises from 20 Hz to 6 kHz (thinner); right of it a "
+              "low-pass falls from 20 kHz to 100 Hz (darker). The knob upright - anywhere within 4 of the middle, "
+              "shown as 0 - filters nothing and costs nothing; that is its default. Like every knob it takes over "
+              "only once it passes the stored value (pickup).",
+    "Reso": "The filter's resonance: a peak at the moving cutoff, rising as Filter leaves the middle - up high it "
+            "sings.",
+    "Drive": "Soft saturation of the whole mix, a little lopsided for even harmonics: warm at first, raw and electric "
+             "turned up. The level is held about where it was.",
+    "Blur": "A diffuse smear: the sound spread into a short, wide wash; turned up, more of it and a longer, darker "
+            "tail (up to about 4 s) that drifts between the sides.",
+}
+
+
 # ---------------------------------------------------------------------------------------------- the keys
 # what each function does: a short label (the key chart) and a sentence (the manual)
 FUNCS = {
     "al-layerview": ("HOME", "Home: the play view (also from MIX, pattern and roadmap views)."),
-    "al-mix": ("MIX", "The MIX view: the knobs set the layers' levels; again: the next mix page. Its top line "
-                      "shows the CPU (cpu: this second, pk: the highest of the last ten)."),
+    "al-mix": ("MIX", "The MIX view: the knobs set the layers' levels; again: the next mix page (MIX 1, MIX 2, "
+                      "MIX 3, SHAPE). Held: the SHAPE page at once - Filter, Reso, Drive, Blur on the whole sound. "
+                      "Its top line shows the CPU (cpu: this second, pk: the highest of the last ten)."),
     "al-patview": ("PATT", "The pattern view (every gate and lane as steps, a playhead under each), then the "
                               "roadmap view, then neither."),
     "al-global": ("GLOB", "The global pages (MAIN first); again: the next one."),
-    "al-notesmode": ("NOTES", "Notes mode: the Organelle keys play the shown layer; aux + low A# goes back to "
+    "al-notesmode": ("NOTES", "Notes mode (N at the play view's right edge): the Organelle keys play the shown layer; aux + low A# goes back to "
                               "functions."),
     "al-startstop": ("START", "Start / stop the clock (the patch loads silent and waits for it)."),
     "al-pgprev": ("PAGE <", "Page back (the shown layer's or the global pages)."),
@@ -239,13 +256,15 @@ DESC = {
     "g:SYNC:Sync": "The clock: internal, or an external MIDI clock.",
     "g:SYNC:ClkOut": "Send MIDI clock out.",
     "g:MIDI:Profil": "The controller profile: generic, nanokey (nanoKEY Studio), nanoktl (nanoKONTROL Studio), "
-                     "dm48x, user (controllers/<name>.txt).",
+                     "dm48x, user (controllers/<name>.txt), korg (both KORGs at once). The KORG ones expect the "
+                     "Amble Lite sets (docs/controllers) written to the controllers with KORG KONTROL Editor.",
     "g:MIDI:Chans": "layers: channel 1 plays the shown layer, 2-9 one layer each; mpe: every channel plays, each "
                     "note its own bend and pressure (the DM48X).",
     "g:MIDI:Zones": "Keyboard zones: each layer takes its own range (its BREATH page), each zone's breath its own.",
     "g:MIDI:LastCC": "The last CC number that came in (to find what a controller sends).",
     "g:MIDI 2:Bend": "Pitch bend range in semitones.",
     "g:MIDI 2:Press": "MPE pressure: off, a note's level (expr), or the breath.",
+    "g:MIDI 2:NoteOt": "Notes out (off / on): every note the layers play goes out to MIDI, each layer on its own channel - 2 drone, 3 sub, 4 pads, 5-8 the lanes (the cloud has no notes). The drone, sub and pads as their gates open and close (a new chord under an open gate: the old note off, the new one on); the lanes as they are struck. A controller that echoes notes back (MIDI thru) would play them again: turn its thru off.",
     "g:PERFRM:Evolve": "The master Evolve: scales every layer's.",
     "g:PERFRM:Morph": "How long a recalled snapshot glides (0: at once).",
     "g:PERFRM:Volume": "The master volume (also MIX 3).",
@@ -260,7 +279,7 @@ DESC = {
     "g:ROAD 2:Road": "off; guide (the screen says what is next, you play it); auto (it happens, you can hold or "
                      "skip).",
     "g:ROAD 2:Varia": "Variation: another, equally repeatable roadmap from the same settings.",
-    "g:SECTN:Sect": "The section to edit (layer keys toggle its layers).",
+    "g:SECTN:Sect": "The section to edit (layer keys toggle its layers; top A# captures your changes into it, aux + top A# clears them).",
     "g:SECTN:Bars": "Its length in bars.",
     "g:SECTN:Story": "Its chord story.",
     "g:SECTN:Role": "Its role: emerge, establish, develop, intensify, climax, break, return, dissolve.",
@@ -524,7 +543,8 @@ def story():
             "<b>top C#</b> page forward / back. <b>Tap aux</b> to go home to the play view.",
             "The first page (FAV) has the <b>engine</b> on knob 1. Try the engines; each moves slowly on its own "
             "(Evolve).",
-            "<b>Low D#</b>: the MIX view - the knobs are the layers' levels; again for the lanes and the master.",
+            "<b>Low D#</b>: the MIX view - the knobs are the layers' levels; again for the lanes and the master. "
+            "<b>Hold</b> it for SHAPE: a filter, drive and blur over everything.",
             "<b>Low G#</b>: the global pages - MAIN (key, tempo, scale, mode), LAYERS and LANES (every layer's "
             "engine), PIECE ...",
             "Play: <b>low A#</b> turns the Organelle keys into notes for the shown layer (or play a MIDI keyboard). "
@@ -558,7 +578,15 @@ def story():
     # ---- screens
     s += [PageBreak(), P("Screens", H1)]
     shots = [("1-play", "Play view (home): key, mode, tempo, RUN / STOP (RUN*: changed since the snapshot); the "
-                        "chord now and next; a row per layer - engine, level, loop state."),
+                        "chord now and next. With a roadmap: the section (n / count), the time left counting down "
+                        "and the piece's whole length, and the roadmap as a strip - a box a section, as wide as its "
+                        "bars, the playing one filled, a playhead moving through it. Then a sign a layer, filled when "
+                        "it is in, an outline when out: the drone a triangle, the sub a wave, the pads a figure of "
+                        "eight, the lanes a stone in its ring, the cloud a square; under each its letter (the shown "
+                        "layer's inverted) and a loop's state beside it (R recording, P playing, O overdub, s "
+                        "stopped). A loop also shows on its layer's sign: it blinks while recording or "
+                        "overdubbing, a line under it fills as the loop goes round, a dot there when stopped. At "
+                        "the right edge the MIDI-in light and N in notes mode."),
              ("2-layer-fav", "A layer's pages: the layer and engine, the page (n / count), the four knobs."),
              ("4-layer-lfo", "An LFO page: its target is any of the layer's parameters."),
              ("6-mix", "MIX: each layer's level as a column (hollow: out), V the master; cpu / pk on top."),
@@ -617,6 +645,18 @@ def story():
                 rows.append([M.LAYER_LABEL[p[0]], "its engines" if p[1] == "Engine" else "layers / input / both",
                              "", f"The {M.LAYER_LABEL[p[0]]}'s {p[1].lower()} (as on its own pages)."])
         s += [KeepTogether([P(title, H3), table(rows, [0.75, 1.9, 0.6, 4.0])])]
+    # ---- SHAPE
+    rows = [["Knob", "Range", "Default", "What it does"]]
+    for p in M.SHAPE:
+        rows.append([p.name, value_text(p), default_text(p), SHAPE_DESC[p.key]])
+    s += [KeepTogether([P("SHAPE (the MIX view's last page)", H3),
+                        P("The whole sound at once, for playing live. Hold <b>low D#</b> to open it (or press low D# "
+                          "until it shows); a controller's <i>shape</i> action opens it too, and <i>param g.Filter</i> "
+                          "(g.Reso, g.Drive, g.Blur) puts a knob on a fader. In order on the master: Drive, Blur, "
+                          "then the Filter over both, the tail included. At neutral (Filter at 50, Drive and Blur at "
+                          "0) each is switched off and costs nothing. Saved with snapshots and pieces; older saves "
+                          "load with SHAPE at neutral.", BODY),
+                        table(rows, [0.75, 1.9, 0.6, 4.0])])]
     # ---- looping
     s += [PageBreak(), P("Looping and tapped rhythms", H1),
           P("<b>Top F</b> (aux + top F in notes mode) is the shown layer's looper. Each layer has its own, with its "
@@ -685,15 +725,35 @@ def story():
             "a length, a role, a chord story and which layers play. Aux + top A builds it; ROAD 2: off, guide (the "
             "screen says what is next) or auto (it happens: aux + low F# holds a section, aux + top B moves on). "
             "SECTN edits a section: its length, story and role, and the layer keys toggle its layers. A piece "
-            "keeps its roadmap.")]
+            "keeps its roadmap."),
+          P("<b>A section's parameter changes.</b> Each section can also change up to 32 parameters when it starts "
+            "(Road auto): any layer's, MAIN, INPUT, Evolve, Volume, SHAPE, the story's Bars, SubTo and Voicing. They "
+            "are cumulative - applied on top of the sound as it is then, so a piece's sound travels from section to "
+            "section; knob values glide over Morph, choices switch at once. To capture them on the Organelle: on "
+            "the SECTN page choose the section (Sect), shape the sound, and tap <b>top A#</b> - what you changed "
+            "since the section started (or since you chose it, or the last capture) is added to it (CAPTURED and "
+            "its count; FULL past 32). <b>Aux + top A#</b> clears its changes. The web editor shows and edits them "
+            "too (ROADMAP tab: the Changes column, and the list under the table for the chosen section). A piece "
+            "saves and loads its sections' changes with it (sections.txt; the roadmap's own: roadchg.txt).")]
     # ---- the web editor
     s += [P("The web editor", H1),
-          P("Amble Lite Editor (docs/planner.html, also published as a web page) opens pieces.txt, saves.txt and "
-            "loops.txt from the AmbleLite folder and edits any piece or snapshot page by page, as on the Organelle: "
+          P("Amble Lite Editor (planner.html in the AmbleLite folder) opens pieces.txt, saves.txt, loops.txt and "
+            "sections.txt from the AmbleLite folder and edits any piece or snapshot page by page, as on the Organelle: "
             "every parameter of every layer and engine, the layers in, the latches, the FAV pages, the tapped rhythms, "
             "a piece's roadmap and its loops (shown as notes; each can be stopped, started or cleared). Copy the files "
             "back over the ones in the AmbleLite folder (keep copies of the old ones); the patch reads them when it "
-            "loads.")]
+            "loads."),
+          P("<b>From the Organelle itself</b> (Organelle OS with its web server, 5.x): the editor is in the AmbleLite "
+            "folder as planner.html. Join the Organelle to your WiFi (or its own hotspot) and start the web server "
+            "from the WiFi menu; on your phone or computer open "
+            "<b>http://&lt;the Organelle's address&gt;:8080/get_file?fpath=sdcard/Patches/AmbleLite/planner.html</b> "
+            "(usbdrive in place of sdcard when the patch is on a USB stick; the address is shown in the WiFi menu). "
+            "It reads the folder's files at once. <b>Save and reload</b> writes them and reloads the patch (the "
+            "sound stops for a moment); <b>Save only</b> writes them while the patch plays on - the patch takes them "
+            "when it next loads. Each save keeps the old file as .bak beside it, and a file the patch saved since "
+            "you opened the page is only overwritten when you say so. The Controllers section saves "
+            "controllers/user.txt the same way (choose Profil: user). The patch plays on while the web server runs; "
+            "stop it from the WiFi menu when you are done.")]
     # ---- the input
     s += [P("Audio input", H1), P(esc(DESC["g:INPUT:Mode"])), P(esc("Amount: " + DESC["g:INPUT:Amount"])),
           P("Off by default: the input is ignored and costs nothing until a mode is chosen.")]
@@ -704,10 +764,23 @@ def story():
             "pressure (the DM48X). Zones: each layer takes its own key range, and each zone's breath shapes its own "
             "layer. Clock in and out (SYNC page)."),
           P("Profil chooses a controller profile, read from controllers/&lt;name&gt;.txt: lines 'cc &lt;n&gt; "
-            "&lt;action&gt; [arg];' or 'note &lt;ch&gt; &lt;n&gt; &lt;action&gt; [arg];'. Actions: knob 1-8, "
-            "level / toggle / show &lt;layer 1-8&gt;, breath, start, stop, startstop, chordnext, chordprev, loop, "
-            "loopstop, loopclear, pgnext, pgprev, play, mix, pattern. LastCC shows the last CC that came in; "
-            "controllers/user.txt is kept when a new version is copied over.")]
+            "&lt;action&gt; [arg];' (any channel), 'chcc &lt;channel&gt; &lt;n&gt; &lt;action&gt; [arg];' or 'note "
+            "&lt;ch&gt; &lt;n&gt; &lt;action&gt; [arg];'. Actions: knob 1-8 (the page shown and the next), level / "
+            "toggle / show &lt;layer 1-8&gt;, loopl &lt;layer&gt; (its loop key), param &lt;name&gt; (one parameter, "
+            "always: drone.Cutoff, pad.fm.Index, g.Tempo - the names are in slots.txt), engp &lt;layer x 10 + k&gt; "
+            "(the layer's engine's k-th parameter, whichever engine it plays), breath, start, stop, startstop, "
+            "chordnext, chordprev, loop, loopstop, loopclear, pgnext, pgprev, play, mix, pattern. LastCC shows the "
+            "last CC that came in; controllers/user.txt is kept when a new version is copied over."),
+          P("<b>The KORG sets.</b> docs/controllers holds a scene set for each KORG: AmbleLite.nktrl_st_set "
+            "(nanoKONTROL Studio) and AmbleLite.nanokey_st_set (nanoKEY Studio). Open it in KORG KONTROL Editor and "
+            "write it to the controller; then choose Profil nanoktl, nanokey or korg (both). nanoKONTROL Studio: a "
+            "strip a layer (drone, sub, pads, perc 1-4, cloud) - S / Select show it, M takes it in / out, R is its "
+            "loop key; the scenes: 1 Mix (levels, filters), 2 Tone (each engine's first two parameters), 3 Move "
+            "(Evolve, LFO 1 depth), 4 Space (resonance, release / decay), 5 Pages (the page knobs, levels); the "
+            "transport: play, stop, rec (loop), cycle (loop stop), rew / ff (the chord), track &lt; &gt; (the pages), "
+            "marker set / &lt; / &gt; (MIX, play view, pattern view). nanoKEY Studio: the knobs the page shown and "
+            "the next; the pads layers 1-5 in / out, start / stop, loop, MIX. The web editor's MIDI tab changes any "
+            "of it and writes controllers/user.txt.")]
     s += [P("Files", H2),
           table([["File", "Holds", "Kept over an update"],
                  ["saves.txt", "the 16 snapshots", "yes (not in the release zip)"],

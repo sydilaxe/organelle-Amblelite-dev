@@ -10,13 +10,18 @@ Redraws are throttled: at most one every 60 ms, however fast knobs turn."""
 from pdlib import Canvas, proc, If, Call, SendL, Send, run_steps
 import model as M
 from model import S, LAYERS
-from control import words, opt, num, ctx, npages, QUALS, MODE_SLOT, VIEW_GLOBAL
+from control import words, opt, num, ctx, npages, QUALS, MODE_SLOT, VIEW_GLOBAL, VIEW_MIX
 
 OSC = "oscOut"
 
 
 def Fill(x, y, w, h, c=1):
     return SendL(OSC, [str(x), str(y), str(w), str(h), str(c)], "/oled/gFillArea 3 $1 $2 $3 $4 $5")
+
+
+def gen_dz():
+    import gen
+    return gen.FILTER_DZ
 
 
 def _sym(c, w, dest):
@@ -57,9 +62,13 @@ def row(c, name, x, y, parts):
                             f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1)))))")
             mo = sc.to(wl, "moses 0")
             _sym(sc, sc.ch((mo, 1), "text get al-words"), (pk, i))
+            # (SHAPE's Filter: its place from the middle - minus: high-pass, plus: low-pass, 0 in the neutral zone)
+            fsl, dz = S("g", None, "Filter"), gen_dz()
+            fpos = (f"if(abs(alp[{sl}] - 0.5) <= {dz}, 0, if(alp[{sl}] < 0.5, -int((0.5 - alp[{sl}])*100 + 0.5), "
+                    f"int((alp[{sl}] - 0.5)*100 + 0.5)))")
             nv = sc.to(sc.to((mo, 0), "t b"),
-                       f"expr if(aln[{sl}] < 0, int(allo[{sl}] + alp[{sl}]*(alhi[{sl}] - allo[{sl}]) + 0.5), "
-                       f"int(alp[{sl}]*100 + 0.5))")
+                       f"expr if({sl} == {fsl}, {fpos}, if(aln[{sl}] < 0, int(allo[{sl}] + alp[{sl}]*(alhi[{sl}] - allo[{sl}]) + 0.5), "
+                       f"int(alp[{sl}]*100 + 0.5)))")
             sc.c(sc.to(nv, "makefilename %d"), 0, pk, i)
     lp = sc.ch(pk, f"list prepend /oled/gPrintln 3 {x} {y} 8 1", "list trim")
     sc.c(lp, 0, sc.obj("s " + OSC), 0)
@@ -77,7 +86,7 @@ OFF["chord"] = len(LINES)
 LINES += chord_words()
 OFF["frac"] = len(LINES)
 LINES += [f"{p}/{n}" for n in range(1, M.MAXPAGES + 1) for p in range(1, M.MAXPAGES + 1)]
-MISC = {"-": 0, "RUN": 1, "STOP": 2, "M": 3, ">": 4, "NOTES": 5, "LAT": 6, "RUN*": 7, "STOP*": 8}
+MISC = {"-": 0, "RUN": 1, "STOP": 2, "M": 3, ">": 4, "NOTES": 5, "LAT": 6, "RUN*": 7, "STOP*": 8, "N": 9}
 LINES.append("+")
 OFF["plus"] = len(LINES) - 1
 LINES.append("GLOBAL")
@@ -107,6 +116,33 @@ def misc(w):
 
 PAT_X, PAT_W = 16, 7         # the pattern view: cells from x 16, 7 pixels each (16 steps)
 MIX_X0, MIX_DX, MIX_W = 1, 13, 9    # the MIX view's columns (the 8 layers; the master volume at x 112)
+# the play view: the roadmap strip, then the layer tiles (8 across, x 0 .. 118), a bar under the shown one, the
+# loops' states under that
+INFO_Y, ROAD_Y, ROAD_H = 22, 32, 7
+TILE_DX, TILE_W, TILE_Y, TILE_H = 15, 13, 36, 11
+ICON_Y, LABEL_Y = 45, 54
+
+
+def layer_icon(L, cx, cy):
+    """a layer's icon on the play view: (steps when it is in - bold or filled, steps when out - a thin outline).
+    drone a triangle; sub a wave; pads two circles (a figure of eight: their Lissajous in the visualizer); a lane a
+    stone's ring with the stone; the cloud a square"""
+    def ln(pts, dy=0):
+        return [Send(OSC, f"/oled/gLine 3 {x1} {y1 + dy} {x2} {y2 + dy} 1") for (x1, y1), (x2, y2) in zip(pts, pts[1:])]
+    circ = lambda r, fill=False, dx=0: Send(OSC, f"/oled/{'gFilledCircle' if fill else 'gCircle'} 3 {cx + dx} {cy} {r} 1")
+    k = M.kind(L)
+    if L == "drone":            # (apex up, 11 px wide and tall; filled: a line a row)
+        tri = [(cx, cy - 5), (cx + 5, cy + 5), (cx - 5, cy + 5), (cx, cy - 5)]
+        rows = [Send(OSC, f"/oled/gLine 3 {cx - k // 2} {cy - 5 + k} {cx + k // 2} {cy - 5 + k} 1") for k in range(11)]
+        return rows, ln(tri)
+    if L == "sub":
+        wave = [(cx - 6, cy), (cx - 4, cy - 3), (cx - 1, cy + 3), (cx + 2, cy - 3), (cx + 5, cy + 3), (cx + 6, cy)]
+        return ln(wave) + ln(wave, 1), ln(wave)
+    if L == "pad":
+        return [circ(3, True, -3), circ(3, True, 3)], [circ(3, False, -3), circ(3, False, 3)]
+    if L == "cloud":
+        return [Fill(cx - 5, cy - 5, 11, 11, 1)], [Send(OSC, f"/oled/gBox 3 {cx - 5} {cy - 5} 11 11 1")]
+    return [circ(5), circ(1, True)], [circ(4)]                 # (a lane)
 PAT_LAYERS = M.NOTE_LAYERS          # the pattern view's rows (the cloud has no pattern)
 
 
@@ -145,32 +181,73 @@ def build(c):
     fl = LAYERS.index(M.LANES[0])
     # ---- play view
     row(c, "al-r-head", 0, 0, [("w", f"{OFF['note']} + {opt(key)}"), ("w", f"{OFF['mode']} + {opt(mode)}"),
-                               ("n", num(tempo), "%dbpm"), ("w", f"if(alrun, {misc('RUN')}, {misc('STOP')}) + 6*alchg"),      # (*: changed since the snapshot)
-                               ("w", f"if(alnotes, {misc('NOTES')}, {OFF['plus']})")])
+                               ("n", num(tempo), "%d"), ("w", f"if(alrun, {misc('RUN')}, {misc('STOP')}) + 6*alchg")])      # (*: changed since the snapshot)
+    # (at most 21 characters - the small font is 6 px a character, and a longer line wraps: so the tempo without
+    # 'bpm'; notes mode is an N at the right edge, below)
     row(c, "al-r-chord", 0, 11, [("w", f"{OFF['chord']} + alcr*{len(QUALS)} + alcq"), ("w", misc(">")),
                                  ("w", f"{OFF['chord']} + alnxr*{len(QUALS)} + alnxq")])
-    for li in range(3):
-        L = LAYERS[li]
-        row(c, f"al-r-l{li}", 0, 22 + 10 * li, [
-            ("w", f"if(allayer == {li}, {misc('>')}, {misc('-')})"), ("w", f"{OFF['layer']} + {li}"),
-            ("w", f"{OFF['eng-' + L]} + aleng[{li}]"), ("w", f"if(alin[{li}] == 0, {OFF['out']}, {OFF['loopst']} + allps[{li}])")])
-    # the percussion row: the lane last shown, its engine, and which lanes play (their numbers; '.' silent)
-    ci = LAYERS.index("cloud")
-    lanes_on = " + ".join(f"{2 ** i}*alin[{fl + i}]" for i in range(nl)) + f" + {2 ** nl}*alin[{ci}]"
-    row(c, "al-r-perc", 0, 52, [
-        ("w", f"if(allayer >= {fl}, {misc('>')}, {misc('-')})"), ("w", f"{OFF['layer']} + alplane"),
-        ("w", eng_word("alplane")), ("w", f"{OFF['lanes']} + {lanes_on}")])
+    # the layers as tiles (D S P 1 2 3 4 C): in - filled from the bottom as high as its Level; out - an empty outline.
+    # Under each its letter (the shown layer's inverted), and a loop's state (R recording, P playing, O overdub,
+    # s stopped). The right edge: the MIDI-in light, N in notes mode
+    for li in range(len(M.NOTE_LAYERS)):
+        row(c, f"al-r-lp{li}", TILE_DX * li + 8, LABEL_Y, [("w", f"{OFF['loopst']} + allps[{li}]")])
     row(c, "al-r-toast", 0, 0, [("w", f"{OFF['toast']} + altw"), ("n", "altn", "%d")])
     row(c, "al-r-toast0", 0, 0, [("w", f"{OFF['toast']} + altw")])
     play = [If("altw >= 0", [If("altn >= 0", [Call("al-r-toast")], [Call("al-r-toast0")])], [Call("al-r-head")]),
             Call("al-r-chord")]
-    for li in range(3):
-        lvl = S(LAYERS[li], None, "Level")
-        play += [Call(f"al-r-l{li}"),
-                 SendL(OSC, [str(23 + 10 * li), f"max(1, int(alp[{lvl}]*20))"], "/oled/gFillArea 3 106 $1 $2 5 1")]
-    play += [Call("al-r-perc")]
+    for li, L in enumerate(LAYERS):
+        x = TILE_DX * li
+        lab = M.SHORT[L][1] if M.kind(L) == "perc" else M.SHORT[L][0]
+        on, off = layer_icon(L, x + TILE_W // 2, ICON_Y)
+        # (a loop: recording or overdubbing (allps 1, 3) - the sign blinks on the 8ths; playing or overdubbing
+        # (2, 3) - a line under it fills as the loop goes round; stopped (4) - a dot there)
+        sign = [If(f"alin[{li}]", on, off)]
+        if li < len(M.NOTE_LAYERS):
+            ph = f"((max(0, alc24) - allp0[{li}]) % max(1, allpl[{li}]))/max(1, allpl[{li}])"
+            sign = [If(f"(allps[{li}] == 1 || allps[{li}] == 3) && int(max(0, altick)/4) % 2", [], sign),
+                    If(f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0",
+                       [SendL(OSC, [f"max(1, int({ph}*{TILE_W}))"], f"/oled/gFillArea 3 {x} {ICON_Y + 6} $1 1 1")]),
+                    If(f"allps[{li}] == 4", [Fill(x + TILE_W // 2, ICON_Y + 6, 1, 1, 1)])]
+        play += sign + [
+                 Send(OSC, f"/oled/gPrintln 3 {x + 2} {LABEL_Y} 8 1 {lab}"),
+                 If(f"allayer == {li}", [Send(OSC, f"/oled/gInvertArea 3 {x} {LABEL_Y - 1} 8 9")])]     # (the letter only: a loop's beside it stays clear)
+        if li < len(M.NOTE_LAYERS):
+            play += [If(f"allps[{li}] > 0", [Call(f"al-r-lp{li}")])]
+    play += [If("alnotes", [Send(OSC, f"/oled/gPrintln 3 121 {LABEL_Y} 8 1 N")])]
+    # the roadmap, when there is one and Road isn't off: an info line (the section n/count; the time left, counting
+    # down, and the piece's whole length) and the roadmap as a strip
+    road = S("g", None, "Road")
+    tempo_ = S("g", None, "Tempo")
+    secs = f"*240/{num(tempo_)}"            # (bars to seconds: 4 beats a bar)
+
+    def clock(x_end, var, minus):
+        """m:ss of var seconds, right-aligned to x_end (6 px a character): one message - the minutes, then the
+        seconds' two digits"""
+        w = f"(altcm >= 10) + {4 + (1 if minus else 0)}"
+        return [V("altcm", f"int({var}/60)"), V("altcs", f"int({var}) % 60"),
+                SendL(OSC, [f"{x_end} - 6*({w})", "altcm", "int(altcs/10)", "altcs % 10"],
+                      f"/oled/gPrintln 3 $1 {INFO_Y} 8 1 {'-' if minus else ''}$2:$3$4")]
+    play += [If(f"alrn > 0 && {opt(road)} > 0", [
+        V("alrtot", "0"), V("alrsw", "0"),
+        Loop("alrn", "alri", [If("alri < alrc", [V("alrsw", "alrsw + alrsL[alri]")]), V("alrtot", "alrtot + alrsL[alri]")]),
+        V("alrsw", "alrsw + min(alrsL[alrc], max(0, altick/32 - alrb0))"),
+        # (the info line: the section n/count, then the time left in the piece and its whole length)
+        SendL(OSC, ["alrc + 1", "alrn"], f"/oled/gPrintln 3 0 {INFO_Y} 8 1 $1/$2"),
+        *clock(92, f"max(0, alrtot - alrsw){secs}", True), *clock(128, f"alrtot{secs}", False),
+        # (each section a box as wide as its bars - the playing one filled - and the playhead: an inverted line)
+        V("alrt", "alrsw"), V("alrsw", "0"),
+        Loop("alrn", "alri", [
+            If("alri == alrc", [SendL(OSC, ["int(alrsw*127/alrtot)", "max(2, int(alrsL[alri]*127/alrtot))"],
+                                      f"/oled/gFillArea 3 $1 {ROAD_Y} $2 {ROAD_H} 1")],
+               [SendL(OSC, ["int(alrsw*127/alrtot)", "max(2, int(alrsL[alri]*127/alrtot) + 1)"],
+                      f"/oled/gBox 3 $1 {ROAD_Y} $2 {ROAD_H} 1")]),
+            V("alrsw", "alrsw + alrsL[alri]")]),
+        SendL(OSC, ["min(126, int(alrt*127/alrtot))"], f"/oled/gInvertArea 3 $1 {ROAD_Y + 2} 2 {ROAD_H - 4}")])]
+    # the MIDI-in light: a small square at the bottom right, on while a MIDI note is held (and 150 ms after each)
+    play += [If("alminh > 0 || altime - almint < 0.15", [Fill(122, ICON_Y - 2, 5, 5, 1)])]
     # ---- layer view
-    lay = [If("alview", [Call("al-r-ghead")], [Call("al-r-lhead")]), Call("al-r-page")]
+    lay = [If(f"alview == {VIEW_MIX}", [Send(OSC, "/oled/gPrintln 3 0 0 8 1 MIX")],
+              [If("alview", [Call("al-r-ghead")], [Call("al-r-lhead")])]), Call("al-r-page")]
     row(c, "al-r-ghead", 0, 0, [("w", f"{OFF['global']}")])
     row(c, "al-r-lhead", 0, 0, [("w", f"if(alview, {OFF['global']}, {OFF['layer']} + allayer)"),
                                 ("w", f"if(alview, {misc('-')}, {eng_word('allayer')})")])
@@ -182,10 +259,17 @@ def build(c):
         row(c, f"al-r-k{k}", 0, 22 + 10 * k, [("w", f"if(alsl{k} < 0, {misc('-')}, if(alview == {VIEW_GLOBAL} && {gl} >= 0, "
                                                     f"{OFF['layer']} + {gl}, {OFF['name']} + alsl{k}))"),
                                               ("v", k)])
+        fsl = S("g", None, "Filter")
+        y = 23 + 10 * k
+        # (SHAPE's Filter: a mark at the middle, its bar from there to the left (high-pass) or the right (low-pass))
+        fpx = f"(80 + int(alp[{fsl}]*46))"
         lay += [Call(f"al-r-k{k}"),
-                If(f"alsl{k} >= 0 && (aln[alsl{k}] == 0 || aln[alsl{k}] == -1)",
-                   [SendL(OSC, [str(23 + 10 * k), f"max(1, int(alp[alsl{k}]*46))"],
-                          "/oled/gFillArea 3 80 $1 $2 5 1")])]
+                If(f"alsl{k} == {fsl}", [Fill(103, y - 1, 1, 7, 1),
+                                         SendL(OSC, [f"min(103, {fpx})", f"max(1, abs({fpx} - 103))"],
+                                               f"/oled/gFillArea 3 $1 {y + 1} $2 3 1")],
+                   [If(f"alsl{k} >= 0 && (aln[alsl{k}] == 0 || aln[alsl{k}] == -1)",
+                       [SendL(OSC, [str(y), f"max(1, int(alp[alsl{k}]*46))"],
+                              "/oled/gFillArea 3 80 $1 $2 5 1")])])]
     # ---- mix view: every layer's level as a column, the master volume at the right; the shown page's columns
     # underlined
     row(c, "al-r-mixhead", 0, 0, [("w", f"{OFF['page']} + {ctx()}*{M.MAXPAGES} + alpage"),
@@ -252,11 +336,12 @@ def build(c):
     proc(c, "al-patmark", [If("alpatv == 1 && alpop == 0 && altick % 2 == 0", mark)])
     roadv = road_view(c)
     # (the MIX view, after its first frame: only the header and the columns cleared and drawn - its labels stay)
-    mixing = "alpop == 0 && alview == 2"
+    shape = f"alview == {VIEW_MIX} && alpage == {M.SHAPE_PAGE}"     # (SHAPE: drawn as a page of knobs)
+    mixing = f"alpop == 0 && alview == 2 && ({shape}) == 0"
     import vis
     VIS, visv = vis.VIEW_VIS, vis.frame()
     proc(c, "al-draw", [If(f"{mixing} && almixok", [Fill(0, 0, 128, 55, 0)], [Fill(0, 0, 128, 64, 0), V("almixok", "0")]),
-                        If("alpop", lay, [If(f"alview == 2", mixv, [If(f"alview == {VIS}", visv, [If("alpatv == 1", patv,
+                        If(f"alpop || ({shape})", lay, [If(f"alview == 2", mixv, [If(f"alview == {VIS}", visv, [If("alpatv == 1", patv,
                                                                        [If("alpatv == 2", roadv, play)])])])]),
                         If(f"({mixing}) == 0", [V("almixok", "0")]),
                         Send(OSC, "/oled/gFlip 3")])

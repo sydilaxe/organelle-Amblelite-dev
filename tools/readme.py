@@ -10,7 +10,7 @@ WHAT = {**{f"al-sel-{L}": f"show the {M.LAYER_LABEL[L]} pages" for L in M.LAYERS
         "al-startstop": "start / stop", "al-clear": "clear the shown layer (back to its default)",
         "al-chordprev": "previous chord", "al-chordnext": "next chord",
         "al-layerview": "the play view (back from MIX / pattern / pages)",
-        "al-mix": "the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)",
+        "al-mix": "the MIX view: knobs set levels (again: the next mix page; held: SHAPE - Filter, Reso, Drive, Blur on the whole sound); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)",
         "al-patview": "the pattern view (every gate and lane as steps), then the roadmap view, then neither",
         "al-loop": "the shown layer's looper: arm (it starts on the next bar; free: on your first note; again: at once), the first pass, then overdub until a press switches to play (again: overdub)",
         "al-loopstop": "the shown layer's loop: stop / play", "al-loopclear": "clear the shown layer's loop",
@@ -40,7 +40,8 @@ def text():
     out += ["  top A#   held + a key from low C to top D#: recall snapshot 1 - 16 (with aux: save it);",
             "           alone: COMPARE - the snapshot as saved against your sound since: a tap flips between them,",
             "           a hold hears the saved one until you let go; both glide over CmpGl (PERFRM page).",
-            "           RUN* / STOP* on the play view: changed since the snapshot. On the PIECE page: pieces"]
+            "           RUN* / STOP* on the play view: changed since the snapshot. On the PIECE page: loads the piece (aux + top A#: saves it).",
+            "           On the SECTN page: captures what you changed into the section (aux + top A#: clears it)"]
     out += ["", "AUX held + key"]
     out += [f"  {key(k):8} {WHAT[v]}" for k, v in sorted(AUX_KEYS.items())]
     out += ["  aux tap  home: the play view", "  aux held + a knob: ASSIGN - that knob's place on the FAV page takes a",

@@ -589,6 +589,11 @@ Scan
 Jitter
 Revrse
 Source
+Filter
+Reso
+Drive
+Blur
+NoteOt
 C
 C#
 D
@@ -683,6 +688,7 @@ nanokey
 nanoktl
 dm48x
 user
+korg
 layers
 mpe
 off
@@ -1725,6 +1731,8 @@ shimmr
 layers
 input
 both
+off
+on
 FAV
 LAYER
 ANALOG\ 1
@@ -4032,7 +4040,7 @@ SECTN
 MIX\ 1
 MIX\ 2
 MIX\ 3
--
+SHAPE
 -
 -
 -
@@ -4362,6 +4370,7 @@ NOTES
 LAT
 RUN*
 STOP*
+N
 analog
 fm
 spectr
@@ -4860,6 +4869,9 @@ ROAD
 NEXT
 SECTION
 HOLD
+CAPTURED
+FULL
+NO\ ROAD
 +
 R
 P

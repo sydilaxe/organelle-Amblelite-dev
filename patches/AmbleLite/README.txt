@@ -18,7 +18,7 @@ knob pops up in the play view closes 3 s after the last turn.
 
 THE OTHER KEYS (one press each): the low black keys the views, the top octave playing
   low C#   the play view (back from MIX / pattern / pages)
-  low D#   the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)
+  low D#   the MIX view: knobs set levels (again: the next mix page; held: SHAPE - Filter, Reso, Drive, Blur on the whole sound); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)
   low F#   the pattern view (every gate and lane as steps), then the roadmap view, then neither
   low G#   the global pages: MAIN (key, tempo, scale, mode), LAYERS and LANES (each layer's engine), STORY, SYNC, MIDI, MIDI 2, PERFRM, HARMNY, ROAD, ROAD 2, SECTN (again: the next one)
   low A#   notes mode: the Organelle keys play the shown layer (again: back to functions)
@@ -35,7 +35,8 @@ THE OTHER KEYS (one press each): the low black keys the views, the top octave pl
   top A#   held + a key from low C to top D#: recall snapshot 1 - 16 (with aux: save it);
            alone: COMPARE - the snapshot as saved against your sound since: a tap flips between them,
            a hold hears the saved one until you let go; both glide over CmpGl (PERFRM page).
-           RUN* / STOP* on the play view: changed since the snapshot. On the PIECE page: pieces
+           RUN* / STOP* on the play view: changed since the snapshot. On the PIECE page: loads the piece (aux + top A#: saves it).
+           On the SECTN page: captures what you changed into the section (aux + top A#: clears it)
 
 AUX held + key
   low C    show the DRONE pages

@@ -121,7 +121,7 @@ def assign(c):
 # ---------------------------------------------------------------------------------------------- toasts
 TOASTS = ["SAVED", "LOADED", "EMPTY", "COMPARE", "YOURS", "REC", "PLAY", "DUB", "STOPPED", "CLEARED", "ASSIGN", "TAP",
           "ARMED", "ERASE",
-          "ROAD", "NEXT", "SECTION", "HOLD"]
+          "ROAD", "NEXT", "SECTION", "HOLD", "CAPTURED", "FULL", "NO ROAD"]
 
 
 def toast(name, number=None):
@@ -138,12 +138,56 @@ def toasts(c):
 
 # ---------------------------------------------------------------------------------------------- snapshots
 def read_padded(c, tx, name, fname, n, fill):
-    """at load: the file read into [text define name], then lines added at its end until it has n - a missing or
-    short file (a fresh install) still has every slot in its place, so saving to slot k writes line k"""
-    go = c.to(c.recv("al-init"), "t b b")
-    c.c(c.m((go, 1), f"read -c {fname}"), 0, tx, 0)
-    k = c.ch((go, 0), f"text size {name}", f"expr max(0, {n} - $f1)", "until")
+    """at load: the file read into [text define name], then made exactly n lines, slot k on line k - lines added at
+    its end (a missing or short file: a fresh install), an empty line within the slots made 'fill' (an empty slot;
+    an older file, written with ';' at each line's end, read as a line and an empty one after it), the lines past
+    the last slot dropped"""
+    go = c.to(c.recv("al-init"), "t b b b b")
+    c.c(c.m((go, 3), f"read -c {fname}"), 0, tx, 0)
+    k = c.ch((go, 2), f"text size {name}", f"expr max(0, {n} - $f1)", "until")
     c.c(c.m(k, fill), 0, c.obj(f"text insert {name} 1e+06"), 0)
+    # (each slot's line: empty -> fill)
+    cnt = c.obj("f")
+    c.c(c.m((go, 1), "0"), 0, cnt, 1)
+    u = c.to(c.m((go, 1), str(n)), "until")
+    c.c(u, 0, cnt, 0)
+    c.c(c.to(cnt, "+ 1"), 0, cnt, 1)
+    tl = c.to(cnt, "t f f")
+    ts = c.obj(f"text set {name}")
+    c.c((tl, 1), 0, ts, 1)
+    emp = c.ch((tl, 0), f"text get {name}", "list length", "sel 0")
+    c.c(c.m(emp, fill), 0, ts, 0)
+    # (the lines past the last slot)
+    c.c(c.ch((go, 0), f"text size {name}", f"expr max(0, $f1 - {n})", "until", f"f {n}"), 0,
+        c.obj(f"text delete {name}"), 0)
+
+
+def widened(c, src, full):
+    """a line read from saves.txt or pieces.txt, made the current length: a line saved before some slots were added
+    (M.SLOT_HISTORY: they come after all the others) is shorter by them - their defaults go in after its slots,
+    where they sit now. Any other line passes as it is"""
+    hs = M.SLOT_HISTORY
+    t = c.to(src, "t l l")
+    ln = c.ch((t, 1), "list length")
+    gates = []
+    for h in hs + [None]:
+        g = c.obj("spigot")
+        test = (f"expr $f1 == {full - (M.NSLOTS - h)}" if h is not None else
+                "expr " + " && ".join(f"$f1 != {full - (M.NSLOTS - x)}" for x in hs))
+        c.c(c.to(ln, test), 0, g, 1)
+        c.c((t, 0), 0, g, 0)
+        gates.append(g)
+        c.col(220)
+    out = c.obj("t l")
+    for h, g in zip(hs, gates):
+        sp = c.to(g, f"list split {h}")
+        ap = c.obj("list append")
+        defaults = " ".join(f"{p.default:g}" for _, p in M.SLOTS[h:])
+        c.c(c.to((sp, 1), f"list prepend {defaults}"), 0, ap, 1)
+        c.c((sp, 0), 0, ap, 0)
+        c.c(ap, 0, out, 0)
+    c.c(gates[-1], 0, out, 0)
+    return out
 
 
 def saves(c):
@@ -173,7 +217,7 @@ def saves(c):
     c.c(c.m((rd, 1), "0"), 0, c.obj("v alsnv"), 0)
     tg = c.obj("text get al-saves")
     c.c((rd, 0), 0, tg, 0)
-    ln = c.to(tg, "t l l")
+    ln = c.to(widened(c, tg, SNAP), "t l l")
     c.c(c.ch((ln, 1), "list length", f"expr $f1 == {SNAP}"), 0, c.obj("v alsnv"), 0)
     sp = c.obj("list split " + str(SNAP))
     c.c((ln, 0), 0, sp, 0)
@@ -252,7 +296,7 @@ def pieces(c):
     road = [("alrsL", 0), ("alrsS", 1), ("alrsM", 2), ("alrsR", 3)]
     proc(c, "al-psave", [Call("al-gather"), ACopy("alsnap", 0, SNAP, "alpc", 0), T("alpc", str(SNAP), "alrn")] +
          [ACopy(a_, 0, M.MAXSEC, "alpc", SNAP + 1 + k * M.MAXSEC) for a_, k in road] +
-         [SendL("al-pcwrite", [slot]), Call("al-lpsave")] + toast("SAVED", f"{slot} + 1"))
+         [SendL("al-pcwrite", [slot]), Call("al-lpsave"), Call("al-rcpsave")] + toast("SAVED", f"{slot} + 1"))
     wr = c.to(c.recv("al-pcwrite"), "t b f")
     ts = c.obj("text set al-pieces")
     c.c((wr, 1), 0, ts, 1)
@@ -262,14 +306,14 @@ def pieces(c):
     c.c(c.m((rd, 1), "0"), 0, c.obj("v alpcv"), 0)
     tg = c.obj("text get al-pieces")
     c.c((rd, 0), 0, tg, 0)
-    ln = c.to(tg, "t l l")
+    ln = c.to(widened(c, tg, PIECE), "t l l")
     c.c(c.ch((ln, 1), "list length", f"expr $f1 == {PIECE}"), 0, c.obj("v alpcv"), 0)
     c.c(c.ch((ln, 0), f"list split {PIECE}"), 0, c.obj("array set alpc"), 0)
     loops_store(c, slot)
     proc(c, "al-pload", [SendL("al-pcread", [slot]), If("alpcv", [
         ACopy("alpc", 0, SNAP, "alsnap", 0), V("alrn", f"alpc[{SNAP}]")] +
         [ACopy("alpc", SNAP + 1 + k * M.MAXSEC, M.MAXSEC, a_, 0) for a_, k in road] +
-        [V("alpinst", "1"), Call("al-apply"), V("alpinst", "0"), Call("al-lpload"), V("alrc", "0"), V("alrb0", "0"),
+        [V("alpinst", "1"), Call("al-apply"), V("alpinst", "0"), Call("al-lpload"), Call("al-rcpload"), V("alrc", "0"), V("alrb0", "0"),
          Call("al-rsave"), Call("al-rsectload")] + toast("LOADED", f"{slot} + 1"), toast("EMPTY"))])
 
 

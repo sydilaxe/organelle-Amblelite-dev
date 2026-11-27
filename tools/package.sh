@@ -6,12 +6,14 @@ cd "$(dirname "$0")/.."
 VERSION="${1:-dev}"
 rm -rf dist && mkdir -p dist/stage
 cp -r patches/AmbleLite dist/stage/
-rm -f dist/stage/AmbleLite/saves.txt dist/stage/AmbleLite/pieces.txt dist/stage/AmbleLite/roadmap.txt dist/stage/AmbleLite/loops.txt dist/stage/AmbleLite/controllers/user.txt
+rm -f dist/stage/AmbleLite/saves.txt dist/stage/AmbleLite/pieces.txt dist/stage/AmbleLite/roadmap.txt dist/stage/AmbleLite/loops.txt dist/stage/AmbleLite/controllers/user.txt dist/stage/AmbleLite/roadchg.txt dist/stage/AmbleLite/sections.txt
 printf 'Amble Lite %s\n' "$VERSION" > dist/stage/AmbleLite/VERSION.txt
 # the manual and key chart, stamped with the version, beside the patch
 python3 tools/manual.py "$VERSION" >/dev/null
 cp docs/AmbleLite-manual.pdf docs/AmbleLite-keys.pdf dist/stage/AmbleLite/
 cp docs/AmbleLite-manual.pdf docs/AmbleLite-keys.pdf dist/          # (attached to the release on their own too)
+# the KORG scene sets (KORG KONTROL Editor), beside the profiles that expect them
+cp docs/controllers/AmbleLite.nktrl_st_set docs/controllers/AmbleLite.nanokey_st_set dist/stage/AmbleLite/controllers/
 git checkout -q -- docs/AmbleLite-manual.pdf docs/AmbleLite-keys.pdf 2>/dev/null || true
 (cd dist/stage && zip -qr "../AmbleLite-${VERSION}.zip" .)
 rm -rf dist/stage

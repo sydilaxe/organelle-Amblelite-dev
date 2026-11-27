@@ -17,7 +17,7 @@ PIECE_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("PIECE")
 MODE_SLOT, SCALE_SLOT = S("g", None, "Mode"), S("g", None, "Scale")
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
-GLOBALS = dict(alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
+GLOBALS = dict(alth=0, altcm=0, altcs=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
                alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
                alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0, alcb=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
@@ -166,7 +166,7 @@ def words():
     for key, items in (("name", names), ("opt", opts), ("page", pnames), ("note", M.NOTE_NAMES),
                        ("mode", [m for m, _ in M.MODES]), ("layer", [M.LAYER_LABEL[L] for L in LAYERS]),
                        ("short", [M.SHORT[L] for L in LAYERS]), ("qual", M.QUALS),
-                       ("misc", ["-", "RUN", "STOP", "M", ">", "NOTES", "LAT", "RUN*", "STOP*"])):
+                       ("misc", ["-", "RUN", "STOP", "M", ">", "NOTES", "LAT", "RUN*", "STOP*", "N"])):
         off[key] = len(lines)
         lines += [w if w else "-" for w in items]
     for L in LAYERS:
@@ -319,6 +319,9 @@ def pages(c):
                              [V("alview", str(VIEW_GLOBAL)), V("alpage", "0")]), Call("al-pickreset"), Call("al-popup")])
     proc(c, "al-mix", [V("alstick", "0"), If(f"alview == {VIEW_MIX}", [V("alpage", f"(alpage + 1) % {len(M.MIX_PAGES)}")],
                           [V("alview", str(VIEW_MIX)), V("alpage", "0")]), V("alpop", "0"), Call("al-pickreset")])
+    # (the MIX key held, or a controller's 'shape': the SHAPE page - the whole sound at once)
+    proc(c, "al-shape", [V("alstick", "0"), V("alview", str(VIEW_MIX)), V("alpage", str(M.SHAPE_PAGE)), V("alpop", "0"),
+                         Call("al-pickreset"), Call("al-redraw")])
     proc(c, "al-layerview", [V("alstick", "0"), V("alview", "0"), V("alpage", "0"), V("alpop", "0"), V("alpatv", "0"),
                              Call("al-pickreset")])
     # (low F#: the pattern view, then the roadmap view, then neither)
@@ -344,6 +347,7 @@ def pages(c):
 # the low white keys: the seven layers - a tap: in / out; held (LAYER_HOLD ms): its pages
 LAYER_KEYS = {60: "drone", 62: "sub", 64: "pad", 65: "perc1", 67: "perc2", 69: "perc3", 71: "perc4", 79: "cloud"}
 LAYER_HOLD = 400
+MIX_HOLD = 400          # ms: the MIX key held this long - the SHAPE page
 # the low black keys: the views and notes mode; the top octave: playing - the page arrows on the black keys either side
 # of chord prev (top D), the looper's three keys together (F, F#, G#), clear at the far end
 KEY = dict(home=61, mix=63, pattern=66, glob=68, notes=70, start=72, pgprev=73, chordprev=74, pgnext=75,
@@ -382,9 +386,12 @@ def organelle(c):
     # a layer key pressed: wait - held LAYER_HOLD ms shows its pages; let go before: a tap toggles it in / out
     key_down = [If(f"alaux == 0 && ({lk})",
                    [V("alhk", "alkn"), V("alhd", "0"), Arm("al-khold", str(LAYER_HOLD), stop="al-khstop")],
-                   [V("alauxu", "if(alaux, 1, alauxu)"), Send("al-keyfn")])]
+                   [V("alauxu", "if(alaux, 1, alauxu)"), Send("al-keyfn"),
+                    # (the MIX key: a press as ever; held MIX_HOLD ms, the SHAPE page)
+                    If(f"alaux == 0 && alkn == {KEY['mix']}", [Arm("al-shape", str(MIX_HOLD), stop="al-mixhstop")])])]
     key_up = [If("alkn == alhk", [Send("al-khstop"), If("alhd == 0", [SendL("al-togk", ["alkn"])]),
-                                  V("alhk", "-1")])]
+                                  V("alhk", "-1")]),
+              If(f"alkn == {KEY['mix']}", [Send("al-mixhstop")])]
     # (while aux erases, the keys in notes mode play - what you play replaces what is erased - but the loop key
     # still switches to play)
     normal = [If(f"alnotes && (alaux == 0 || (alerase && alkn != {KEY['loop']}))",
@@ -396,12 +403,15 @@ def organelle(c):
     # (top A# tapped: COMPARE - or, on the PIECE page, load the Piece knob's piece; with aux: save to it)
     # (alone: a tap flips COMPARE, a hold hears the saved snapshot until it is let go)
     piece = f"alview == {VIEW_GLOBAL} && alpage == {PIECE_PAGE}"
+    # (on the SECTN page: capture the changes into the chosen section; with aux: clear them - roadmap.changes)
+    sectn = f"alview == {VIEW_GLOBAL} && alpage == {SECTN_PAGE}"
     run_steps(c, (r, 0), [If(f"alkn == {SLOT_KEY}",
                              [If("alkvel > 0", [V("alslh", "1"), V("alslu", "0"), V("alcmph", "0"),
-                                                If(f"({piece}) == 0", [Arm("al-cmphold", "400", stop="al-cmphstop")])],
+                                                If(f"({piece}) == 0 && ({sectn}) == 0", [Arm("al-cmphold", "400", stop="al-cmphstop")])],
                                  [V("alslh", "0"), Send("al-cmphstop"), If("alslu == 0", [
                                      If(piece, [If("alaux", [V("alauxu", "1"), Call("al-psave")], [Call("al-pload")])],
-                                        [If("alcmph", [Call("al-cmpoff")], [Call("al-compare")])])])])], slots)])
+                                        [If(sectn, [If("alaux", [V("alauxu", "1"), Call("al-rcclear")], [Call("al-rccapture")])],
+                                            [If("alcmph", [Call("al-cmpoff")], [Call("al-compare")])])])])])], slots)])
     proc(c, "al-cmphold", [If("alslh && alslu == 0", [V("alcmph", "1"), Call("al-cmpon")])])
     tg = c.ch(c.recv("al-togk"), "route " + " ".join(str(k) for k in LAYER_KEYS))
     hx = c.ch(c.recv("al-khold"), "t b", "expr alhd = 1; alhk")
@@ -552,6 +562,10 @@ def transport(c):
         # each bar: the lanes with a Phase move one step against the others (Reich's phasing, in steps)
         If("altick > 0 && altick % 32 == 0", [Call("al-phase")]),
         If("altick % 32 == 0", [Call("al-rbar")]),
+        # (the play view's countdown: redrawn each beat while a roadmap runs - roadmap.al-rbar redraws each bar)
+        # (and each 8th while a loop records, overdubs or plays: its line moves, a recording sign blinks)
+        If(f"alview == 0 && alpop == 0 && alpatv == 0 && ((altick % 8 == 4 && alrn > 0) || (altick % 4 == 0 && ("
+           + " || ".join(f"allps[{i}] > 0" for i in range(len(M.NOTE_LAYERS))) + ")))", [Call("al-redraw")]),
         If("alpatv", [Call("al-patmark")])])
     proc(c, "al-phase", [If(f"{opt(S(L, None, 'Phase'))} > 0 && (altick/32) % "
                             f"{pick(M.PHASE_BARS, opt(S(L, None, 'Phase')))} == 0",

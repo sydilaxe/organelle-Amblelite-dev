@@ -69,6 +69,143 @@ def layer_filter(c, L, *sides):
     return [add(c, mul(c, (node, i), wet), mul(c, x, opl)) for i, x in enumerate(sides)]
 
 
+def switched_fx(c, name, sides, slot, active, fade_ms, build):
+    """an effect on the master in a subpatch of its own, switched on only while its knob is off neutral (active: an
+    [expr] of the slot's value $f1): the processed signal crossfaded in over fade_ms, and once faded out the
+    subpatch switched off - at neutral it costs nothing. build(f, inlets) -> the outlets' signals"""
+    f = Canvas(name, w=1400)
+    fins = [f.obj("inlet~", 20 + 200 * i, 5) for i in range(len(sides))]
+    f.cx, f.cy = 20, 40
+    sw = f.obj("switch~")
+    on = f.ch(f.obj("inlet", 600, 5), "t f f")
+    sel = f.to((on, 0), "sel 0")
+    dly = f.obj(f"delay {fade_ms + 20}")
+    f.c(sel, 0, dly, 0)
+    f.c(f.m(dly, "0"), 0, sw, 0)
+    tb = f.to((sel, 1), "t b b")
+    f.c(f.m((tb, 1), "stop"), 0, dly, 0)
+    f.c(f.m((tb, 0), "1"), 0, sw, 0)
+    f.c(f.m(f.obj("loadbang"), "0"), 0, sw, 0)
+    f.col(260)
+    outs = build(f, fins)
+    for i, y in enumerate(outs):
+        f.c(y, 0, f.obj("outlet~", 20 + 200 * i, 1300), 0)
+    node = c.sub(f)
+    for i, x in enumerate(sides):
+        c.c(x, 0, node, i)
+    act = c.ch(c.recv(f"al-s{slot}"), f"expr {active}", "change", "t f f")
+    c.c((act, 1), 0, node, len(sides))
+    al = c.ch(c.m((act, 0), f"$1 {fade_ms}"), "line~")
+    dry = c.ch(al, "*~ -1", "+~ 1")
+    return [add(c, mul(c, (node, i), al), mul(c, x, dry)) for i, x in enumerate(sides)]
+
+
+def shape_drive(c, sides):
+    """Drive: soft saturation, y/(1 + |y|), of the signal raised up to 28 dB, with a little offset that grows with
+    the knob (even harmonics: a rawer, more electric edge); a make-up gain keeps the level about where it was"""
+    d = M.S("g", None, "Drive")
+
+    def build(f, fins):
+        g = f.ch(f.recv(f"al-s{d}"), f"expr 1 + 24*alpe[{d}]*alpe[{d}]", "t f f")
+        gs = f.ch(f.m((g, 1), "$1 30"), "line~")
+        mk = f.ch(f.m(f.to((g, 0), "expr (1 + 0.25*$f1)/$f1"), "$1 30"), "line~")
+        bias = f.ch(f.recv(f"al-s{d}"), f"expr 0.15*alpe[{d}]", "pack f 30", "line~")
+        outs = []
+        for x in fins:
+            y = add(f, mul(f, x, gs), bias)
+            sat = div(f, y, f.ch(y, "abs~", "+~ 1"))
+            outs.append(f.ch(mul(f, sat, mk), "hip~ 5"))
+            f.col(200)
+        return outs
+    return switched_fx(c, "drive", sides, d, "$f1 > 0.005", 40, build)
+
+
+def shape_blur(c, sides):
+    """Blur: a diffuse smear. Each side through three allpasses (diffusion, the two sides' times apart: width), then
+    a pair of damped delays feeding back into each other (a rotation: the tail moves between the sides). Turned
+    up: more of it, a longer and darker tail (feedback 0.3 .. 0.9, damping 7 .. 3 kHz), the dry a little lower"""
+    b = M.S("g", None, "Blur")
+    AP = [(4.77, 3.59, 12.7), (5.37, 3.91, 13.3)]
+    FDN = (61.3, 73.9)
+
+    def build(f, fins):
+        r = f.recv(f"al-s{b}")
+        fb = f.ch(r, f"expr 0.6364*(0.3 + 0.6*alpe[{b}])", "pack f 50", "line~")     # (x 0.707: the rotation)
+        damp = f.ch(r, f"expr 7000 - 4000*alpe[{b}]", "pack f 50", "line~")
+        # (the tail's level held: the loop's build-up, 1 / (1 - fb^2) in power, taken back out)
+        wetg = f.ch(r, f"expr 1.2*alpe[{b}]*sqrt(1 - pow(0.3 + 0.6*alpe[{b}], 2))", "pack f 50", "line~")
+        dryg = f.ch(r, f"expr 1 - 0.6*alpe[{b}]*alpe[{b}]", "pack f 50", "line~")
+        dif = []
+        for side, x in enumerate(fins):
+            y = x
+            for n, ms in enumerate(AP[side]):
+                name = f"al-blap{side}{n}"
+                dd = f.obj(f"delread~ {name} {ms}")
+                w = add(f, y, f.to(dd, "*~ 0.6"))
+                f.c(w, 0, f.obj(f"delwrite~ {name} 20"), 0)
+                y = add(f, dd, f.to(w, "*~ -0.6"))
+            dif.append(y)
+            f.col(200)
+        aL, aR = f.obj(f"delread~ al-blfL {FDN[0]}"), f.obj(f"delread~ al-blfR {FDN[1]}")
+        for i, (src, mix) in enumerate(((dif[0], add(f, aL, aR)), (dif[1], sub(f, aL, aR)))):
+            lp = f.obj("lop~")
+            f.c(add(f, src, mul(f, mix, fb)), 0, lp, 0)
+            f.c(damp, 0, lp, 1)
+            f.c(lp, 0, f.obj(f"delwrite~ al-blf{'LR'[i]} 100"), 0)
+        return [add(f, mul(f, x, dryg), mul(f, wet, wetg)) for x, wet in zip(fins, (aL, aR))]
+    return switched_fx(c, "blur", sides, b, "$f1 > 0.005", 400, build)
+
+
+FILTER_DZ = 0.04        # (SHAPE Filter: the neutral zone each side of the middle - screen.py shows it as 0)
+
+
+def shape_filter(c, sides):
+    """Filter: one knob from high-pass through neutral to low-pass - left of the middle a high-pass (12 dB an octave)
+    rises from 20 Hz to 6 kHz, right of it a low-pass falls from 20 kHz to 100 Hz; both always in series, so the
+    middle passes everything (and the subpatch is off there). Reso: a band-pass at the moving cutoff added on top,
+    growing in as the knob leaves the middle. Cutoffs at audio rate (no steps)"""
+    fs, rs = M.S("g", None, "Filter"), M.S("g", None, "Reso")
+
+    def build(f, fins):
+        fv = f"alpe[{fs}]"
+        # (u: how far from the neutral middle, 0 .. 1 either side, past a dead zone of FILTER_DZ - the knob
+        # roughly upright is no filter at all, and the sweep starts from nothing at the zone's edge)
+        u = f"(max(0, abs({fv} - 0.5) - {FILTER_DZ})/{0.5 - FILTER_DZ})"
+        hz = f.obj(f"expr if({fv} < 0.5, 20*pow(300, {u}), 5); "
+                   f"if({fv} > 0.5, 20000*pow(0.005, {u}), 20000); "
+                   f"if({fv} < 0.5, 20*pow(300, {u}), 20000*pow(0.005, {u}))")
+        f.c(f.ch(f.recv(f"al-s{fs}"), "t b"), 0, hz, 0)
+        hp, lp, rc = (f.ch(f.to((hz, i), "pack f 40"), "line~") for i in range(3))
+        k = f.obj(f"expr 14*alpe[{rs}]*alpe[{rs}]*min(1, {u}*5)")
+        q = f.obj(f"expr 0.7 + 14*alpe[{rs}]*alpe[{rs}]")
+        for sl in (fs, rs):
+            t = f.ch(f.recv(f"al-s{sl}"), "t b b")
+            f.c((t, 0), 0, k, 0)
+            f.c((t, 1), 0, q, 0)
+        ks = f.ch(k, "pack f 40", "line~")
+        outs = []
+        for x in fins:
+            h = x
+            for _ in range(2):                  # (x - a one-pole low-pass: a one-pole high-pass, twice)
+                l = f.obj("lop~")
+                f.c(h, 0, l, 0)
+                f.c(hp, 0, l, 1)
+                h = sub(f, h, l)
+            bp = f.obj("vcf~ 1")            # (the resonance from the high-passed signal: its skirts no lows back)
+            f.c(h, 0, bp, 0)
+            for _ in range(2):
+                l = f.obj("lop~")
+                f.c(h, 0, l, 0)
+                f.c(lp, 0, l, 1)
+                h = l
+            f.c(rc, 0, bp, 1)
+            f.c(q, 0, bp, 2)
+            outs.append(add(f, h, mul(f, bp, ks)))
+            f.col(200)
+        return outs
+    return switched_fx(c, "mfilter", sides, fs, f"abs($f1 - 0.5) > {FILTER_DZ}", 40, build)
+
+
 def mix():
     c = Canvas("mix", w=1800)
     c.comment("each layer's bus: Level (x mute, x its trim), its place (Pan, a balance); the master: Volume, a DC "
@@ -108,12 +245,15 @@ def mix():
     # the audio input's modes (audioin.py), into the master
     c.c(c.obj("catch~ al-input-L"), 0, mL, 0)
     c.c(c.obj("catch~ al-input-R"), 0, mR, 0)
+    # SHAPE (the MIX view's last page): Drive, Blur, then the Filter over everything - the tail included
+    c.col(260)
+    sh = shape_filter(c, shape_blur(c, shape_drive(c, [mL, mR])))
     vol = c.ch(c.recv(f"al-s{M.S('g', None, 'Volume')}"), "expr $f1*$f1*2", "pack f 30", "line~")
     # (PANIC, aux + low D#: everything fades out over 1.5 s - control.panic - then back up)
     pg = c.ch(c.recv("al-panicg"), "line~")
     c.c(c.m(c.recv("al-init"), "1"), 0, pg, 0)
     vol = mul(c, vol, pg)
-    for x, o in ((mL, "outL"), (mR, "outR")):
+    for x, o in ((sh[0], "outL"), (sh[1], "outR")):
         # (a soft limit above 0.8: the excess e eased to 0.2 e / (0.2 + |e|), so it never passes 1)
         y0 = c.ch(mul(c, x, vol), "hip~ 5")
         lin = c.to(y0, "clip~ -0.8 0.8")
@@ -209,13 +349,17 @@ def build(out=OUT):
         open(rm, "w").write("")
     pc = os.path.join(out, "pieces.txt")         # (the pieces: kept across builds too; 8 empty lines)
     if not os.path.exists(pc):
-        open(pc, "w").write("-1;\n" * features.PIECES)
+        open(pc, "w").write("-1\n" * features.PIECES)
     lp = os.path.join(out, "loops.txt")          # (the pieces' loops: kept across builds too)
     if not os.path.exists(lp):
-        open(lp, "w").write("0 0 0 0;\n" * (features.PIECES * features.LOOP_LAYERS))
+        open(lp, "w").write("0 0 0 0\n" * (features.PIECES * features.LOOP_LAYERS))
+    import roadmap      # (the sections' parameter changes: the roadmap's, and each piece's - kept across builds)
+    for fn, lines in (("roadchg.txt", M.MAXSEC), ("sections.txt", features.PIECES * M.MAXSEC)):
+        if not os.path.exists(os.path.join(out, fn)):
+            open(os.path.join(out, fn), "w").write("0\n" * lines)
     sv = os.path.join(out, "saves.txt")
     if not os.path.exists(sv):
-        open(sv, "w").write("-1;\n" * (features.SCRATCH + 2))
+        open(sv, "w").write("-1\n" * (features.SCRATCH + 2))
     import readme
     open(os.path.join(out, "README.txt"), "w").write(readme.text())
     return out

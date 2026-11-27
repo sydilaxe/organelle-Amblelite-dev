@@ -112,9 +112,10 @@ class Param:
     """name: shown on screen (6 letters at most); key: its name in the layer, when two pages show the same name
     (the two LFOs' Rate, the gate envelope's Attack ...). target=True: an LFO's target - a choice among the
     layer's parameters (model.targets)"""
-    def __init__(self, name, default=0.5, opts=None, lo=None, hi=None, key=None, target=False):
+    def __init__(self, name, default=0.5, opts=None, lo=None, hi=None, key=None, target=False, late=False):
         assert len(name) <= 6, name
         self.name, self.opts, self.lo, self.hi, self.key, self.target = name, opts, lo, hi, key or name, target
+        self.late = late         # (a global page's parameter added later: its slot after all the others - SLOTS)
         if target:
             self.default = (default + 0.5) / MAXC
             return
@@ -165,7 +166,7 @@ LANES = ["perc1", "perc2", "perc3", "perc4"]
 # the keyboard zones (MIDI page Zones on): the notes each layer takes (lo, hi); (127, 0): none. The first layer
 # whose zone holds a note plays it
 ZONE_DEFAULT = dict(sub=(0, 47), pad=(48, 71), perc1=(72, 127))
-PROFILES = ["generic", "nanokey", "nanoktl", "dm48x", "user"]
+PROFILES = ["generic", "nanokey", "nanoktl", "dm48x", "user", "korg"]      # (korg: both KORGs at once)
 OCT_DEFAULT = dict(drone=2, sub=1, pad=3, perc1=4, perc2=4, perc3=3, perc4=5)      # -1, -2, 0, +1 ...
 # the lanes' defaults: a cascade that interlocks (engine, hits, steps, rotate, rate, pitch, phase, decay)
 LANE_DEFAULT = dict(perc1=(3, 5, 8, 0, 3, 0, 0, 0.45), perc2=(4, 3, 8, 2, 1, 4, 0, 0.5),
@@ -361,7 +362,9 @@ GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, l
                 # last CC that came in (to find what a controller sends)
                 ("MIDI", [Param("Profil", 0, opts=PROFILES), Param("Chans", 0, opts=["layers", "mpe"]),
                           Param("Zones", 0, opts=ONOFF), Param("LastCC", 0, lo=0, hi=127)]),
-                ("MIDI 2", [Param("Bend", 3, opts=["2", "12", "24", "48"]), Param("Press", 1, opts=["off", "expr", "breath"])]),
+                # NoteOt (NoteOut): every layer's notes out to MIDI, each layer on its own channel (2 drone ... 9 cloud)
+                ("MIDI 2", [Param("Bend", 3, opts=["2", "12", "24", "48"]), Param("Press", 1, opts=["off", "expr", "breath"]),
+                            Param("NoteOt", 0, opts=ONOFF, key="NoteOut", late=True)]),
                 ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Volume", 0.55), Param("CmpGl", 0.25)]),
                 # the harmony assistant: the next chords ranked (Sugg shows one by name: aux + top E plays it and
                 # adds it to your own story), which kind, and listening (held notes pull the next chord)
@@ -375,9 +378,15 @@ GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, l
                 ("SECTN", [Param("Sect", 1, lo=1, hi=MAXSEC), Param("Bars", 16, lo=4, hi=64, key="SBars"),
                            Param("Story", 0, opts=[n for n, _, _ in STORIES], key="SStory"),
                            Param("Role", 0, opts=ROLES, key="SRole")])]
-# the MIX view's pages: existing slots (layer, name)
+# SHAPE: the whole sound at once, on the master (gen.master_shape) - Filter (high-pass left of the middle, neutral at
+# it, low-pass right of it), its Reso, Drive (saturation), Blur (a diffuse smear). Their slots come after every other
+# slot (SLOTS), so snapshots and pieces saved before them still load (features.widened)
+SHAPE = [Param("Filter", 0.5), Param("Reso", 0.3), Param("Drive", 0.0), Param("Blur", 0.0)]
+# the MIX view's pages: existing slots (layer, name); SHAPE last (the MIX key held: straight to it)
 MIX_PAGES = [("MIX 1", [("drone", "Level"), ("sub", "Level"), ("pad", "Level"), ("cloud", "Level")]),
-             ("MIX 2", [(L, "Level") for L in LANES]), ("MIX 3", [("g", "Volume")])]
+             ("MIX 2", [(L, "Level") for L in LANES]), ("MIX 3", [("g", "Volume")]),
+             ("SHAPE", [("g", p.key) for p in SHAPE])]
+SHAPE_PAGE = len(MIX_PAGES) - 1
 
 # ---- Evolve: what moves in each engine, and how far (a weight: the share of the knob's range at Evolve 100 %).
 # ("Cutoff", None) is the layer's filter. Each target moves on two slow sines of its own (control.evolve).
@@ -441,7 +450,7 @@ def _add(key, p):
 
 for _, ps in GLOBAL_PAGES:
     for p in ps:
-        if isinstance(p, Param):
+        if isinstance(p, Param) and not p.late:
             _add(("g", None, p.key), p)
 LAYER_PAGES = {}
 for L in LAYERS:
@@ -452,7 +461,19 @@ for L in LAYERS:
     for e, ps in engines(L):
         for p in ps:
             _add((L, e, p.key), p)
+# slots added since files were first saved go after all the others, so an older file's line is only shorter: its
+# slots stay where they are, and the newer ones take their defaults (features.widened, the editor's widen).
+# SLOT_HISTORY: how many slots there were before each addition, oldest first
+SLOT_HISTORY = [len(SLOTS)]
+for p in SHAPE:
+    _add(("g", None, p.key), p)
+SLOT_HISTORY.append(len(SLOTS))
+for _, ps in GLOBAL_PAGES:          # (NoteOut)
+    for p in ps:
+        if isinstance(p, Param) and p.late:
+            _add(("g", None, p.key), p)
 NSLOTS = len(SLOTS)
+OLD_NSLOTS = SLOT_HISTORY[0]
 
 
 def S(layer, engine, name):

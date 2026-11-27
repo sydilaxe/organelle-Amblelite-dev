@@ -12,6 +12,11 @@ START = (200, "notesRaw 72 100")
 FAILS = []
 
 
+def features_piece_len():
+    import features
+    return features.PIECE
+
+
 def solo(L, t=60):
     """only L in (every other layer out; L in)"""
     return [(t + i, f"al-inset {i} {1 if o == L else 0}") for i, o in enumerate(M.LAYERS)]
@@ -242,8 +247,9 @@ def main():
           f"largest step {st.max():.4f} (a click: > 0.03; before the fix 0.11)")
 
     # assign: aux held, knob 1 - the FAV page's first place takes another parameter
-    log, _ = H.run([(100, "al-sel-pad bang"), (300, "aux 1"), (400, "knob1 0.95"), (500, "aux 0")], 1, d=d,
-                   keep=True)
+    # (the pads' page opened again after aux is let go - which goes home - shows knob 1's new parameter)
+    log, _ = H.run([(100, "al-sel-pad bang"), (300, "aux 1"), (400, "knob1 0.95"), (500, "aux 0"),
+                    (700, "al-sel-pad bang")], 1, d=d, keep=True)
     lines = [l for l in log.splitlines() if "gPrintln 3 0 22" in l]
     check("assign mode puts a parameter on FAV", len(lines) >= 2 and lines[-1] != lines[0], lines[-1][-30:] if lines else "-")
     fav = [l for l in lines if " 1 Engine " in l or l.endswith(" 1 Engine")]
@@ -344,13 +350,22 @@ def main():
     # ---- milestone 4: controllers, MPE, breath, zones
     S_ = M.S
     pr, chans, zones, bend = (S_("g", None, k) for k in ("Profil", "Chans", "Zones", "Bend"))
-    # a profile: the nanoKONTROL Studio's slider 1 sets the drone's level, its M button 1 takes it out, knob 1 the
-    # first parameter on the page shown
-    log, _ = H.run([(100, f"al-set {pr} {(2 + 0.5) / 5}"), (300, "al-cc 20 0 1"), (400, "al-cc 127 48 1"),
-                    (500, "al-cc 100 16 1")], 1, d=d, keep=True, prints=("al-set", "al-inset"))
-    lv = f"al-set: {S_('drone', None, 'Level')} 0.15748"
-    check("controller profile (nanoKONTROL Studio)", lv in log and "al-inset: 0 0" in log and
-          any(l.startswith("al-set:") and l.endswith(" 0.787402") for l in log.splitlines()), "slider, M button, knob")
+    # a profile: the nanoKONTROL Studio with the Amble Lite set (korg.py) - scene 5 (channel 15): slider 1 the drone's
+    # level, M 1 takes it out, knob 2 the page's second knob; scene 1 (channel 11): knob 2 the sub's filter (a
+    # parameter by name); scene 2 (channel 12): knob 1 the drone's engine's first parameter; the same CC on channel 1
+    # does nothing
+    ki = M.PROFILES.index("nanoktl")
+    log, _ = H.run([(100, f"al-set {pr} {(ki + 0.5) / len(M.PROFILES)}"), (300, "al-cc 20 2 15"), (400, "al-cc 127 21 15"),
+                    (500, "al-cc 100 14 15"), (600, "al-cc 64 14 11"), (700, "al-cc 32 13 12"), (800, "al-cc 90 14 1")],
+                   1, d=d, keep=True, prints=("al-set", "al-inset"))
+    got = [l for l in log.splitlines() if l.startswith("al-set:")]
+    want = [f"al-set: {S_('drone', None, 'Level')} 0.15748", f"al-set: {S_('sub', None, 'Cutoff')} 0.503937",
+            f"al-set: {S_('drone', 'analog', 'WaveA')} 0.251969"]
+    ok = all(w in got for w in want) and "al-inset: 0 0" in log and any(l.endswith(" 0.787402") for l in got) \
+        and not any(l.endswith(" 0.708661") for l in got)
+    check("controller profile (nanoKONTROL Studio, Amble Lite set)", ok,
+          "slider, M button, page knob, a named parameter, an engine's parameter, channels apart" if ok else
+          f"missing: {[w for w in want if w not in got]}")
 
     # MPE: a note on channel 3 bent up a semitone (range 2) on its own, then its pressure lowers its level
     mp = solo("sub") + [(50, f"al-set {chans} 0.75"), (51, f"al-set {bend} 0.1"), (52, "al-sel-sub bang"), START,
@@ -374,6 +389,49 @@ def main():
         return float((sp * f).sum() / (sp.sum() + 1e-9))
     b1, b2 = bright(seg(a, 1.2, 1.9)), bright(seg(a, 2.6, 3.4))
     check("breath moves a layer's target", b2 > b1 * 1.3, f"brightness {b1:.0f} -> {b2:.0f} Hz")
+
+    # SHAPE (the MIX view's last page): the filter's two sides, Drive and Blur on the saws' chord
+    fl, dr, bl = (M.S("g", None, n) for n in ("Filter", "Drive", "Blur"))
+    saws = solo("pad") + [(52, f"al-set {M.S('pad', None, 'Evolve')} 0"),
+                          (54, f"al-set {M.S('pad', None, 'Engine')} {M.engine_value('pad', 'saws')}"), START]
+    shp = {}
+    for name, ev in (("flat", []), ("lp", [(60, f"al-set {fl} 0.85")]), ("hp", [(60, f"al-set {fl} 0.15")]),
+                     ("drive", [(60, f"al-set {dr} 1")]), ("blur", [(60, f"al-set {bl} 1")])):
+        _, x = run(saws + ev, 3)
+        shp[name] = seg(x, 1.5, 3)
+    br = {k: bright(v) for k, v in shp.items()}
+    lvl = {k: H.rms_db(v) for k, v in shp.items()}
+    sane = all(not np.isnan(v).any() and float(np.abs(v).max()) < 0.99 for v in shp.values())
+    def low_db(x, hz=250):
+        m = x.mean(axis=1)
+        sp = np.abs(np.fft.rfft(m * np.hanning(len(m)))) ** 2
+        f = np.fft.rfftfreq(len(m), 1 / SR)
+        return 10 * np.log10(sp[f < hz].sum() + 1e-12)
+    lo_cut = low_db(shp["flat"]) - low_db(shp["hp"])
+    check("SHAPE Filter: low-pass right, high-pass left", br["lp"] < 0.6 * br["flat"] and lo_cut > 12,
+          f"brightness {br['flat']:.0f} Hz, LP {br['lp']:.0f}; HP: below 250 Hz {lo_cut:.1f} dB down")
+    check("SHAPE Drive: brighter, the level kept", br["drive"] > 1.15 * br["flat"] and abs(lvl["drive"] - lvl["flat"]) < 6
+          and sane, f"brightness {br['drive']:.0f} Hz, level {lvl['flat']:.1f} -> {lvl['drive']:.1f} dB")
+    corr = lambda v: float(np.corrcoef(v[:, 0], v[:, 1])[0, 1])
+    check("SHAPE Blur: wider, the level kept", corr(shp["blur"]) < corr(shp["flat"]) - 0.05 and
+          abs(lvl["blur"] - lvl["flat"]) < 6, f"L/R correlation {corr(shp['flat']):.2f} -> {corr(shp['blur']):.2f}, "
+          f"level {lvl['flat']:.1f} -> {lvl['blur']:.1f} dB")
+
+    # notes out (MIDI 2 NoteOt): the drone, sub and pads out on channels 2, 3, 4, a lane on 5; a chord change ends
+    # the old notes and starts the new; NoteOt off ends every note still out
+    no_ = M.S("g", None, "NoteOut")
+    log, _ = H.run([(40, f"al-set {no_} 0.75"), (45, f"al-inset {M.LAYERS.index('perc1')} 1"), START,
+                    (2600, f"al-set {no_} 0.25")], 3, d=d, keep=True, prints=("al-xnote",))
+    xs = [tuple(float(v) for v in l.split(": ")[1].split()) for l in log.splitlines() if l.startswith("al-xnote")]
+    ons = {}
+    for n_, v_, ch_ in xs:
+        ons[(n_, ch_)] = ons.get((n_, ch_), 0) + (1 if v_ > 0 else -1)
+    chans = sorted({int(ch_) for _, v_, ch_ in xs if v_ > 0})
+    hanging = [k for k, v in ons.items() if v > 0]
+    check("notes out: each layer on its channel, every note ended", chans[:4] == [2, 3, 4, 5] and not hanging and
+          len(xs) > 8, f"{len(xs)} messages, channels {chans}, still on after NoteOt off: {hanging or 'none'}")
+    log, _ = H.run([START], 1.5, d=d, keep=True, prints=("al-xnote",))
+    check("notes out: nothing while off", "al-xnote" not in log, "silent" if "al-xnote" not in log else "sent")
 
     # zones: low notes to the sub, middle ones to the pads (whatever is shown)
     log, _ = H.run([(50, f"al-set {zones} 0.75"), START, (500, "al-midi 40 100 1"), (600, "al-midi 60 100 1")], 1,
@@ -434,6 +492,35 @@ def main():
     log, _ = H.run(rd[:-1] + keys + [(2000, "notesRaw 71 100"), (2050, "notesRaw 71 0")], 3, d=d, keep=True)
     line1 = open(os.path.join(d, "roadmap.txt")).read().splitlines()[0]
     check("a layer key edits the section on the SECTN page", line1.split()[2] == str(1 + 64), f"section 1: {line1}")
+
+    # ---- a section's parameter changes (roadmap.changes): on the SECTN page with section 2 chosen, Filter and the
+    # pads' Cutoff turned, top A# captures them (roadchg.txt line 2); playing on, section 2 sets them again (the
+    # Filter turned back in between); saving piece 1 keeps them (sections.txt), loading it brings them back
+    fl_, pc_ = g("Filter"), M.S("pad", None, "Cutoff")
+    sect2 = [(300 + 40 * i, "notesRaw 68 100") for i in range(gpages.index("SECTN") + 1)] + \
+        [(1000, f"al-set {g('Sect')} {1 / (M.MAXSEC - 1)}"), (1200, f"al-set {fl_} 0.8"), (1210, f"al-set {pc_} 0.2"),
+         (1400, "notesRaw 82 100"), (1450, "notesRaw 82 0")]
+    H.run(rd[:-1] + [(250, f"al-set {g('Morph')} 0")] + sect2, 2, d=d, keep=True)
+    rc = open(os.path.join(d, "roadchg.txt")).read().splitlines()
+    pairs = rc[1].split() if len(rc) > 1 else []
+    got = dict(zip(pairs[1::2], pairs[2::2]))
+    check("a section captures its changes (SECTN, top A#)", len(rc) == M.MAXSEC and pairs[:1] == ["2"] and
+          got.get(str(fl_)) == "0.8" and got.get(str(pc_)) == "0.2", f"line 2: {rc[1] if len(rc) > 1 else '-'}")
+    log, _ = H.run([(50, f"al-set {g('Road')} 0.9"), (60, f"al-set {g('Morph')} 0"), START,
+                    (400, f"al-set {fl_} 0.5"), (600, "al-rnext bang")], 1, d=d, keep=True, prints=("al-set",))
+    after = log[log.find(f"al-set: {fl_} 0.5"):]
+    check("a section sets its changes when it starts", f"al-set: {fl_} 0.8" in after and f"al-set: {pc_} 0.2" in after,
+          "Filter back to 0.8, pads' Cutoff 0.2" if f"al-set: {fl_} 0.8" in after else "not applied")
+    piece_keys = [(100 + 40 * i, "notesRaw 68 100") for i in range(gpages.index("PIECE") + 1)]
+    H.run(piece_keys + [(800, f"al-set {g('Piece')} 0.01"), (900, "aux 1"), (950, "notesRaw 82 100"),
+                        (1000, "notesRaw 82 0"), (1050, "aux 0")], 1.3, d=d, keep=True)
+    sec = open(os.path.join(d, "sections.txt")).read().splitlines()
+    open(os.path.join(d, "roadchg.txt"), "w").write("0\n" * M.MAXSEC)
+    H.run(piece_keys + [(800, f"al-set {g('Piece')} 0.01"), (950, "notesRaw 82 100"), (1000, "notesRaw 82 0")], 1.3,
+          d=d, keep=True)
+    rc2 = open(os.path.join(d, "roadchg.txt")).read().splitlines()
+    check("a piece keeps its sections' changes", len(sec) == 8 * M.MAXSEC and sec[1] == rc[1] and rc2[1] == rc[1],
+          f"sections.txt line 2: {sec[1] if len(sec) > 1 else '-'}; loaded back: {rc2[1] if len(rc2) > 1 else '-'}")
 
     # ---- counterpoint: the pads' top voice steps to a neighbour and back on every 8th (Lines 100 %); at 0, still
     pl = M.S("pad", None, "Lines")
@@ -672,6 +759,44 @@ def main():
           f"loops.txt line 15: {lines[14][:24] if len(lines) > 14 else '-'}; notes after clearing {seen.get('B', 0)}, "
           f"after loading {seen.get('C', 0)}")
 
+    # an older pieces.txt (made with ';' at each line's end - Pd read a line and an empty one - and written back so,
+    # 16 lines) with a piece saved in slot 4 (line 3, as the older patch did): loaded, it is made 8 lines, the piece still slot 4 - saving piece 2 keeps it there
+    old = ["-1", "", "-1", " ".join(["0.5"] * features_piece_len()), "-1", "", "-1", "", "-1", "", "-1", "", "-1", "",
+           "-1", ""]
+    open(os.path.join(dl, "pieces.txt"), "w").write("".join(l + "\n" for l in old))      # (as Pd wrote it)
+    H.run([(50, f"al-set {M.S('g', None, 'Piece')} {(1 + 0.5) / 8}"), (300, "al-psave bang")], 0.6, d=dl, keep=True)
+    pl = open(os.path.join(dl, "pieces.txt")).read().split("\n")
+    pl = pl[:-1] if pl and pl[-1] == "" else pl
+    lens = [len(l.split()) for l in pl]
+    check("an older pieces.txt keeps its slots", len(pl) == 8 and lens[3] == features_piece_len() and
+          lens[1] == features_piece_len() and lens[0] == 1, f"{len(pl)} lines, fields {lens}")
+
+    # a saves.txt from before the SHAPE page (each line shorter by its slots): a snapshot there still loads - its
+    # Volume comes back - and saved again it is written at the full length, the SHAPE knobs at their defaults
+    import features as _F
+    vol, added = M.S("g", None, "Volume"), M.NSLOTS - M.OLD_NSLOTS
+    # (the oldest layout: before SHAPE and NoteOut)
+    oldsnap = [f"{p.default:g}" for _, p in M.SLOTS[:M.OLD_NSLOTS]] + ["0"] * (_F.SNAP - M.NSLOTS)
+    oldsnap[vol] = "0.3"
+    open(os.path.join(dl, "saves.txt"), "w").write(" ".join(oldsnap) + "\n" + "-1\n" * (_F.SCRATCH + 1))
+    H.run([(40, f"al-set {M.S('g', None, 'Morph')} 0"), (100, "notesRaw 82 100"), (120, "notesRaw 60 100"),
+           (140, "notesRaw 60 0"), (300, "aux 1"), (320, "notesRaw 60 100"), (340, "notesRaw 60 0"), (360, "aux 0"),
+           (380, "notesRaw 82 0")], 0.7, d=dl, keep=True)
+    sv = open(os.path.join(dl, "saves.txt")).read().split("\n")[0].split()
+    ok = len(sv) == _F.SNAP and abs(float(sv[vol]) - 0.3) < 1e-3 and \
+        all(abs(float(sv[M.OLD_NSLOTS + i]) - p.default) < 1e-3 for i, p in enumerate(M.SHAPE))
+    # (and a line from between: with SHAPE, before NoteOut - one field short)
+    mid = [f"{p.default:g}" for _, p in M.SLOTS[:M.SLOT_HISTORY[1]]] + ["0"] * (_F.SNAP - M.NSLOTS)
+    mid[vol] = "0.4"
+    open(os.path.join(dl, "saves.txt"), "w").write(" ".join(mid) + "\n" + "-1\n" * (_F.SCRATCH + 1))
+    H.run([(40, f"al-set {M.S('g', None, 'Morph')} 0"), (100, "notesRaw 82 100"), (120, "notesRaw 60 100"),
+           (140, "notesRaw 60 0"), (300, "aux 1"), (320, "notesRaw 60 100"), (340, "notesRaw 60 0"), (360, "aux 0"),
+           (380, "notesRaw 82 0")], 0.7, d=dl, keep=True)
+    sv2 = open(os.path.join(dl, "saves.txt")).read().split("\n")[0].split()
+    ok = ok and len(sv2) == _F.SNAP and abs(float(sv2[vol]) - 0.4) < 1e-3
+    check("an older saves.txt still loads (SHAPE added)", ok,
+          f"{len(sv)} fields (of {_F.SNAP}; older {_F.SNAP - added}), Volume {sv[vol] if len(sv) > vol else '-'}")
+
     # ... and the web editor reads that loops.txt (the loop: 4 events, playing) and writes it back the same
     import shutil as _sh2
     if _sh2.which("node"):
@@ -698,7 +823,7 @@ console.log(JSON.stringify({ kind: C.kindOf(t), n: lp.n, state: lp.state, bars: 
         shutil.rmtree(dw, ignore_errors=True)
         shutil.copytree(d, dw)
         for f in ("pieces.txt", "saves.txt"):
-            open(os.path.join(dw, f), "w").write("-1;\n" * (8 if f == "pieces.txt" else 18))
+            open(os.path.join(dw, f), "w").write("-1\n" * (8 if f == "pieces.txt" else 18))
         open(os.path.join(dw, "roadmap.txt"), "w").write("")       # (no roadmap left by the checks above)
         H.run([(100, "al-psave bang"), (200, "al-save bang")], 0.5, d=dw, keep=True)
         core = "const D = " + json.dumps(planner.data()) + ";\n" + planner.CORE + r"""

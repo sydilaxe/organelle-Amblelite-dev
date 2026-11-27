@@ -10,6 +10,8 @@ import os
 import sys
 import model as M
 import roadmap as R
+import korg
+import midi
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs",
                                                          "planner.html")
@@ -35,6 +37,7 @@ def data():
                            targets={e: M.targets(L, e) for e in engs}))
     fav0 = [ks[((li * M.MAXENG + ei) * M.MAXPAGES) * 4 + k] for li in range(nl) for ei in range(M.MAXENG)
             for k in range(4)]
+    import roadmap as RM
     gpages = [[n, [M.global_slot(p) for p in ps], [M.global_label(p) for p in ps]] for n, ps in M.GLOBAL_PAGES]
     gpages += [[n, [M.S(L, None, k) for L, k in refs], [M.LAYERS.index(L) if L != "g" else -1 for L, _ in refs]]
                for n, refs in M.MIX_PAGES]
@@ -45,19 +48,22 @@ def data():
         rhythm.append(dict(layer=M.LAYERS.index(L), steps=M.S(L, None, "Steps"), patt=ps, tapped=1 if lane else 2))
     names = [n for n, _, _ in M.STORIES]
     nslots = M.NSLOTS
-    lay = dict(nslots=nslots, nl=nl, maxeng=M.MAXENG, latch=nslots, inn=nslots + nl, fav=nslots + 2 * nl,
+    lay = dict(nslots=nslots, history=M.SLOT_HISTORY, nl=nl, maxeng=M.MAXENG, latch=nslots, inn=nslots + nl, fav=nslots + 2 * nl,
                favn=F.FAVN, tap=nslots + 2 * nl + F.FAVN, tapn=F.TAPN, snap=F.SNAP, piece=F.PIECE, maxsec=M.MAXSEC,
                pieces=F.PIECES, saves=F.SAVE_SLOTS, saveLines=F.SCRATCH + 2, loopLayers=F.LOOP_LAYERS,
                maxev=F.MAXEV, maxclk=F.MAXCLK, bar=F.BAR)
     assert lay["tap"] + lay["tapn"] == F.SNAP and F.SNAP + 1 + 4 * M.MAXSEC == F.PIECE
     return dict(
+        capt=RM.capturable(), maxch=RM.MAXCH,
         slots=slots, layers=layers, fav0=fav0, latch0=[1 if li < FIRST_LANE else 0 for li in range(nl)],
         in0=[1 if L in IN_AT_START else 0 for L in M.LAYERS], gpages=gpages, rhythm=rhythm, layout=lay,
         modeSlot=MODE_SLOT, scaleSlot=SCALE_SLOT, scaleModes=[[n for n, _ in ms] for _, ms in M.SCALES],
         key=M.S("g", None, "Key"), tempo=M.S("g", None, "Tempo"),
         roles=ROLE_NAMES, arcs=ARC_NAMES, arcRoles=[M.ARC_ROLES[a] for a in M.ARCS], weights=R.WEIGHTS,
         tension=R.TENSION, masks=R.MASKS, pools=[[names.index(n) for n in p] for p in R.POOLS], stories=names,
-        llabels=[M.LAYER_LABEL[L] for L in M.LAYERS], short=[M.SHORT[L] for L in M.LAYERS])
+        llabels=[M.LAYER_LABEL[L] for L in M.LAYERS], short=[M.SHORT[L] for L in M.LAYERS],
+        midi=dict(devices=korg.tables(), keys=[midi.slot_key(i) for i in range(M.NSLOTS)],
+                  noteLayers=len(M.NOTE_LAYERS)))
 
 
 # ---- the files and values (no page): parse / write the patch's text files, read and set parameters as the patch
@@ -75,17 +81,33 @@ const C = (() => {
     D.fav0.forEach((v, i) => r[Y.fav + i] = v);
     return r;
   }
-  // a file: a record a line (Pd: 'write -c' - a line each, maybe blank lines between); '-1' an empty slot
+  // a file's lines as Pd reads it ('read -c'): a ';' or a newline ends a line, so slot k is line k - an empty
+  // line is an empty slot (an older file, ';' then a newline at each line's end, reads as a line and an empty one)
+  function lines(text) {
+    const t = text.replace(/\r/g, "").split(/[;\n]/);
+    if (t.length && t[t.length - 1].trim() === "") t.pop();
+    return t.map(l => l.trim());
+  }
+  // a file: a record a line; '-1' (or an empty line) an empty slot. A line from before the SHAPE page (its slots
+  // came after the others: the line that much shorter) gets their defaults where they sit now
+  // (Y.history: the slot counts before each addition - the added slots always come after the others)
+  function widen(a, len) {
+    for (const h of Y.history)
+      if (a.length === len - (Y.nslots - h))
+        return [...a.slice(0, h), ...D.slots.slice(h).map(s => s.d), ...a.slice(h)];
+    return a;
+  }
+  const olderLen = len => Y.history.map(h => len - (Y.nslots - h));
   function parse(text, len) {
-    return text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => {
-      const a = l.split(/\s+/).map(Number);
+    return lines(text).map(l => {
+      const a = widen(l ? l.split(/\s+/).map(Number) : [], len);
       return a.length === len && a.every(Number.isFinite) ? a : null;
     });
   }
   let kindOf = function (text) {
-    const lens = text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => l.split(/\s+/).length);
-    if (lens.includes(Y.piece)) return "piece";
-    if (lens.includes(Y.snap)) return "snap";
+    const lens = lines(text).filter(Boolean).map(l => l.split(/\s+/).length);
+    if ([Y.piece, ...olderLen(Y.piece)].some(n => lens.includes(n))) return "piece";
+    if ([Y.snap, ...olderLen(Y.snap)].some(n => lens.includes(n))) return "snap";
     return null;
   };
   function write(recs) { return recs.map(r => r ? r.map(q).join(" ") : "-1").join("\n") + "\n"; }
@@ -148,20 +170,35 @@ const C = (() => {
   // breath line's length and values
   const okLoop = a => a.length >= 4 && a.every(Number.isFinite) && a[2] >= 0 && a.length === 4 + 4 * a[2] + (a[3 + 4 * a[2]] || 0);
   function parseLoops(text) {
-    const lines = text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => l.split(/\s+/).map(Number));
-    return Array.from({ length: Y.pieces * Y.loopLayers }, (_, i) => lines[i] && okLoop(lines[i]) ? lines[i] : [0, 0, 0, 0]);
+    const ls = lines(text).map(l => l ? l.split(/\s+/).map(Number) : []);
+    return Array.from({ length: Y.pieces * Y.loopLayers }, (_, i) => ls[i] && okLoop(ls[i]) ? ls[i] : [0, 0, 0, 0]);
   }
   function isLoops(text) {
-    const lines = text.split(/[;\r\n]+/).map(l => l.trim()).filter(Boolean).map(l => l.split(/\s+/).map(Number));
-    return lines.length > 0 && lines.every(okLoop);
+    const ls = lines(text).filter(Boolean).map(l => l.split(/\s+/).map(Number));
+    return ls.length > 0 && ls.every(okLoop);
   }
   function loop(a) {
     const n = a[2], bn = a[3 + 4 * n] || 0, at = k => a.slice(3 + k * n, 3 + (k + 1) * n);
     return { state: a[0], len: a[1], n, t: at(0), note: at(1), vel: at(2), root: at(3), bn, breath: a.slice(4 + 4 * n, 4 + 4 * n + bn) };
   }
+  // sections.txt: each piece's sections' parameter changes, a line a piece and section: 'n slot value ...'
+  const okSec = a => a.length >= 1 && a.every(Number.isFinite) && a.length === 1 + 2 * a[0];
+  function parseSecs(text) {
+    const ls = lines(text).map(l => l ? l.split(/\s+/).map(Number) : [0]);
+    return Array.from({ length: Y.pieces * Y.maxsec }, (_, i) => {
+      const a = ls[i] && okSec(ls[i]) ? ls[i] : [0], out = [];
+      for (let k = 0; k < a[0]; k++) if (a[1 + 2 * k] >= 0 && a[1 + 2 * k] < Y.nslots) out.push([a[1 + 2 * k], a[2 + 2 * k]]);
+      return out;
+    });
+  }
+  const writeSecs = secs => secs.map(c => [c.length, ...c.flat()].map(q).join(" ")).join("\n") + "\n";
+  function isSecs(text) {
+    const ls = lines(text).filter(Boolean).map(l => l.split(/\s+/).map(Number));
+    return ls.length === Y.pieces * Y.maxsec && ls.every(okSec);
+  }
   const _kind = kindOf;
-  kindOf = text => _kind(text) || (isLoops(text) ? "loops" : null);
-  return { Y, defaults, parse, kindOf, write, parseLoops, loop, asPiece, asSnap, layerOf, engine, targets, choices, name, index, number,
+  kindOf = text => _kind(text) || (isLoops(text) ? "loops" : isSecs(text) ? "secs" : null);
+  return { Y, defaults, parse, widen, kindOf, write, parseLoops, parseSecs, writeSecs, loop, asPiece, asSnap, layerOf, engine, targets, choices, name, index, number,
            text, setIndex, setNumber, favAt, road, setRoad, optIndex };
 })();
 """
@@ -201,6 +238,7 @@ h3 { font-family: var(--display); font-weight: 600; font-size: .85rem; letter-sp
 .lede { color: var(--muted); margin: 4px 0 0; max-width: 68ch; }
 .label { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+section.panel[hidden] { display: none; }
 .field { display: grid; gap: 6px; min-width: 0; }
 input[type=number], select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
@@ -212,6 +250,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .between { justify-content: space-between; }
 .summary { font-family: var(--mono); font-size: .85rem; color: var(--muted); }
 .note { color: var(--muted); font-size: .85rem; max-width: 72ch; margin: 0; }
+.og:not([hidden]) { display: grid; gap: 8px; margin-top: 10px; }
 .status { font-size: .85rem; color: var(--accent); min-height: 1.2em; }
 .warn { color: var(--warn); }
 /* library: numbered slot keys */
@@ -275,12 +314,12 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
 <div class="wrap">
   <header>
     <h1>Amble Lite Editor</h1>
-    <p class="lede">Open your pieces.txt, saves.txt and loops.txt from the AmbleLite folder, edit any piece or snapshot page by page as on the Organelle, then copy the files back. A piece also holds its roadmap and its loops.</p>
+    <p class="lede">Edit any piece or snapshot page by page as on the Organelle - a piece also holds its roadmap and its loops - and what your KORG controllers do. Open this page from the Organelle over WiFi (its web server) and it reads and saves the AmbleLite folder's files there.</p>
   </header>
 
   <section class="panel" aria-labelledby="h-lib">
     <div class="row between"><h2 id="h-lib">Library</h2>
-      <label class="toggle" for="file"><span class="label">Open pieces.txt, saves.txt or loops.txt</span><input id="file" type="file" accept=".txt,text/plain" multiple></label></div>
+      <label class="toggle" for="file"><span class="label">Open pieces.txt, saves.txt, loops.txt or sections.txt</span><input id="file" type="file" accept=".txt,text/plain" multiple></label></div>
     <div class="lib">
       <div class="field"><span class="label">Pieces (pieces.txt)</span><div class="keys" id="kp"></div></div>
       <div class="field"><span class="label">Snapshots (saves.txt)</span><div class="keys" id="ks"></div></div>
@@ -290,6 +329,17 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
         <textarea id="paste" placeholder="Paste the text of pieces.txt or saves.txt here"></textarea>
         <div class="row"><button id="loadpaste" type="button">Load pasted text</button></div>
       </div></details>
+    <div class="og" id="og" hidden>
+      <p class="note">Opened from your Organelle's web server: this page reads and saves the files in <b id="ogdir"></b>.
+        Saving keeps each file's previous version beside it (pieces.txt.bak ...). The patch reads its files when it loads,
+        and writes them when you save on the Organelle - so reload the patch after saving here.</p>
+      <div class="row">
+        <button id="ogload" type="button">Load from the Organelle</button>
+        <button class="primary" id="ogsave" type="button">Save and reload the patch</button>
+        <button id="ogsaveonly" type="button">Save only</button>
+      </div>
+      <p class="note warn" id="ogconfirm" hidden></p>
+    </div>
     <p class="status" id="libstatus" role="status"></p>
   </section>
 
@@ -305,9 +355,24 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
     <div id="editor"></div>
   </section>
 
-  <section class="panel" aria-labelledby="h-files">
+  <section class="panel" aria-labelledby="h-midi">
+    <div class="row between"><h2 id="h-midi">Controllers</h2>
+      <div class="row">
+        <label class="toggle"><span class="label">Controller</span><select id="mdev"></select></label>
+        <label class="toggle"><span class="label">Scene</span><select id="mscene"></select></label>
+        <button id="mreset" type="button">Back to the Amble Lite set</button>
+      </div></div>
+    <p class="note">Write the Amble Lite set to your KORG with KORG KONTROL Editor first (docs/controllers in the repository: AmbleLite.nktrl_st_set, AmbleLite.nanokey_st_set). Then change what any control does here, copy user.txt into the AmbleLite folder's controllers folder, and choose Profil: user on the MIDI page. user.txt holds both controllers.</p>
+    <p class="summary" id="mabout"></p>
+    <div id="mgrid" class="pages"></div>
+    <div class="field"><span class="label">controllers/user.txt</span><textarea class="out" id="outm" readonly></textarea>
+      <div class="row"><button class="primary" id="cpm" type="button">Copy user.txt</button><button id="dlm" type="button">Download</button>
+        <button class="ogonly" id="ogsavem" type="button" hidden>Save user.txt to the Organelle</button></div></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-files" id="files">
     <h2 id="h-files">Save to the Organelle</h2>
-    <p class="note">Copy a file's text and save it over the file of the same name in the AmbleLite folder on the Organelle (keep a copy of the old one). The patch reads both when it loads. Download works when this page is opened from the repository's docs folder.</p>
+    <p class="note">Easiest: open this page from the Organelle itself (planner.html in the AmbleLite folder, through the Organelle's web server - see the manual); then Save at the top writes these files there. Otherwise copy a file's text and save it over the file of the same name in the AmbleLite folder on the Organelle (keep a copy of the old one). The patch reads them when it loads.</p>
     <div class="files">
       <div class="field"><span class="label">pieces.txt</span><textarea class="out" id="outp" readonly></textarea>
         <div class="row"><button class="primary" id="cpp" type="button">Copy pieces.txt</button><button id="dlp" type="button">Download</button></div></div>
@@ -315,6 +380,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
         <div class="row"><button class="primary" id="cps" type="button">Copy saves.txt</button><button id="dls" type="button">Download</button></div></div>
       <div class="field"><span class="label">loops.txt</span><textarea class="out" id="outl" readonly></textarea>
         <div class="row"><button class="primary" id="cpl" type="button">Copy loops.txt</button><button id="dll" type="button">Download</button></div></div>
+      <div class="field"><span class="label">sections.txt</span><textarea class="out" id="outc" readonly></textarea>
+        <div class="row"><button class="primary" id="cpc" type="button">Copy sections.txt</button><button id="dlc" type="button">Download</button></div></div>
     </div>
     <p class="status" id="filestatus" role="status"></p>
   </section>
@@ -326,7 +393,8 @@ __CORE__
 const $ = id => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
 const Y = C.Y;
-let lib = { pieces: new Array(Y.pieces).fill(null), saves: new Array(Y.saveLines).fill(null), loops: null };
+let lib = { pieces: new Array(Y.pieces).fill(null), saves: new Array(Y.saveLines).fill(null), loops: null, secs: null };
+const noSecs = () => Array.from({ length: Y.pieces * Y.maxsec }, () => []);
 const noLoops = () => Array.from({ length: Y.pieces * Y.loopLayers }, () => [0, 0, 0, 0]);
 let cur = { kind: "piece", idx: 0 }, tab = "g", sel = 0, example = false, pending = null;
 
@@ -338,6 +406,10 @@ function store() { try { localStorage.setItem("al-lib", JSON.stringify({ lib, cu
 function restore() {
   try {
     const s = JSON.parse(localStorage.getItem("al-lib") || "null");
+    if (s && s.lib && Array.isArray(s.lib.pieces) && Array.isArray(s.lib.saves)) {
+      s.lib.pieces = s.lib.pieces.map(r => r && C.widen(r, Y.piece));
+      s.lib.saves = s.lib.saves.map(r => r && C.widen(r, Y.snap));
+    }
     if (s && s.lib && s.lib.pieces.length === Y.pieces && s.lib.saves.length === Y.saveLines &&
         [...s.lib.pieces, ...s.lib.saves].every(r => r === null || r.length === Y.piece || r.length === Y.snap)) {
       lib = s.lib; if (!Array.isArray(lib.loops) || lib.loops.length !== Y.pieces * Y.loopLayers) lib.loops = null;
@@ -364,8 +436,14 @@ function keys() {
 }
 
 function load(text, fname) {
-  const k = C.kindOf(text) || (/save/i.test(fname || "") ? "snap" : /piece/i.test(fname || "") ? "piece" : /loop/i.test(fname || "") ? "loops" : null);
+  const k = /section/i.test(fname || "") ? "secs" : C.kindOf(text) || (/save/i.test(fname || "") ? "snap" : /piece/i.test(fname || "") ? "piece" : /loop/i.test(fname || "") ? "loops" : null);
   if (!k) { $("libstatus").textContent = "That file holds no pieces, snapshots or loops. Open pieces.txt, saves.txt or loops.txt from the AmbleLite folder."; return; }
+  if (k === "secs") {
+    lib.secs = C.parseSecs(text);
+    const n = lib.secs.filter(c => c.length).length;
+    $("libstatus").textContent = `Loaded sections.txt: ${n} section${n === 1 ? "" : "s"} with parameter changes.`;
+    render(); store(); return;
+  }
   if (k === "loops") {
     lib.loops = C.parseLoops(text);
     const n = lib.loops.filter(a => a[0] > 0).length;
@@ -562,7 +640,14 @@ function roadTab() {
   const total = secs.reduce((s, x) => s + x.bars, 0);
   box.append(setup, el("div", { className: "row" }, build, el("span", { className: "summary", textContent: secs.length ? `${secs.length} sections, ${total} bars, ${fmt(total * 4 * 60 / tempo)} at ${tempo} bpm` : "No roadmap in this piece yet." })));
   if (!secs.length) return box;
-  const save = () => { C.setRoad(r, secs); changed(true); };
+  // each section's parameter changes (sections.txt) travel with it when sections are added or removed
+  const base = cur.idx * Y.maxsec;
+  secs.forEach((x, i) => { x.ch = lib.secs ? lib.secs[base + i] : []; });
+  const save = () => {
+    C.setRoad(r, secs);
+    if (lib.secs) for (let i = 0; i < Y.maxsec; i++) lib.secs[base + i] = i < secs.length ? secs[i].ch : [];
+    changed(true);
+  };
   const tl = el("div", { className: "timeline", role: "list" });
   secs.forEach((s, i) => {
     const d = el("div", { className: "seg" + (i === sel ? " sel" : ""), tabIndex: 0 });
@@ -573,7 +658,7 @@ function roadTab() {
     tl.append(d);
   });
   const add = el("button", { type: "button", textContent: "Add section", disabled: secs.length >= Y.maxsec });
-  add.onclick = () => { secs.splice(sel + 1, 0, { ...secs[sel] }); sel++; save(); };
+  add.onclick = () => { secs.splice(sel + 1, 0, { ...secs[sel], ch: [] }); sel++; save(); };
   const del = el("button", { type: "button", textContent: "Remove selected", disabled: secs.length <= 1 });
   del.onclick = () => { secs.splice(sel, 1); sel = Math.max(0, sel - 1); save(); };
   const tb = el("tbody");
@@ -595,17 +680,73 @@ function roadTab() {
       ch.append(t);
     });
     tr.append(el("td", { className: "num", textContent: i + 1 }), el("td", {}, dot, rs), el("td", {}, b),
-              el("td", { className: "num", textContent: fmt(s.bars * 4 * 60 / tempo) }), el("td", {}, st), el("td", {}, ch));
+              el("td", { className: "num", textContent: fmt(s.bars * 4 * 60 / tempo) }), el("td", {}, st), el("td", {}, ch),
+              el("td", { className: "num", textContent: s.ch.length || "—" }));
     tb.append(tr);
   });
-  const head = el("tr"); ["#", "Role", "Bars", "Time", "Story", "Layers in"].forEach(h => head.append(el("th", { textContent: h })));
+  const head = el("tr"); ["#", "Role", "Bars", "Time", "Story", "Layers in", "Changes"].forEach(h => head.append(el("th", { textContent: h })));
   box.append(tl, el("div", { className: "row" }, add, del));
   box.append(el("div", { className: "tablewrap" }, el("table", {}, el("thead", {}, head), tb)));
+  box.append(changesPanel(r, secs, Math.min(sel, secs.length - 1), save));
   const txt = secs.map(s => `${s.bars} ${s.story} ${s.mask} ${s.role};`).join("\n");
   const cp = el("button", { type: "button", textContent: "Copy as roadmap.txt" });
   cp.onclick = () => copy(txt, null, "Copied roadmap.txt.");
   box.append(el("details", {}, el("summary", { textContent: "This roadmap as roadmap.txt (for the patch's ROAD pages without a piece)" }),
     el("div", { style: "display:grid;gap:8px;margin-top:8px" }, el("textarea", { className: "out", readOnly: true, value: txt }), el("div", { className: "row" }, cp))));
+  return box;
+}
+
+// a section's parameter changes: applied when it starts (Road auto), on top of the sound as it is then - knob
+// values glide over Morph, choices switch at once. Captured on the Organelle (SECTN page, top A#) or made here
+let paramOptions = null;
+function paramSelect(value, id) {
+  if (!paramOptions) {
+    paramOptions = [["GLOBAL", []], ...D.layers.map(l => [l.label, []])];
+    D.slots.forEach((sl, i) => { if (D.capt[i]) paramOptions[sl.L === "g" ? 0 : 1 + D.layers.findIndex(l => l.id === sl.L)][1].push(i); });
+  }
+  const se = el("select", { id });
+  paramOptions.forEach(([g, ks]) => { const og = el("optgroup", { label: g }); ks.forEach(k => og.append(new Option(C.name(k), k))); se.append(og); });
+  se.value = String(value);
+  return se;
+}
+function valueControl(r, s, v, set, id) {
+  const tmp = r.slice(); tmp[s] = v;
+  const ch = C.choices(s, tmp);
+  if (ch) {
+    const se = el("select", { id }); ch.forEach((c, i) => se.add(new Option(c, i))); se.value = C.index(s, tmp);
+    se.onchange = () => { C.setIndex(s, tmp, +se.value); set(tmp[s], false); };
+    return se;
+  }
+  const sl = D.slots[s], lo = sl.t === "num" ? sl.lo : 0, hi = sl.t === "num" ? sl.hi : 100;
+  const rg = el("input", { type: "range", id, min: lo, max: hi, step: 1, value: C.number(s, tmp) });
+  const out = el("output", { className: "val", textContent: C.number(s, tmp) });
+  rg.oninput = () => { C.setNumber(s, tmp, +rg.value); out.textContent = C.number(s, tmp); set(tmp[s], true); };
+  return el("span", { className: "row" }, rg, out);
+}
+function changesPanel(r, secs, i, save) {
+  const s = secs[i], box = el("div", { className: "field" });
+  box.append(el("span", { className: "label", textContent: `Section ${i + 1}: parameter changes (applied as it starts, on top of the sound as it is - knobs glide over Morph)` }));
+  if (!lib.secs) {
+    box.append(el("p", { className: "note", textContent: "Open sections.txt from the AmbleLite folder (or open this page from the Organelle) to edit the sections' changes." }));
+    return box;
+  }
+  const list = el("div", { style: "display:grid;gap:6px" });
+  s.ch.forEach((p, k) => {
+    const ps = paramSelect(p[0], `chp-${i}-${k}`);
+    ps.onchange = () => { p[0] = +ps.value; p[1] = r[p[0]]; save(); };
+    const vc = valueControl(r, p[0], p[1], (v, live) => { p[1] = v; if (live) { files(); store(); } else save(); }, `chv-${i}-${k}`);
+    const rm = el("button", { type: "button", textContent: "Remove" });
+    rm.onclick = () => { s.ch.splice(k, 1); save(); };
+    list.append(el("div", { className: "row" }, ps, vc, rm));
+  });
+  if (!s.ch.length) list.append(el("p", { className: "note", textContent: "No changes: this section plays on with the sound as it is." }));
+  const add = el("button", { type: "button", textContent: "Add a change", disabled: s.ch.length >= D.maxch });
+  add.onclick = () => {
+    const used = new Set(s.ch.map(p => p[0]));
+    const f = D.slots.findIndex(sl => sl.L === "g" && sl.n === "Filter"), k = !used.has(f) ? f : D.capt.findIndex((c, x) => c && !used.has(x));
+    s.ch.push([k, r[k]]); save();
+  };
+  box.append(list, el("div", { className: "row" }, add, el("span", { className: "summary", textContent: `${s.ch.length} of ${D.maxch}` })));
   return box;
 }
 
@@ -636,6 +777,8 @@ function files() {
   $("outp").value = C.write(lib.pieces); $("outs").value = C.write(lib.saves);
   $("outl").value = lib.loops ? C.write(lib.loops) : "(open loops.txt to edit the loops: until then, keep the one on the Organelle)";
   $("cpl").disabled = $("dll").disabled = !lib.loops;
+  $("outc").value = lib.secs ? C.writeSecs(lib.secs) : "(open sections.txt to edit the sections' changes: until then, keep the one on the Organelle)";
+  $("cpc").disabled = $("dlc").disabled = !lib.secs;
 }
 
 // slot actions, with a confirmation in the page for anything that replaces a slot
@@ -649,7 +792,10 @@ $("fresh").onclick = () => {
   const go = () => { setRec(C.defaults(cur.kind)); noLoopsHere(); changed(true); };
   rec() ? ask("Reset every setting in this slot to the patch's defaults?", go) : go();
 };
-function noLoopsHere() { if (cur.kind === "piece" && lib.loops) for (let li = 0; li < Y.loopLayers; li++) lib.loops[cur.idx * Y.loopLayers + li] = [0, 0, 0, 0]; }
+function noLoopsHere() {
+  if (cur.kind === "piece" && lib.loops) for (let li = 0; li < Y.loopLayers; li++) lib.loops[cur.idx * Y.loopLayers + li] = [0, 0, 0, 0];
+  if (cur.kind === "piece" && lib.secs) for (let i = 0; i < Y.maxsec; i++) lib.secs[cur.idx * Y.maxsec + i] = [];
+}
 $("clear").onclick = () => ask("Empty this slot? It saves as empty (-1), and a piece's loops go too.", () => { setRec(null); noLoopsHere(); tab = "g"; changed(true); });
 $("copygo").onclick = () => {
   const [kind, i] = $("copyto").value.split(":"), idx = +i, r = rec();
@@ -658,6 +804,8 @@ $("copygo").onclick = () => {
     if (kind === "piece") lib.pieces[idx] = out; else lib.saves[idx] = out;
     if (kind === "piece" && lib.loops) for (let li = 0; li < Y.loopLayers; li++)
       lib.loops[idx * Y.loopLayers + li] = cur.kind === "piece" ? lib.loops[cur.idx * Y.loopLayers + li].slice() : [0, 0, 0, 0];
+    if (kind === "piece" && lib.secs) for (let i = 0; i < Y.maxsec; i++)
+      lib.secs[idx * Y.maxsec + i] = cur.kind === "piece" ? lib.secs[cur.idx * Y.maxsec + i].map(p => p.slice()) : [];
     cur = { kind, idx }; if ((tab === "road" || tab === "loops") && kind !== "piece") tab = "g"; changed(true);
   };
   const full = kind === "piece" ? lib.pieces[idx] : lib.saves[idx];
@@ -681,6 +829,156 @@ $("dlp").onclick = () => download($("outp").value, "pieces.txt");
 $("dls").onclick = () => download($("outs").value, "saves.txt");
 $("cpl").onclick = () => copy($("outl").value, $("outl"), "Copied loops.txt.");
 $("dll").onclick = () => download($("outl").value, "loops.txt");
+$("cpc").onclick = () => copy($("outc").value, $("outc"), "Copied sections.txt.");
+$("dlc").onclick = () => download($("outc").value, "sections.txt");
+
+// ---- on the Organelle: this page opened through Organelle OS's web server (port 8080) as
+// /get_file?fpath=<card>/Patches/<folder>/planner.html - its /get_file reads the folder's files, /save writes them,
+// /reload_patch reloads the patch. Saving keeps the old text as <name>.bak; a file changed on the Organelle since it
+// was loaded here (a save there) is only overwritten when you say so
+const OG = (() => {
+  if (!/\/get_file$/.test(location.pathname)) return null;
+  const f = new URLSearchParams(location.search).get("fpath");
+  return f ? { dir: f.replace(/^\/+/, "").replace(/\/[^/]*$/, "") } : null;
+})();
+const ogSeen = {};
+async function ogGet(name) {
+  const r = await fetch(`/get_file?fpath=${encodeURIComponent(OG.dir + "/" + name)}&_=${Date.now()}`, { cache: "no-store" });
+  if (!r.ok) throw new Error(`${name}: ${r.status}`);
+  return r.text();
+}
+async function ogPut(name, text) {
+  const r = await fetch("/save", { method: "POST", body: new URLSearchParams({ fpath: OG.dir + "/" + name, content: text }) });
+  if (!r.ok) throw new Error(`${name}: ${r.status}`);
+}
+async function ogLoad() {
+  const got = [], none = [];
+  for (const name of ["sections.txt", "loops.txt", "saves.txt", "pieces.txt"]) {     // (pieces last: it opens on a piece)
+    // (a fresh install has none of them until something is saved on the Organelle)
+    try { const t = await ogGet(name); ogSeen[name] = t; if (t.trim()) { load(t, name); got.push(name); } else none.push(name); }
+    catch (e) { ogSeen[name] = null; none.push(name); }
+    // (none there yet: made empty here, so saving creates them)
+    if (none.includes(name) && name === "loops.txt") lib.loops = noLoops();
+    if (none.includes(name) && name === "sections.txt") lib.secs = noSecs();
+  }
+  try { ogSeen["controllers/user.txt"] = await ogGet("controllers/user.txt"); } catch (e) { ogSeen["controllers/user.txt"] = null; }
+  $("libstatus").textContent = (got.length ? `Loaded ${got.join(", ")} from the Organelle.` : "Connected to the Organelle.") +
+    (none.length ? ` Not there yet: ${none.join(", ")} (nothing saved yet) - saving here creates ${none.length > 1 ? "them" : "it"}.` : "");
+}
+async function ogSave(files, reload, status, then) {
+  const now = {};
+  for (const name of Object.keys(files)) { try { now[name] = await ogGet(name); } catch (e) { now[name] = null; } }
+  const moved = Object.keys(files).filter(n => n in ogSeen && now[n] !== null && now[n] !== (ogSeen[n] ?? null));
+  const go = async () => {
+    try {
+      for (const [name, text] of Object.entries(files)) {
+        if (now[name] !== null && now[name] !== text) await ogPut(name + ".bak", now[name]);
+        await ogPut(name, text); ogSeen[name] = text;
+      }
+      if (reload) await fetch("/reload_patch", { method: "POST", body: new URLSearchParams({ path: "/" + OG.dir }) });
+      status.textContent = `Saved ${Object.keys(files).join(", ")} on the Organelle` +
+        (reload ? " and reloaded the patch." : ` (${then || "the patch takes them when it next loads"}).`);
+    } catch (e) { status.textContent = `Saving failed: ${e.message}. Nothing else was changed.`; }
+  };
+  if (!moved.length) return go();
+  const c = $("ogconfirm");
+  c.replaceChildren(`${moved.join(", ")} changed on the Organelle since you loaded ${moved.length > 1 ? "them" : "it"} here (a save there?). Save over ${moved.length > 1 ? "them" : "it"}? (The Organelle's version is kept as .bak.) `);
+  const yes = el("button", { type: "button", textContent: "Save over" }), no = el("button", { type: "button", textContent: "Cancel" });
+  yes.onclick = () => { c.hidden = true; go(); }; no.onclick = () => { c.hidden = true; status.textContent = "Not saved."; };
+  c.append(yes, " ", no); c.hidden = false;
+}
+if (OG) {
+  $("og").hidden = false; $("ogdir").textContent = "/" + OG.dir; $("ogsavem").hidden = false;
+  $("files").hidden = true;        // (copying the files by hand: only when the page is opened elsewhere)
+  // (loops.txt and sections.txt only once they are loaded or made here - never the placeholder text)
+  const lib3 = () => ({ "pieces.txt": $("outp").value, "saves.txt": $("outs").value,
+                        ...(lib.loops ? { "loops.txt": $("outl").value } : {}), ...(lib.secs ? { "sections.txt": $("outc").value } : {}) });
+  $("ogload").onclick = ogLoad;
+  $("ogsave").onclick = () => ogSave(lib3(), true, $("libstatus"));
+  $("ogsaveonly").onclick = () => ogSave(lib3(), false, $("libstatus"));
+  $("ogsavem").onclick = () => ogSave({ "controllers/user.txt": $("outm").value }, false, $("filestatus"), "choose Profil: user on the MIDI page");
+  ogLoad();
+}
+
+// ---- controllers: the KORGs' controls, what each does (korg.py's design to start), user.txt
+const MD = D.midi;
+const ACTS = [["", "—"], ["knob", "Page knob"], ["level", "Layer level"], ["param", "A parameter"], ["engp", "Engine parameter"],
+  ["breath", "Breath"], ["toggle", "Layer in / out"], ["show", "Show layer"], ["loopl", "Layer's loop key"],
+  ["start", "Start"], ["stop", "Stop"], ["startstop", "Start / stop"], ["chordnext", "Next chord"], ["chordprev", "Previous chord"],
+  ["loop", "Loop key"], ["loopstop", "Loop stop"], ["loopclear", "Loop clear"], ["pgnext", "Next page"], ["pgprev", "Previous page"],
+  ["play", "Play view"], ["mix", "MIX view"], ["shape", "SHAPE page"], ["pattern", "Pattern view"]];
+const fresh = () => JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(MD.devices).map(([k, d]) => [k, d.scenes.map(x => x.map)]))));
+let mmap = fresh(), mdev = "nanoktl", mscene = 0;
+try { const m = JSON.parse(localStorage.getItem("al-midi") || "null"); if (m && m.nanoktl && m.nanokey) mmap = m; } catch (e) {}
+const mstore = () => { try { localStorage.setItem("al-midi", JSON.stringify(mmap)); } catch (e) {} };
+const keyName = k => { const i = MD.keys.indexOf(k); if (i < 0) return k; const sl = D.slots[i], li = D.layers.findIndex(l => l.id === sl.L);
+  return `${li >= 0 ? D.llabels[li] : "GLOBAL"} · ${sl.e ? `${sl.n} (${sl.e})` : sl.n}`; };
+function argControl(act, arg, set, id) {
+  const sel = el("select", { id });
+  if (act === "knob") for (let k = 1; k <= 8; k++) sel.add(new Option(`Knob ${k}`, k));
+  else if (["level", "toggle", "show"].includes(act)) D.llabels.forEach((n, i) => sel.add(new Option(n, i + 1)));
+  else if (act === "loopl") D.llabels.slice(0, MD.noteLayers).forEach((n, i) => sel.add(new Option(n, i + 1)));
+  else if (act === "engp") D.llabels.forEach((n, i) => { for (let k = 1; k <= 8; k++) sel.add(new Option(`${n} ${k}`, (i + 1) * 10 + k)); });
+  else if (act === "param") {
+    const groups = {};
+    MD.keys.forEach(k => { const g = k.split(".")[0]; (groups[g] = groups[g] || []).push(k); });
+    Object.entries(groups).forEach(([g, ks]) => {
+      const og = el("optgroup", { label: g === "g" ? "GLOBAL" : D.llabels[D.layers.findIndex(l => l.id === g)] });
+      ks.forEach(k => og.append(new Option(keyName(k), k))); sel.append(og);
+    });
+  } else return null;
+  if (arg !== null && arg !== undefined) sel.value = String(arg);
+  if (sel.value === "" && sel.options.length) sel.selectedIndex = 0;
+  sel.onchange = () => set(act === "param" ? sel.value : +sel.value);
+  return sel;
+}
+function midiRender() {
+  const dev = MD.devices[mdev], ds = $("mdev"), sc = $("mscene");
+  if (!ds.options.length) Object.entries(MD.devices).forEach(([k, d]) => ds.add(new Option(d.name, k)));
+  ds.value = mdev;
+  sc.replaceChildren(); dev.scenes.forEach((x, i) => sc.add(new Option(`${i + 1} ${x.name}`, i)));
+  mscene = Math.min(mscene, dev.scenes.length - 1); sc.value = mscene;
+  const scene = dev.scenes[mscene], map = mmap[mdev][mscene];
+  $("mabout").textContent = `${scene.about}. Channel ${scene.ch}${scene.padch ? `, pads on channel ${scene.padch}` : ""}.`;
+  const groups = {};
+  dev.controls.forEach(c => { const g = /^(Play|Stop|Rec|Rew|FF|Cycle|Button \d+|Marker.*|Track.*)$/.test(c.name) ? "Transport" : c.name.replace(/ \d+$/, "");
+    (groups[g] = groups[g] || []).push(c); });
+  const grid = $("mgrid"); grid.replaceChildren();
+  Object.entries(groups).forEach(([g, cs]) => {
+    const p = el("div", { className: "page" }, el("h3", { textContent: g.toUpperCase() }, el("span", { textContent: cs[0].kind === "pad" ? `notes, ch ${scene.padch}` : `CC, ch ${scene.ch}` })));
+    cs.forEach(c => {
+      const cur = map[c.name] || ["", null], id = `m-${mdev}-${c.name.replace(/\W/g, "")}`;
+      const act = el("select", { id }); ACTS.forEach(([v, t]) => act.add(new Option(t, v))); act.value = cur[0];
+      const set = (a, arg) => { if (a) map[c.name] = [a, arg]; else delete map[c.name]; mstore(); midiFile(); };
+      act.onchange = () => { const a = act.value, ac = argControl(a, null, () => {}, "x"); set(a, ac ? (a === "param" ? ac.value : +ac.value) : null); midiRender(); };
+      const row = el("div", { className: "knob", style: "grid-template-columns:100px 1fr" },
+        el("label", { className: "nm", htmlFor: id, textContent: `${c.name.replace(/^(Knob|Slider|Pad) /, "")} · ${c.num}`, title: `${c.name}: ${c.kind === "pad" ? "note" : "CC"} ${c.num}` }), act);
+      p.append(row);
+      const ac = argControl(cur[0], cur[1], v => set(cur[0], v), id + "-arg");
+      if (ac) { ac.style.gridColumn = "2"; p.append(el("div", { className: "knob", style: "grid-template-columns:100px 1fr" }, el("span", { className: "nm" }), ac)); }
+    });
+    grid.append(p);
+  });
+  midiFile();
+}
+function midiFile() {
+  const out = ["comment your profile (Amble Lite Editor): the KORGs with the Amble Lite sets;"];
+  Object.entries(MD.devices).forEach(([k, dev]) => dev.scenes.forEach((scene, si) => {
+    if (k === "nanokey") out.push("chcc 1 1 breath;");
+    dev.controls.forEach(c => {
+      const m = mmap[k][si][c.name]; if (!m || !m[0]) return;
+      const tail = m[1] !== null && m[1] !== undefined ? ` ${m[1]}` : "";
+      out.push(c.kind === "pad" ? `note ${scene.padch} ${c.num} ${m[0]}${tail};` : `chcc ${scene.ch} ${c.num} ${m[0]}${tail};`);
+    });
+  }));
+  $("outm").value = out.join("\n") + "\n";
+}
+$("mdev").onchange = () => { mdev = $("mdev").value; mscene = 0; midiRender(); };
+$("mscene").onchange = () => { mscene = +$("mscene").value; midiRender(); };
+$("mreset").onclick = () => { mmap = fresh(); mstore(); midiRender(); };
+$("cpm").onclick = () => copy($("outm").value, $("outm"), "Copied user.txt.");
+$("dlm").onclick = () => download($("outm").value, "user.txt");
+midiRender();
 
 if (!restore()) { lib.pieces[0] = C.defaults("piece"); example = true; }
 render();

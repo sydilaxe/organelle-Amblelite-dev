@@ -154,9 +154,6 @@ def frame():
     steps.append(Loop(str(CLOUD_RINGS), "alvi", [If("alvcl[alvi] > 0", [
         SendL(OSC, ["int(alvcr[alvi])"], "/oled/gCircle 3 64 32 $1 1"),
         T("alvcr", "alvi", "alvcr[alvi] + 4"), T("alvcl", "alvi", "alvcl[alvi] - 1")])]))
-    # (temporary, for measuring on the device: the CPU in the top-left corner - as the MIX view's: this second,
-    # the peak of the last ten)
-    steps.append(SendL(OSC, ["alcpu", "alcpux"], "/oled/gPrintln 3 0 0 8 1 cpu $1 pk $2"))
     # (the next frame's scope and Lissajous: grabbed now, ready by then)
     steps.append(Send("al-visgrab"))
     return steps
