@@ -37,6 +37,7 @@ def data():
                            targets={e: M.targets(L, e) for e in engs}))
     fav0 = [ks[((li * M.MAXENG + ei) * M.MAXPAGES) * 4 + k] for li in range(nl) for ei in range(M.MAXENG)
             for k in range(4)]
+    import roadmap as RM
     gpages = [[n, [M.global_slot(p) for p in ps], [M.global_label(p) for p in ps]] for n, ps in M.GLOBAL_PAGES]
     gpages += [[n, [M.S(L, None, k) for L, k in refs], [M.LAYERS.index(L) if L != "g" else -1 for L, _ in refs]]
                for n, refs in M.MIX_PAGES]
@@ -53,6 +54,7 @@ def data():
                maxev=F.MAXEV, maxclk=F.MAXCLK, bar=F.BAR)
     assert lay["tap"] + lay["tapn"] == F.SNAP and F.SNAP + 1 + 4 * M.MAXSEC == F.PIECE
     return dict(
+        capt=RM.capturable(), maxch=RM.MAXCH,
         slots=slots, layers=layers, fav0=fav0, latch0=[1 if li < FIRST_LANE else 0 for li in range(nl)],
         in0=[1 if L in IN_AT_START else 0 for L in M.LAYERS], gpages=gpages, rhythm=rhythm, layout=lay,
         modeSlot=MODE_SLOT, scaleSlot=SCALE_SLOT, scaleModes=[[n for n, _ in ms] for _, ms in M.SCALES],
@@ -177,9 +179,24 @@ const C = (() => {
     const n = a[2], bn = a[3 + 4 * n] || 0, at = k => a.slice(3 + k * n, 3 + (k + 1) * n);
     return { state: a[0], len: a[1], n, t: at(0), note: at(1), vel: at(2), root: at(3), bn, breath: a.slice(4 + 4 * n, 4 + 4 * n + bn) };
   }
+  // sections.txt: each piece's sections' parameter changes, a line a piece and section: 'n slot value ...'
+  const okSec = a => a.length >= 1 && a.every(Number.isFinite) && a.length === 1 + 2 * a[0];
+  function parseSecs(text) {
+    const ls = lines(text).map(l => l ? l.split(/\s+/).map(Number) : [0]);
+    return Array.from({ length: Y.pieces * Y.maxsec }, (_, i) => {
+      const a = ls[i] && okSec(ls[i]) ? ls[i] : [0], out = [];
+      for (let k = 0; k < a[0]; k++) if (a[1 + 2 * k] >= 0 && a[1 + 2 * k] < Y.nslots) out.push([a[1 + 2 * k], a[2 + 2 * k]]);
+      return out;
+    });
+  }
+  const writeSecs = secs => secs.map(c => [c.length, ...c.flat()].map(q).join(" ")).join("\n") + "\n";
+  function isSecs(text) {
+    const ls = lines(text).filter(Boolean).map(l => l.split(/\s+/).map(Number));
+    return ls.length === Y.pieces * Y.maxsec && ls.every(okSec);
+  }
   const _kind = kindOf;
-  kindOf = text => _kind(text) || (isLoops(text) ? "loops" : null);
-  return { Y, defaults, parse, widen, kindOf, write, parseLoops, loop, asPiece, asSnap, layerOf, engine, targets, choices, name, index, number,
+  kindOf = text => _kind(text) || (isLoops(text) ? "loops" : isSecs(text) ? "secs" : null);
+  return { Y, defaults, parse, widen, kindOf, write, parseLoops, parseSecs, writeSecs, loop, asPiece, asSnap, layerOf, engine, targets, choices, name, index, number,
            text, setIndex, setNumber, favAt, road, setRoad, optIndex };
 })();
 """
@@ -300,7 +317,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
 
   <section class="panel" aria-labelledby="h-lib">
     <div class="row between"><h2 id="h-lib">Library</h2>
-      <label class="toggle" for="file"><span class="label">Open pieces.txt, saves.txt or loops.txt</span><input id="file" type="file" accept=".txt,text/plain" multiple></label></div>
+      <label class="toggle" for="file"><span class="label">Open pieces.txt, saves.txt, loops.txt or sections.txt</span><input id="file" type="file" accept=".txt,text/plain" multiple></label></div>
     <div class="lib">
       <div class="field"><span class="label">Pieces (pieces.txt)</span><div class="keys" id="kp"></div></div>
       <div class="field"><span class="label">Snapshots (saves.txt)</span><div class="keys" id="ks"></div></div>
@@ -361,6 +378,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
         <div class="row"><button class="primary" id="cps" type="button">Copy saves.txt</button><button id="dls" type="button">Download</button></div></div>
       <div class="field"><span class="label">loops.txt</span><textarea class="out" id="outl" readonly></textarea>
         <div class="row"><button class="primary" id="cpl" type="button">Copy loops.txt</button><button id="dll" type="button">Download</button></div></div>
+      <div class="field"><span class="label">sections.txt</span><textarea class="out" id="outc" readonly></textarea>
+        <div class="row"><button class="primary" id="cpc" type="button">Copy sections.txt</button><button id="dlc" type="button">Download</button></div></div>
     </div>
     <p class="status" id="filestatus" role="status"></p>
   </section>
@@ -372,7 +391,8 @@ __CORE__
 const $ = id => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
 const Y = C.Y;
-let lib = { pieces: new Array(Y.pieces).fill(null), saves: new Array(Y.saveLines).fill(null), loops: null };
+let lib = { pieces: new Array(Y.pieces).fill(null), saves: new Array(Y.saveLines).fill(null), loops: null, secs: null };
+const noSecs = () => Array.from({ length: Y.pieces * Y.maxsec }, () => []);
 const noLoops = () => Array.from({ length: Y.pieces * Y.loopLayers }, () => [0, 0, 0, 0]);
 let cur = { kind: "piece", idx: 0 }, tab = "g", sel = 0, example = false, pending = null;
 
@@ -414,8 +434,14 @@ function keys() {
 }
 
 function load(text, fname) {
-  const k = C.kindOf(text) || (/save/i.test(fname || "") ? "snap" : /piece/i.test(fname || "") ? "piece" : /loop/i.test(fname || "") ? "loops" : null);
+  const k = /section/i.test(fname || "") ? "secs" : C.kindOf(text) || (/save/i.test(fname || "") ? "snap" : /piece/i.test(fname || "") ? "piece" : /loop/i.test(fname || "") ? "loops" : null);
   if (!k) { $("libstatus").textContent = "That file holds no pieces, snapshots or loops. Open pieces.txt, saves.txt or loops.txt from the AmbleLite folder."; return; }
+  if (k === "secs") {
+    lib.secs = C.parseSecs(text);
+    const n = lib.secs.filter(c => c.length).length;
+    $("libstatus").textContent = `Loaded sections.txt: ${n} section${n === 1 ? "" : "s"} with parameter changes.`;
+    render(); store(); return;
+  }
   if (k === "loops") {
     lib.loops = C.parseLoops(text);
     const n = lib.loops.filter(a => a[0] > 0).length;
@@ -612,7 +638,14 @@ function roadTab() {
   const total = secs.reduce((s, x) => s + x.bars, 0);
   box.append(setup, el("div", { className: "row" }, build, el("span", { className: "summary", textContent: secs.length ? `${secs.length} sections, ${total} bars, ${fmt(total * 4 * 60 / tempo)} at ${tempo} bpm` : "No roadmap in this piece yet." })));
   if (!secs.length) return box;
-  const save = () => { C.setRoad(r, secs); changed(true); };
+  // each section's parameter changes (sections.txt) travel with it when sections are added or removed
+  const base = cur.idx * Y.maxsec;
+  secs.forEach((x, i) => { x.ch = lib.secs ? lib.secs[base + i] : []; });
+  const save = () => {
+    C.setRoad(r, secs);
+    if (lib.secs) for (let i = 0; i < Y.maxsec; i++) lib.secs[base + i] = i < secs.length ? secs[i].ch : [];
+    changed(true);
+  };
   const tl = el("div", { className: "timeline", role: "list" });
   secs.forEach((s, i) => {
     const d = el("div", { className: "seg" + (i === sel ? " sel" : ""), tabIndex: 0 });
@@ -623,7 +656,7 @@ function roadTab() {
     tl.append(d);
   });
   const add = el("button", { type: "button", textContent: "Add section", disabled: secs.length >= Y.maxsec });
-  add.onclick = () => { secs.splice(sel + 1, 0, { ...secs[sel] }); sel++; save(); };
+  add.onclick = () => { secs.splice(sel + 1, 0, { ...secs[sel], ch: [] }); sel++; save(); };
   const del = el("button", { type: "button", textContent: "Remove selected", disabled: secs.length <= 1 });
   del.onclick = () => { secs.splice(sel, 1); sel = Math.max(0, sel - 1); save(); };
   const tb = el("tbody");
@@ -645,17 +678,73 @@ function roadTab() {
       ch.append(t);
     });
     tr.append(el("td", { className: "num", textContent: i + 1 }), el("td", {}, dot, rs), el("td", {}, b),
-              el("td", { className: "num", textContent: fmt(s.bars * 4 * 60 / tempo) }), el("td", {}, st), el("td", {}, ch));
+              el("td", { className: "num", textContent: fmt(s.bars * 4 * 60 / tempo) }), el("td", {}, st), el("td", {}, ch),
+              el("td", { className: "num", textContent: s.ch.length || "—" }));
     tb.append(tr);
   });
-  const head = el("tr"); ["#", "Role", "Bars", "Time", "Story", "Layers in"].forEach(h => head.append(el("th", { textContent: h })));
+  const head = el("tr"); ["#", "Role", "Bars", "Time", "Story", "Layers in", "Changes"].forEach(h => head.append(el("th", { textContent: h })));
   box.append(tl, el("div", { className: "row" }, add, del));
   box.append(el("div", { className: "tablewrap" }, el("table", {}, el("thead", {}, head), tb)));
+  box.append(changesPanel(r, secs, Math.min(sel, secs.length - 1), save));
   const txt = secs.map(s => `${s.bars} ${s.story} ${s.mask} ${s.role};`).join("\n");
   const cp = el("button", { type: "button", textContent: "Copy as roadmap.txt" });
   cp.onclick = () => copy(txt, null, "Copied roadmap.txt.");
   box.append(el("details", {}, el("summary", { textContent: "This roadmap as roadmap.txt (for the patch's ROAD pages without a piece)" }),
     el("div", { style: "display:grid;gap:8px;margin-top:8px" }, el("textarea", { className: "out", readOnly: true, value: txt }), el("div", { className: "row" }, cp))));
+  return box;
+}
+
+// a section's parameter changes: applied when it starts (Road auto), on top of the sound as it is then - knob
+// values glide over Morph, choices switch at once. Captured on the Organelle (SECTN page, top A#) or made here
+let paramOptions = null;
+function paramSelect(value, id) {
+  if (!paramOptions) {
+    paramOptions = [["GLOBAL", []], ...D.layers.map(l => [l.label, []])];
+    D.slots.forEach((sl, i) => { if (D.capt[i]) paramOptions[sl.L === "g" ? 0 : 1 + D.layers.findIndex(l => l.id === sl.L)][1].push(i); });
+  }
+  const se = el("select", { id });
+  paramOptions.forEach(([g, ks]) => { const og = el("optgroup", { label: g }); ks.forEach(k => og.append(new Option(C.name(k), k))); se.append(og); });
+  se.value = String(value);
+  return se;
+}
+function valueControl(r, s, v, set, id) {
+  const tmp = r.slice(); tmp[s] = v;
+  const ch = C.choices(s, tmp);
+  if (ch) {
+    const se = el("select", { id }); ch.forEach((c, i) => se.add(new Option(c, i))); se.value = C.index(s, tmp);
+    se.onchange = () => { C.setIndex(s, tmp, +se.value); set(tmp[s], false); };
+    return se;
+  }
+  const sl = D.slots[s], lo = sl.t === "num" ? sl.lo : 0, hi = sl.t === "num" ? sl.hi : 100;
+  const rg = el("input", { type: "range", id, min: lo, max: hi, step: 1, value: C.number(s, tmp) });
+  const out = el("output", { className: "val", textContent: C.number(s, tmp) });
+  rg.oninput = () => { C.setNumber(s, tmp, +rg.value); out.textContent = C.number(s, tmp); set(tmp[s], true); };
+  return el("span", { className: "row" }, rg, out);
+}
+function changesPanel(r, secs, i, save) {
+  const s = secs[i], box = el("div", { className: "field" });
+  box.append(el("span", { className: "label", textContent: `Section ${i + 1}: parameter changes (applied as it starts, on top of the sound as it is - knobs glide over Morph)` }));
+  if (!lib.secs) {
+    box.append(el("p", { className: "note", textContent: "Open sections.txt from the AmbleLite folder (or open this page from the Organelle) to edit the sections' changes." }));
+    return box;
+  }
+  const list = el("div", { style: "display:grid;gap:6px" });
+  s.ch.forEach((p, k) => {
+    const ps = paramSelect(p[0], `chp-${i}-${k}`);
+    ps.onchange = () => { p[0] = +ps.value; p[1] = r[p[0]]; save(); };
+    const vc = valueControl(r, p[0], p[1], (v, live) => { p[1] = v; if (live) { files(); store(); } else save(); }, `chv-${i}-${k}`);
+    const rm = el("button", { type: "button", textContent: "Remove" });
+    rm.onclick = () => { s.ch.splice(k, 1); save(); };
+    list.append(el("div", { className: "row" }, ps, vc, rm));
+  });
+  if (!s.ch.length) list.append(el("p", { className: "note", textContent: "No changes: this section plays on with the sound as it is." }));
+  const add = el("button", { type: "button", textContent: "Add a change", disabled: s.ch.length >= D.maxch });
+  add.onclick = () => {
+    const used = new Set(s.ch.map(p => p[0]));
+    const f = D.slots.findIndex(sl => sl.L === "g" && sl.n === "Filter"), k = !used.has(f) ? f : D.capt.findIndex((c, x) => c && !used.has(x));
+    s.ch.push([k, r[k]]); save();
+  };
+  box.append(list, el("div", { className: "row" }, add, el("span", { className: "summary", textContent: `${s.ch.length} of ${D.maxch}` })));
   return box;
 }
 
@@ -686,6 +775,8 @@ function files() {
   $("outp").value = C.write(lib.pieces); $("outs").value = C.write(lib.saves);
   $("outl").value = lib.loops ? C.write(lib.loops) : "(open loops.txt to edit the loops: until then, keep the one on the Organelle)";
   $("cpl").disabled = $("dll").disabled = !lib.loops;
+  $("outc").value = lib.secs ? C.writeSecs(lib.secs) : "(open sections.txt to edit the sections' changes: until then, keep the one on the Organelle)";
+  $("cpc").disabled = $("dlc").disabled = !lib.secs;
 }
 
 // slot actions, with a confirmation in the page for anything that replaces a slot
@@ -699,7 +790,10 @@ $("fresh").onclick = () => {
   const go = () => { setRec(C.defaults(cur.kind)); noLoopsHere(); changed(true); };
   rec() ? ask("Reset every setting in this slot to the patch's defaults?", go) : go();
 };
-function noLoopsHere() { if (cur.kind === "piece" && lib.loops) for (let li = 0; li < Y.loopLayers; li++) lib.loops[cur.idx * Y.loopLayers + li] = [0, 0, 0, 0]; }
+function noLoopsHere() {
+  if (cur.kind === "piece" && lib.loops) for (let li = 0; li < Y.loopLayers; li++) lib.loops[cur.idx * Y.loopLayers + li] = [0, 0, 0, 0];
+  if (cur.kind === "piece" && lib.secs) for (let i = 0; i < Y.maxsec; i++) lib.secs[cur.idx * Y.maxsec + i] = [];
+}
 $("clear").onclick = () => ask("Empty this slot? It saves as empty (-1), and a piece's loops go too.", () => { setRec(null); noLoopsHere(); tab = "g"; changed(true); });
 $("copygo").onclick = () => {
   const [kind, i] = $("copyto").value.split(":"), idx = +i, r = rec();
@@ -708,6 +802,8 @@ $("copygo").onclick = () => {
     if (kind === "piece") lib.pieces[idx] = out; else lib.saves[idx] = out;
     if (kind === "piece" && lib.loops) for (let li = 0; li < Y.loopLayers; li++)
       lib.loops[idx * Y.loopLayers + li] = cur.kind === "piece" ? lib.loops[cur.idx * Y.loopLayers + li].slice() : [0, 0, 0, 0];
+    if (kind === "piece" && lib.secs) for (let i = 0; i < Y.maxsec; i++)
+      lib.secs[idx * Y.maxsec + i] = cur.kind === "piece" ? lib.secs[cur.idx * Y.maxsec + i].map(p => p.slice()) : [];
     cur = { kind, idx }; if ((tab === "road" || tab === "loops") && kind !== "piece") tab = "g"; changed(true);
   };
   const full = kind === "piece" ? lib.pieces[idx] : lib.saves[idx];
@@ -731,6 +827,8 @@ $("dlp").onclick = () => download($("outp").value, "pieces.txt");
 $("dls").onclick = () => download($("outs").value, "saves.txt");
 $("cpl").onclick = () => copy($("outl").value, $("outl"), "Copied loops.txt.");
 $("dll").onclick = () => download($("outl").value, "loops.txt");
+$("cpc").onclick = () => copy($("outc").value, $("outc"), "Copied sections.txt.");
+$("dlc").onclick = () => download($("outc").value, "sections.txt");
 
 // ---- on the Organelle: this page opened through Organelle OS's web server (port 8080) as
 // /get_file?fpath=<card>/Patches/<folder>/planner.html - its /get_file reads the folder's files, /save writes them,
@@ -753,10 +851,13 @@ async function ogPut(name, text) {
 }
 async function ogLoad() {
   const got = [], none = [];
-  for (const name of ["loops.txt", "saves.txt", "pieces.txt"]) {     // (pieces last: it opens on a piece)
+  for (const name of ["sections.txt", "loops.txt", "saves.txt", "pieces.txt"]) {     // (pieces last: it opens on a piece)
     // (a fresh install has none of them until something is saved on the Organelle)
     try { const t = await ogGet(name); ogSeen[name] = t; if (t.trim()) { load(t, name); got.push(name); } else none.push(name); }
     catch (e) { ogSeen[name] = null; none.push(name); }
+    // (none there yet: made empty here, so saving creates them)
+    if (none.includes(name) && name === "loops.txt") lib.loops = noLoops();
+    if (none.includes(name) && name === "sections.txt") lib.secs = noSecs();
   }
   try { ogSeen["controllers/user.txt"] = await ogGet("controllers/user.txt"); } catch (e) { ogSeen["controllers/user.txt"] = null; }
   $("libstatus").textContent = (got.length ? `Loaded ${got.join(", ")} from the Organelle.` : "Connected to the Organelle.") +
@@ -787,7 +888,9 @@ async function ogSave(files, reload, status, then) {
 if (OG) {
   $("og").hidden = false; $("ogdir").textContent = "/" + OG.dir; $("ogsavem").hidden = false;
   $("files").hidden = true;        // (copying the files by hand: only when the page is opened elsewhere)
-  const lib3 = () => ({ "pieces.txt": $("outp").value, "saves.txt": $("outs").value, "loops.txt": $("outl").value });
+  // (loops.txt and sections.txt only once they are loaded or made here - never the placeholder text)
+  const lib3 = () => ({ "pieces.txt": $("outp").value, "saves.txt": $("outs").value,
+                        ...(lib.loops ? { "loops.txt": $("outl").value } : {}), ...(lib.secs ? { "sections.txt": $("outc").value } : {}) });
   $("ogload").onclick = ogLoad;
   $("ogsave").onclick = () => ogSave(lib3(), true, $("libstatus"));
   $("ogsaveonly").onclick = () => ogSave(lib3(), false, $("libstatus"));

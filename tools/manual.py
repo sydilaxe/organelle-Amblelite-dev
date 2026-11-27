@@ -276,7 +276,7 @@ DESC = {
     "g:ROAD 2:Road": "off; guide (the screen says what is next, you play it); auto (it happens, you can hold or "
                      "skip).",
     "g:ROAD 2:Varia": "Variation: another, equally repeatable roadmap from the same settings.",
-    "g:SECTN:Sect": "The section to edit (layer keys toggle its layers).",
+    "g:SECTN:Sect": "The section to edit (layer keys toggle its layers; top A# captures your changes into it, aux + top A# clears them).",
     "g:SECTN:Bars": "Its length in bars.",
     "g:SECTN:Story": "Its chord story.",
     "g:SECTN:Role": "Its role: emerge, establish, develop, intensify, climax, break, return, dissolve.",
@@ -714,11 +714,20 @@ def story():
             "a length, a role, a chord story and which layers play. Aux + top A builds it; ROAD 2: off, guide (the "
             "screen says what is next) or auto (it happens: aux + low F# holds a section, aux + top B moves on). "
             "SECTN edits a section: its length, story and role, and the layer keys toggle its layers. A piece "
-            "keeps its roadmap.")]
+            "keeps its roadmap."),
+          P("<b>A section's parameter changes.</b> Each section can also change up to 32 parameters when it starts "
+            "(Road auto): any layer's, MAIN, INPUT, Evolve, Volume, SHAPE, the story's Bars, SubTo and Voicing. They "
+            "are cumulative - applied on top of the sound as it is then, so a piece's sound travels from section to "
+            "section; knob values glide over Morph, choices switch at once. To capture them on the Organelle: on "
+            "the SECTN page choose the section (Sect), shape the sound, and tap <b>top A#</b> - what you changed "
+            "since the section started (or since you chose it, or the last capture) is added to it (CAPTURED and "
+            "its count; FULL past 32). <b>Aux + top A#</b> clears its changes. The web editor shows and edits them "
+            "too (ROADMAP tab: the Changes column, and the list under the table for the chosen section). A piece "
+            "saves and loads its sections' changes with it (sections.txt; the roadmap's own: roadchg.txt).")]
     # ---- the web editor
     s += [P("The web editor", H1),
-          P("Amble Lite Editor (docs/planner.html, also published as a web page) opens pieces.txt, saves.txt and "
-            "loops.txt from the AmbleLite folder and edits any piece or snapshot page by page, as on the Organelle: "
+          P("Amble Lite Editor (planner.html in the AmbleLite folder) opens pieces.txt, saves.txt, loops.txt and "
+            "sections.txt from the AmbleLite folder and edits any piece or snapshot page by page, as on the Organelle: "
             "every parameter of every layer and engine, the layers in, the latches, the FAV pages, the tapped rhythms, "
             "a piece's roadmap and its loops (shown as notes; each can be stopped, started or cleared). Copy the files "
             "back over the ones in the AmbleLite folder (keep copies of the old ones); the patch reads them when it "

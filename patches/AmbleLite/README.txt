@@ -35,7 +35,8 @@ THE OTHER KEYS (one press each): the low black keys the views, the top octave pl
   top A#   held + a key from low C to top D#: recall snapshot 1 - 16 (with aux: save it);
            alone: COMPARE - the snapshot as saved against your sound since: a tap flips between them,
            a hold hears the saved one until you let go; both glide over CmpGl (PERFRM page).
-           RUN* / STOP* on the play view: changed since the snapshot. On the PIECE page: pieces
+           RUN* / STOP* on the play view: changed since the snapshot. On the PIECE page: loads the piece (aux + top A#: saves it).
+           On the SECTN page: captures what you changed into the section (aux + top A#: clears it)
 
 AUX held + key
   low C    show the DRONE pages
