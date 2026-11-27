@@ -77,7 +77,7 @@ OFF["chord"] = len(LINES)
 LINES += chord_words()
 OFF["frac"] = len(LINES)
 LINES += [f"{p}/{n}" for n in range(1, M.MAXPAGES + 1) for p in range(1, M.MAXPAGES + 1)]
-MISC = {"-": 0, "RUN": 1, "STOP": 2, "M": 3, ">": 4, "NOTES": 5, "LAT": 6, "RUN*": 7, "STOP*": 8}
+MISC = {"-": 0, "RUN": 1, "STOP": 2, "M": 3, ">": 4, "NOTES": 5, "LAT": 6, "RUN*": 7, "STOP*": 8, "N": 9}
 LINES.append("+")
 OFF["plus"] = len(LINES) - 1
 LINES.append("GLOBAL")
@@ -145,20 +145,22 @@ def build(c):
     fl = LAYERS.index(M.LANES[0])
     # ---- play view
     row(c, "al-r-head", 0, 0, [("w", f"{OFF['note']} + {opt(key)}"), ("w", f"{OFF['mode']} + {opt(mode)}"),
-                               ("n", num(tempo), "%dbpm"), ("w", f"if(alrun, {misc('RUN')}, {misc('STOP')}) + 6*alchg"),      # (*: changed since the snapshot)
-                               ("w", f"if(alnotes, {misc('NOTES')}, {OFF['plus']})")])
+                               ("n", num(tempo), "%d"), ("w", f"if(alrun, {misc('RUN')}, {misc('STOP')}) + 6*alchg")])      # (*: changed since the snapshot)
+    # (at most 21 characters - the small font is 6 px a character, and a longer line wraps: so the tempo without
+    # 'bpm', and notes mode shown as N in place of > on the shown layer's row)
+    mark = f"if(alnotes, {misc('N')}, {misc('>')})"
     row(c, "al-r-chord", 0, 11, [("w", f"{OFF['chord']} + alcr*{len(QUALS)} + alcq"), ("w", misc(">")),
                                  ("w", f"{OFF['chord']} + alnxr*{len(QUALS)} + alnxq")])
     for li in range(3):
         L = LAYERS[li]
         row(c, f"al-r-l{li}", 0, 22 + 10 * li, [
-            ("w", f"if(allayer == {li}, {misc('>')}, {misc('-')})"), ("w", f"{OFF['layer']} + {li}"),
+            ("w", f"if(allayer == {li}, {mark}, {misc('-')})"), ("w", f"{OFF['layer']} + {li}"),
             ("w", f"{OFF['eng-' + L]} + aleng[{li}]"), ("w", f"if(alin[{li}] == 0, {OFF['out']}, {OFF['loopst']} + allps[{li}])")])
     # the percussion row: the lane last shown, its engine, and which lanes play (their numbers; '.' silent)
     ci = LAYERS.index("cloud")
     lanes_on = " + ".join(f"{2 ** i}*alin[{fl + i}]" for i in range(nl)) + f" + {2 ** nl}*alin[{ci}]"
     row(c, "al-r-perc", 0, 52, [
-        ("w", f"if(allayer >= {fl}, {misc('>')}, {misc('-')})"), ("w", f"{OFF['layer']} + alplane"),
+        ("w", f"if(allayer >= {fl}, {mark}, {misc('-')})"), ("w", f"{OFF['layer']} + alplane"),
         ("w", eng_word("alplane")), ("w", f"{OFF['lanes']} + {lanes_on}")])
     row(c, "al-r-toast", 0, 0, [("w", f"{OFF['toast']} + altw"), ("n", "altn", "%d")])
     row(c, "al-r-toast0", 0, 0, [("w", f"{OFF['toast']} + altw")])
@@ -169,6 +171,25 @@ def build(c):
         play += [Call(f"al-r-l{li}"),
                  SendL(OSC, [str(23 + 10 * li), f"max(1, int(alp[{lvl}]*20))"], "/oled/gFillArea 3 106 $1 $2 5 1")]
     play += [Call("al-r-perc")]
+    # the roadmap, when there is one and Road isn't off: the section (n/count) at the chord line's end, and under the
+    # top line its progress - a line as long as the piece's bars so far, a tick where each section starts
+    road = S("g", None, "Road")
+    # (right-aligned by its width: 4, 5 or 6 characters of 6 px, a space between the parts - so the chord line
+    # never runs into it or wraps)
+    for w in (4, 5, 6):
+        row(c, f"al-r-psec{w}", 128 - 6 * w, 11, [("n", "alrc + 1", "%d"), ("n", "alrn", "/%d")])
+    psw = "(4 + (alrc + 1 >= 10) + (alrn >= 10))"
+    play += [If(f"alrn > 0 && {opt(road)} > 0", [
+        V("alrtot", "0"), V("alrsw", "0"),
+        Loop("alrn", "alri", [If("alri < alrc", [V("alrsw", "alrsw + alrsL[alri]")]), V("alrtot", "alrtot + alrsL[alri]")]),
+        V("alrsw", "alrsw + min(alrsL[alrc], max(0, altick/32 - alrb0))"),
+        If(f"{psw} == 4", [Call("al-r-psec4")], [If(f"{psw} == 5", [Call("al-r-psec5")], [Call("al-r-psec6")])]),
+        SendL(OSC, ["max(1, int(alrsw*128/max(1, alrtot)))"], "/oled/gFillArea 3 0 10 $1 1 1"),
+        V("alrsw", "0"),
+        Loop("alrn", "alri", [If("alri > 0", [SendL(OSC, ["int(alrsw*128/max(1, alrtot))"], "/oled/gFillArea 3 $1 9 1 2 1")]),
+                              V("alrsw", "alrsw + alrsL[alri]")])])]
+    # the MIDI-in light: a small square at the bottom right, on while a MIDI note is held (and 150 ms after each)
+    play += [If("alminh > 0 || altime - almint < 0.15", [Fill(123, 55, 4, 4, 1)])]
     # ---- layer view
     lay = [If(f"alview == {VIEW_MIX}", [Send(OSC, "/oled/gPrintln 3 0 0 8 1 MIX")],
               [If("alview", [Call("al-r-ghead")], [Call("al-r-lhead")])]), Call("al-r-page")]

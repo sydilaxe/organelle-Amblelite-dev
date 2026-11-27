@@ -48,7 +48,7 @@ def data():
         rhythm.append(dict(layer=M.LAYERS.index(L), steps=M.S(L, None, "Steps"), patt=ps, tapped=1 if lane else 2))
     names = [n for n, _, _ in M.STORIES]
     nslots = M.NSLOTS
-    lay = dict(nslots=nslots, oldNslots=M.OLD_NSLOTS, nl=nl, maxeng=M.MAXENG, latch=nslots, inn=nslots + nl, fav=nslots + 2 * nl,
+    lay = dict(nslots=nslots, history=M.SLOT_HISTORY, nl=nl, maxeng=M.MAXENG, latch=nslots, inn=nslots + nl, fav=nslots + 2 * nl,
                favn=F.FAVN, tap=nslots + 2 * nl + F.FAVN, tapn=F.TAPN, snap=F.SNAP, piece=F.PIECE, maxsec=M.MAXSEC,
                pieces=F.PIECES, saves=F.SAVE_SLOTS, saveLines=F.SCRATCH + 2, loopLayers=F.LOOP_LAYERS,
                maxev=F.MAXEV, maxclk=F.MAXCLK, bar=F.BAR)
@@ -90,12 +90,14 @@ const C = (() => {
   }
   // a file: a record a line; '-1' (or an empty line) an empty slot. A line from before the SHAPE page (its slots
   // came after the others: the line that much shorter) gets their defaults where they sit now
-  const added = Y.nslots - Y.oldNslots;
+  // (Y.history: the slot counts before each addition - the added slots always come after the others)
   function widen(a, len) {
-    if (added > 0 && a.length === len - added)
-      return [...a.slice(0, Y.oldNslots), ...D.slots.slice(Y.oldNslots).map(s => s.d), ...a.slice(Y.oldNslots)];
+    for (const h of Y.history)
+      if (a.length === len - (Y.nslots - h))
+        return [...a.slice(0, h), ...D.slots.slice(h).map(s => s.d), ...a.slice(h)];
     return a;
   }
+  const olderLen = len => Y.history.map(h => len - (Y.nslots - h));
   function parse(text, len) {
     return lines(text).map(l => {
       const a = widen(l ? l.split(/\s+/).map(Number) : [], len);
@@ -104,8 +106,8 @@ const C = (() => {
   }
   let kindOf = function (text) {
     const lens = lines(text).filter(Boolean).map(l => l.split(/\s+/).length);
-    if (lens.includes(Y.piece) || lens.includes(Y.piece - added)) return "piece";
-    if (lens.includes(Y.snap) || lens.includes(Y.snap - added)) return "snap";
+    if ([Y.piece, ...olderLen(Y.piece)].some(n => lens.includes(n))) return "piece";
+    if ([Y.snap, ...olderLen(Y.snap)].some(n => lens.includes(n))) return "snap";
     return null;
   };
   function write(recs) { return recs.map(r => r ? r.map(q).join(" ") : "-1").join("\n") + "\n"; }

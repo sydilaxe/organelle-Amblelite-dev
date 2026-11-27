@@ -416,6 +416,22 @@ def main():
           abs(lvl["blur"] - lvl["flat"]) < 6, f"L/R correlation {corr(shp['flat']):.2f} -> {corr(shp['blur']):.2f}, "
           f"level {lvl['flat']:.1f} -> {lvl['blur']:.1f} dB")
 
+    # notes out (MIDI 2 NoteOt): the drone, sub and pads out on channels 2, 3, 4, a lane on 5; a chord change ends
+    # the old notes and starts the new; NoteOt off ends every note still out
+    no_ = M.S("g", None, "NoteOut")
+    log, _ = H.run([(40, f"al-set {no_} 0.75"), (45, f"al-inset {M.LAYERS.index('perc1')} 1"), START,
+                    (2600, f"al-set {no_} 0.25")], 3, d=d, keep=True, prints=("al-xnote",))
+    xs = [tuple(float(v) for v in l.split(": ")[1].split()) for l in log.splitlines() if l.startswith("al-xnote")]
+    ons = {}
+    for n_, v_, ch_ in xs:
+        ons[(n_, ch_)] = ons.get((n_, ch_), 0) + (1 if v_ > 0 else -1)
+    chans = sorted({int(ch_) for _, v_, ch_ in xs if v_ > 0})
+    hanging = [k for k, v in ons.items() if v > 0]
+    check("notes out: each layer on its channel, every note ended", chans[:4] == [2, 3, 4, 5] and not hanging and
+          len(xs) > 8, f"{len(xs)} messages, channels {chans}, still on after NoteOt off: {hanging or 'none'}")
+    log, _ = H.run([START], 1.5, d=d, keep=True, prints=("al-xnote",))
+    check("notes out: nothing while off", "al-xnote" not in log, "silent" if "al-xnote" not in log else "sent")
+
     # zones: low notes to the sub, middle ones to the pads (whatever is shown)
     log, _ = H.run([(50, f"al-set {zones} 0.75"), START, (500, "al-midi 40 100 1"), (600, "al-midi 60 100 1")], 1,
                    d=d, keep=True, prints=("al-user-sub", "al-user-pad"))
@@ -758,6 +774,7 @@ def main():
     # Volume comes back - and saved again it is written at the full length, the SHAPE knobs at their defaults
     import features as _F
     vol, added = M.S("g", None, "Volume"), M.NSLOTS - M.OLD_NSLOTS
+    # (the oldest layout: before SHAPE and NoteOut)
     oldsnap = [f"{p.default:g}" for _, p in M.SLOTS[:M.OLD_NSLOTS]] + ["0"] * (_F.SNAP - M.NSLOTS)
     oldsnap[vol] = "0.3"
     open(os.path.join(dl, "saves.txt"), "w").write(" ".join(oldsnap) + "\n" + "-1\n" * (_F.SCRATCH + 1))
@@ -767,6 +784,15 @@ def main():
     sv = open(os.path.join(dl, "saves.txt")).read().split("\n")[0].split()
     ok = len(sv) == _F.SNAP and abs(float(sv[vol]) - 0.3) < 1e-3 and \
         all(abs(float(sv[M.OLD_NSLOTS + i]) - p.default) < 1e-3 for i, p in enumerate(M.SHAPE))
+    # (and a line from between: with SHAPE, before NoteOut - one field short)
+    mid = [f"{p.default:g}" for _, p in M.SLOTS[:M.SLOT_HISTORY[1]]] + ["0"] * (_F.SNAP - M.NSLOTS)
+    mid[vol] = "0.4"
+    open(os.path.join(dl, "saves.txt"), "w").write(" ".join(mid) + "\n" + "-1\n" * (_F.SCRATCH + 1))
+    H.run([(40, f"al-set {M.S('g', None, 'Morph')} 0"), (100, "notesRaw 82 100"), (120, "notesRaw 60 100"),
+           (140, "notesRaw 60 0"), (300, "aux 1"), (320, "notesRaw 60 100"), (340, "notesRaw 60 0"), (360, "aux 0"),
+           (380, "notesRaw 82 0")], 0.7, d=dl, keep=True)
+    sv2 = open(os.path.join(dl, "saves.txt")).read().split("\n")[0].split()
+    ok = ok and len(sv2) == _F.SNAP and abs(float(sv2[vol]) - 0.4) < 1e-3
     check("an older saves.txt still loads (SHAPE added)", ok,
           f"{len(sv)} fields (of {_F.SNAP}; older {_F.SNAP - added}), Volume {sv[vol] if len(sv) > vol else '-'}")
 

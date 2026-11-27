@@ -112,9 +112,10 @@ class Param:
     """name: shown on screen (6 letters at most); key: its name in the layer, when two pages show the same name
     (the two LFOs' Rate, the gate envelope's Attack ...). target=True: an LFO's target - a choice among the
     layer's parameters (model.targets)"""
-    def __init__(self, name, default=0.5, opts=None, lo=None, hi=None, key=None, target=False):
+    def __init__(self, name, default=0.5, opts=None, lo=None, hi=None, key=None, target=False, late=False):
         assert len(name) <= 6, name
         self.name, self.opts, self.lo, self.hi, self.key, self.target = name, opts, lo, hi, key or name, target
+        self.late = late         # (a global page's parameter added later: its slot after all the others - SLOTS)
         if target:
             self.default = (default + 0.5) / MAXC
             return
@@ -361,7 +362,9 @@ GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, l
                 # last CC that came in (to find what a controller sends)
                 ("MIDI", [Param("Profil", 0, opts=PROFILES), Param("Chans", 0, opts=["layers", "mpe"]),
                           Param("Zones", 0, opts=ONOFF), Param("LastCC", 0, lo=0, hi=127)]),
-                ("MIDI 2", [Param("Bend", 3, opts=["2", "12", "24", "48"]), Param("Press", 1, opts=["off", "expr", "breath"])]),
+                # NoteOt (NoteOut): every layer's notes out to MIDI, each layer on its own channel (2 drone ... 9 cloud)
+                ("MIDI 2", [Param("Bend", 3, opts=["2", "12", "24", "48"]), Param("Press", 1, opts=["off", "expr", "breath"]),
+                            Param("NoteOt", 0, opts=ONOFF, key="NoteOut", late=True)]),
                 ("PERFRM", [Param("Evolve", 1.0), Param("Morph", 0.3), Param("Volume", 0.55), Param("CmpGl", 0.25)]),
                 # the harmony assistant: the next chords ranked (Sugg shows one by name: aux + top E plays it and
                 # adds it to your own story), which kind, and listening (held notes pull the next chord)
@@ -447,7 +450,7 @@ def _add(key, p):
 
 for _, ps in GLOBAL_PAGES:
     for p in ps:
-        if isinstance(p, Param):
+        if isinstance(p, Param) and not p.late:
             _add(("g", None, p.key), p)
 LAYER_PAGES = {}
 for L in LAYERS:
@@ -458,10 +461,19 @@ for L in LAYERS:
     for e, ps in engines(L):
         for p in ps:
             _add((L, e, p.key), p)
-OLD_NSLOTS = len(SLOTS)  # (the slots before SHAPE: an older file's lines are this much shorter)
+# slots added since files were first saved go after all the others, so an older file's line is only shorter: its
+# slots stay where they are, and the newer ones take their defaults (features.widened, the editor's widen).
+# SLOT_HISTORY: how many slots there were before each addition, oldest first
+SLOT_HISTORY = [len(SLOTS)]
 for p in SHAPE:
     _add(("g", None, p.key), p)
+SLOT_HISTORY.append(len(SLOTS))
+for _, ps in GLOBAL_PAGES:          # (NoteOut)
+    for p in ps:
+        if isinstance(p, Param) and p.late:
+            _add(("g", None, p.key), p)
 NSLOTS = len(SLOTS)
+OLD_NSLOTS = SLOT_HISTORY[0]
 
 
 def S(layer, engine, name):

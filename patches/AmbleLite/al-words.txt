@@ -593,6 +593,7 @@ Filter
 Reso
 Drive
 Blur
+NoteOt
 C
 C#
 D
@@ -1730,6 +1731,8 @@ shimmr
 layers
 input
 both
+off
+on
 FAV
 LAYER
 ANALOG\ 1
@@ -4367,6 +4370,7 @@ NOTES
 LAT
 RUN*
 STOP*
+N
 analog
 fm
 spectr

@@ -163,25 +163,30 @@ def read_padded(c, tx, name, fname, n, fill):
 
 
 def widened(c, src, full):
-    """a line read from saves.txt or pieces.txt, made the current length: a line from before SHAPE (its slots,
-    M.SHAPE, came after the others) is as long as full less theirs - their defaults go in after its slots, where
-    they sit now. Any other line passes as it is"""
-    k = M.NSLOTS - M.OLD_NSLOTS
+    """a line read from saves.txt or pieces.txt, made the current length: a line saved before some slots were added
+    (M.SLOT_HISTORY: they come after all the others) is shorter by them - their defaults go in after its slots,
+    where they sit now. Any other line passes as it is"""
+    hs = M.SLOT_HISTORY
     t = c.to(src, "t l l")
-    old = c.ch((t, 1), "list length", f"expr $f1 == {full - k}", "t f f")
-    a, b = c.obj("spigot"), c.obj("spigot")
-    c.c((old, 1), 0, a, 1)
-    c.c(c.to((old, 0), "== 0"), 0, b, 1)
-    c.c((t, 0), 0, a, 0)
-    c.c((t, 0), 0, b, 0)
-    sp = c.to(a, f"list split {M.OLD_NSLOTS}")
-    ap = c.obj("list append")
-    defaults = " ".join(f"{p.default:g}" for _, p in M.SLOTS[M.OLD_NSLOTS:])
-    c.c(c.to((sp, 1), f"list prepend {defaults}"), 0, ap, 1)
-    c.c((sp, 0), 0, ap, 0)
+    ln = c.ch((t, 1), "list length")
+    gates = []
+    for h in hs + [None]:
+        g = c.obj("spigot")
+        test = (f"expr $f1 == {full - (M.NSLOTS - h)}" if h is not None else
+                "expr " + " && ".join(f"$f1 != {full - (M.NSLOTS - x)}" for x in hs))
+        c.c(c.to(ln, test), 0, g, 1)
+        c.c((t, 0), 0, g, 0)
+        gates.append(g)
+        c.col(220)
     out = c.obj("t l")
-    c.c(ap, 0, out, 0)
-    c.c(b, 0, out, 0)
+    for h, g in zip(hs, gates):
+        sp = c.to(g, f"list split {h}")
+        ap = c.obj("list append")
+        defaults = " ".join(f"{p.default:g}" for _, p in M.SLOTS[h:])
+        c.c(c.to((sp, 1), f"list prepend {defaults}"), 0, ap, 1)
+        c.c((sp, 0), 0, ap, 0)
+        c.c(ap, 0, out, 0)
+    c.c(gates[-1], 0, out, 0)
     return out
 
 

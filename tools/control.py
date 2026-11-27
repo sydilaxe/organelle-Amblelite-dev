@@ -166,7 +166,7 @@ def words():
     for key, items in (("name", names), ("opt", opts), ("page", pnames), ("note", M.NOTE_NAMES),
                        ("mode", [m for m, _ in M.MODES]), ("layer", [M.LAYER_LABEL[L] for L in LAYERS]),
                        ("short", [M.SHORT[L] for L in LAYERS]), ("qual", M.QUALS),
-                       ("misc", ["-", "RUN", "STOP", "M", ">", "NOTES", "LAT", "RUN*", "STOP*"])):
+                       ("misc", ["-", "RUN", "STOP", "M", ">", "NOTES", "LAT", "RUN*", "STOP*", "N"])):
         off[key] = len(lines)
         lines += [w if w else "-" for w in items]
     for L in LAYERS:

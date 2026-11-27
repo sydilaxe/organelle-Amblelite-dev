@@ -98,7 +98,9 @@ def run(c):
     proc(c, "al-rbar", [If(f"{opt(road)} > 0 && alrn > 0", [
         V("alrbar", "altick/32"),
         If(f"{opt(road)} == 1 && alrbar - alrb0 == alrsL[alrc] - 1 && alrc + 1 < alrn", toast("NEXT", "alrc + 2")),
-        If("alrhold == 0 && alrbar - alrb0 >= alrsL[alrc]", [Call("al-rnext")])])])
+        If("alrhold == 0 && alrbar - alrb0 >= alrsL[alrc]", [Call("al-rnext")]),
+        # (the play view's roadmap line moves on each bar)
+        If("alview == 0 && alpop == 0 && alpatv == 0", [Call("al-redraw")])])])
     proc(c, "al-rnext", [If("alrn > 0", [
         V("alrc", "if(alrc + 1 < alrn, alrc + 1, alrc)"), V("alrb0", "max(0, altick/32)"),
         Call("al-rapply")] + toast("SECTION", "alrc + 1") + [Call("al-redraw")])])

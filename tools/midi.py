@@ -16,7 +16,7 @@ actions: knob 1-8 (1-4 the page shown, 5-8 the next page), level <layer 1-8>, to
 <layer>, breath, start, stop, startstop, chordnext, chordprev, loop, loopstop, loopclear, pgnext, pgprev, play, mix,
 pattern. A note that is mapped does that instead of playing. LastCC (MIDI page) shows the last CC that came in."""
 import os
-from pdlib import Canvas, proc, V, T, Send, Call, SendL, If, Loop, run_steps
+from pdlib import Canvas, proc, V, T, Send, Call, SendL, If, Loop, run_steps, Later
 import model as M
 import korg
 from model import S, LAYERS, NOTE_LAYERS, MAXENG, MAXPAGES, MAXC
@@ -79,12 +79,12 @@ def write_profiles(out):
                                      for l in lines) + "\n")
 
 
-GLOBALS = dict(alcch=1, alpch=0, alpcc=0, almlay=0, albr=0, alcv2=0, alcc2=0, alact=0, alarg=0, alpl=0, albrq=0, albtg=-1, albl=0, alpfx=0,
+GLOBALS = dict(alminh=0, almint=-1, alxi=0, alxj=0, alxq=0, alxw=0, alxd=0, alxg=0, alxc=0, alcch=1, alpch=0, alpcc=0, almlay=0, albr=0, alcv2=0, alcc2=0, alact=0, alarg=0, alpl=0, albrq=0, albtg=-1, albl=0, alpfx=0,
                alpfn=0)
 
 
 def build(c):
-    for fn in (tables, notes, expression, breath, profiles, ccs):
+    for fn in (tables, notes, expression, breath, profiles, ccs, noteout):
         sc = Canvas("midi-" + fn.__name__, w=2600)
         c.sub(sc)
         fn(sc)
@@ -119,6 +119,10 @@ def zone_of(note):
 
 def notes(c):
     c.comment("MIDI notes: a mapped note does its action; else to a layer (channel, zone or the shown layer)")
+    # (the MIDI-in light: the play view redrawn as a note comes and once its 150 ms are over)
+    proc(c, "al-midiind", [If("alview == 0 && alpop == 0 && alpatv == 0", [Call("al-redraw")]),
+                           Later("al-midiind2", 160)])
+    proc(c, "al-midiind2", [If("alview == 0 && alpop == 0 && alpatv == 0", [Call("al-redraw")])])
     n = c.obj("notein")
     pk = c.obj("pack f f f")
     for i in (2, 1, 0):
@@ -133,6 +137,9 @@ def notes(c):
     lay = (f"if({opt(zones)} == 1 && {zone_of('almn')} >= 0, {zone_of('almn')}, "
            f"if({mpe} == 0 && almc >= 2 && almc <= {NL + 1}, almc - 2, allayer))")
     run_steps(c, (r, 0), [
+        # (the play view's MIDI-in light: on while a note is held, and for at least 150 ms after each one)
+        If("almv > 0", [V("alminh", "alminh + 1"), V("almint", "altime")], [V("alminh", "max(0, alminh - 1)")]),
+        Call("al-midiind"),
         V("almc", "(almc - 1) % 16 + 1"),
         If(f"alnta[(almc - 1)*128 + almn] > 0", [If("almv > 0", [V("alact", "alnta[(almc - 1)*128 + almn]"),
                                                                  V("alarg", "alntb[(almc - 1)*128 + almn]"),
@@ -338,3 +345,70 @@ def _pick(values, idx):
     for i in range(len(values) - 2, -1, -1):
         out = f"if({idx} == {i}, {values[i]}, {out})"
     return out
+
+
+# ---------------------------------------------------------------------------------------------- notes out
+def noteout(c):
+    """NoteOt (MIDI 2 page): every note the layers play goes out to MIDI - each layer on its own channel, as the
+    'layers' channels in (2 drone, 3 sub, 4 pads, 5-8 the lanes). Read from what the voices are sent: the drone, sub
+    and pads from their pitch (al-<L>-n) and gate (al-<L>-g: a gate opening or struck again is a note on, a gate
+    closing its note off, a new pitch under an open gate the old note off and the new on); the lanes from their
+    hits (a note on, its off after half the decay, 30 ms .. 0.5 s). Off: nothing is sent, and any note out is
+    ended"""
+    no = S("g", None, "NoteOut")
+    on = f"{opt(no)} == 1"
+    c.obj(f"array define alxn {NL * 4}")
+    c.obj(f"array define alxs {NL * 4}")
+    c.obj(f"array define alxv {NL * 4}")
+    c.c(c.m(c.recv("al-init"), " ".join(["-1"] * (NL * 4))), 0, c.obj("array set alxs"), 0)
+    # sending: 'al-xnote note vel ch'; 'al-xoff note ch ms' (an off later)
+    xn = c.ch(c.recv("al-xnote"), "unpack f f f")
+    nout = c.obj("noteout")
+    for i in (2, 1, 0):
+        c.c(xn, i, nout, i)
+    xo = c.ch(c.recv("al-xoff"), "unpack f f f")
+    pp = c.obj("pipe f f 0")
+    for i in (2, 1, 0):
+        c.c(xo, i, pp, i)
+    pk = c.obj("pack f f")
+    c.c((pp, 1), 0, pk, 1)
+    c.c((pp, 0), 0, pk, 0)
+    c.c(c.m(pk, "$1 0 $2"), 0, c.obj("s al-xnote"), 0)
+    vel = "max(1, min(127, int(alxv[alxi]*127 + 0.5)))"
+    noff = [SendL("al-xnote", ["alxs[alxi]", "0", "alxc"]), T("alxs", "alxi", "-1")]
+    non = [T("alxs", "alxi", "alxn[alxi]"), SendL("al-xnote", ["alxs[alxi]", vel, "alxc"])]
+    for li, L in enumerate(LAYERS):
+        if L == "cloud":
+            continue
+        if M.kind(L) == "perc":
+            r = c.ch(c.recv(f"al-{L}-hit"), "t b l")
+            up = c.to((r, 1), "unpack f f f f")
+            for i, nm in enumerate(("alxj", "alxq", "alxw", "alxd")):
+                c.c((up, i), 0, c.obj(f"v {nm}"), 0)
+            run_steps(c, (r, 0), [If(on, [
+                V("alxq", "int(alxq + 0.5)"), V("alxc", str(li + 2)),
+                SendL("al-xnote", ["alxq", "max(1, min(127, int(alxw*127 + 0.5)))", "alxc"]),
+                SendL("al-xoff", ["alxq", "alxc", "max(30, min(500, alxd*0.5))"])])])
+        else:
+            r = c.ch(c.recv(f"al-{L}-n"), "t b l")
+            up = c.to((r, 1), "unpack f f")
+            for i, nm in enumerate(("alxj", "alxq")):
+                c.c((up, i), 0, c.obj(f"v {nm}"), 0)
+            run_steps(c, (r, 0), [
+                V("alxi", f"{li * 4} + alxj"), V("alxc", str(li + 2)), T("alxn", "alxi", "int(alxq + 0.5)"),
+                If(f"{on} && alxs[alxi] >= 0 && alxs[alxi] != alxn[alxi]", noff + non)])
+            r = c.ch(c.recv(f"al-{L}-g"), "t b l")
+            up = c.to((r, 1), "unpack f f f")
+            for i, nm in enumerate(("alxj", "alxw", "alxg")):
+                c.c((up, i), 0, c.obj(f"v {nm}"), 0)
+            run_steps(c, (r, 0), [
+                V("alxi", f"{li * 4} + alxj"), V("alxc", str(li + 2)),
+                If("alxw > 0", [T("alxv", "alxi", "alxw"), If(f"{on} && (alxs[alxi] < 0 || alxg == 1)", [
+                    If("alxs[alxi] >= 0", noff), *non])],
+                   [If("alxs[alxi] >= 0", noff)])])
+        c.col(260)
+    # NoteOt turned off: every note out ended
+    proc(c, "al-xalloff", [Loop(str(NL * 4), "alxi", [If("alxs[alxi] >= 0", [
+        V("alxc", "int(alxi/4) + 2"), *noff])])])
+    c.c(c.ch(c.recv(f"al-s{no}"), "t b"), 0, c.obj("s al-xoffchk"), 0)
+    proc(c, "al-xoffchk", [If(f"{on} == 0", [Call("al-xalloff")])])

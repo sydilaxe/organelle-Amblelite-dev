@@ -61,7 +61,7 @@ FUNCS = {
     "al-patview": ("PATT", "The pattern view (every gate and lane as steps, a playhead under each), then the "
                               "roadmap view, then neither."),
     "al-global": ("GLOB", "The global pages (MAIN first); again: the next one."),
-    "al-notesmode": ("NOTES", "Notes mode: the Organelle keys play the shown layer; aux + low A# goes back to "
+    "al-notesmode": ("NOTES", "Notes mode (N in place of > before the shown layer on the play view): the Organelle keys play the shown layer; aux + low A# goes back to "
                               "functions."),
     "al-startstop": ("START", "Start / stop the clock (the patch loads silent and waits for it)."),
     "al-pgprev": ("PAGE <", "Page back (the shown layer's or the global pages)."),
@@ -262,6 +262,7 @@ DESC = {
     "g:MIDI:LastCC": "The last CC number that came in (to find what a controller sends).",
     "g:MIDI 2:Bend": "Pitch bend range in semitones.",
     "g:MIDI 2:Press": "MPE pressure: off, a note's level (expr), or the breath.",
+    "g:MIDI 2:NoteOt": "Notes out (off / on): every note the layers play goes out to MIDI, each layer on its own channel - 2 drone, 3 sub, 4 pads, 5-8 the lanes (the cloud has no notes). The drone, sub and pads as their gates open and close (a new chord under an open gate: the old note off, the new one on); the lanes as they are struck. A controller that echoes notes back (MIDI thru) would play them again: turn its thru off.",
     "g:PERFRM:Evolve": "The master Evolve: scales every layer's.",
     "g:PERFRM:Morph": "How long a recalled snapshot glides (0: at once).",
     "g:PERFRM:Volume": "The master volume (also MIX 3).",
