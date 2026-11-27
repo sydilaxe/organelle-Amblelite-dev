@@ -44,6 +44,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .between { justify-content: space-between; }
 .summary { font-family: var(--mono); font-size: .85rem; color: var(--muted); }
 .note { color: var(--muted); font-size: .85rem; max-width: 72ch; margin: 0; }
+.og:not([hidden]) { display: grid; gap: 8px; margin-top: 10px; }
 .status { font-size: .85rem; color: var(--accent); min-height: 1.2em; }
 .warn { color: var(--warn); }
 /* library: numbered slot keys */
@@ -122,6 +123,17 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
         <textarea id="paste" placeholder="Paste the text of pieces.txt or saves.txt here"></textarea>
         <div class="row"><button id="loadpaste" type="button">Load pasted text</button></div>
       </div></details>
+    <div class="og" id="og" hidden>
+      <p class="note">Opened from your Organelle's web server: this page reads and saves the files in <b id="ogdir"></b>.
+        Saving keeps each file's previous version beside it (pieces.txt.bak ...). The patch reads its files when it loads,
+        and writes them when you save on the Organelle - so reload the patch after saving here.</p>
+      <div class="row">
+        <button id="ogload" type="button">Load from the Organelle</button>
+        <button class="primary" id="ogsave" type="button">Save and reload the patch</button>
+        <button id="ogsaveonly" type="button">Save only</button>
+      </div>
+      <p class="note warn" id="ogconfirm" hidden></p>
+    </div>
     <p class="status" id="libstatus" role="status"></p>
   </section>
 
@@ -148,12 +160,13 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
     <p class="summary" id="mabout"></p>
     <div id="mgrid" class="pages"></div>
     <div class="field"><span class="label">controllers/user.txt</span><textarea class="out" id="outm" readonly></textarea>
-      <div class="row"><button class="primary" id="cpm" type="button">Copy user.txt</button><button id="dlm" type="button">Download</button></div></div>
+      <div class="row"><button class="primary" id="cpm" type="button">Copy user.txt</button><button id="dlm" type="button">Download</button>
+        <button class="ogonly" id="ogsavem" type="button" hidden>Save user.txt to the Organelle</button></div></div>
   </section>
 
   <section class="panel" aria-labelledby="h-files">
     <h2 id="h-files">Save to the Organelle</h2>
-    <p class="note">Copy a file's text and save it over the file of the same name in the AmbleLite folder on the Organelle (keep a copy of the old one). The patch reads both when it loads. Download works when this page is opened from the repository's docs folder.</p>
+    <p class="note">Easiest: open this page from the Organelle itself (planner.html in the AmbleLite folder, through the Organelle's web server - see the manual); then Save at the top writes these files there. Otherwise copy a file's text and save it over the file of the same name in the AmbleLite folder on the Organelle (keep a copy of the old one). The patch reads them when it loads.</p>
     <div class="files">
       <div class="field"><span class="label">pieces.txt</span><textarea class="out" id="outp" readonly></textarea>
         <div class="row"><button class="primary" id="cpp" type="button">Copy pieces.txt</button><button id="dlp" type="button">Download</button></div></div>
@@ -647,6 +660,68 @@ $("dlp").onclick = () => download($("outp").value, "pieces.txt");
 $("dls").onclick = () => download($("outs").value, "saves.txt");
 $("cpl").onclick = () => copy($("outl").value, $("outl"), "Copied loops.txt.");
 $("dll").onclick = () => download($("outl").value, "loops.txt");
+
+// ---- on the Organelle: this page opened through Organelle OS's web server (port 8080) as
+// /get_file?fpath=<card>/Patches/<folder>/planner.html - its /get_file reads the folder's files, /save writes them,
+// /reload_patch reloads the patch. Saving keeps the old text as <name>.bak; a file changed on the Organelle since it
+// was loaded here (a save there) is only overwritten when you say so
+const OG = (() => {
+  if (!/\/get_file$/.test(location.pathname)) return null;
+  const f = new URLSearchParams(location.search).get("fpath");
+  return f ? { dir: f.replace(/^\/+/, "").replace(/\/[^/]*$/, "") } : null;
+})();
+const ogSeen = {};
+async function ogGet(name) {
+  const r = await fetch(`/get_file?fpath=${encodeURIComponent(OG.dir + "/" + name)}&_=${Date.now()}`, { cache: "no-store" });
+  if (!r.ok) throw new Error(`${name}: ${r.status}`);
+  return r.text();
+}
+async function ogPut(name, text) {
+  const r = await fetch("/save", { method: "POST", body: new URLSearchParams({ fpath: OG.dir + "/" + name, content: text }) });
+  if (!r.ok) throw new Error(`${name}: ${r.status}`);
+}
+async function ogLoad() {
+  const got = [], none = [];
+  for (const name of ["loops.txt", "saves.txt", "pieces.txt"]) {     // (pieces last: it opens on a piece)
+    // (a fresh install has none of them until something is saved on the Organelle)
+    try { const t = await ogGet(name); ogSeen[name] = t; if (t.trim()) { load(t, name); got.push(name); } else none.push(name); }
+    catch (e) { ogSeen[name] = null; none.push(name); }
+  }
+  try { ogSeen["controllers/user.txt"] = await ogGet("controllers/user.txt"); } catch (e) { ogSeen["controllers/user.txt"] = null; }
+  $("libstatus").textContent = (got.length ? `Loaded ${got.join(", ")} from the Organelle.` : "Connected to the Organelle.") +
+    (none.length ? ` Not there yet: ${none.join(", ")} (nothing saved yet) - saving here creates ${none.length > 1 ? "them" : "it"}.` : "");
+}
+async function ogSave(files, reload, status, then) {
+  const now = {};
+  for (const name of Object.keys(files)) { try { now[name] = await ogGet(name); } catch (e) { now[name] = null; } }
+  const moved = Object.keys(files).filter(n => n in ogSeen && now[n] !== null && now[n] !== (ogSeen[n] ?? null));
+  const go = async () => {
+    try {
+      for (const [name, text] of Object.entries(files)) {
+        if (now[name] !== null && now[name] !== text) await ogPut(name + ".bak", now[name]);
+        await ogPut(name, text); ogSeen[name] = text;
+      }
+      if (reload) await fetch("/reload_patch", { method: "POST", body: new URLSearchParams({ path: "/" + OG.dir }) });
+      status.textContent = `Saved ${Object.keys(files).join(", ")} on the Organelle` +
+        (reload ? " and reloaded the patch." : ` (${then || "the patch takes them when it next loads"}).`);
+    } catch (e) { status.textContent = `Saving failed: ${e.message}. Nothing else was changed.`; }
+  };
+  if (!moved.length) return go();
+  const c = $("ogconfirm");
+  c.replaceChildren(`${moved.join(", ")} changed on the Organelle since you loaded ${moved.length > 1 ? "them" : "it"} here (a save there?). Save over ${moved.length > 1 ? "them" : "it"}? (The Organelle's version is kept as .bak.) `);
+  const yes = el("button", { type: "button", textContent: "Save over" }), no = el("button", { type: "button", textContent: "Cancel" });
+  yes.onclick = () => { c.hidden = true; go(); }; no.onclick = () => { c.hidden = true; status.textContent = "Not saved."; };
+  c.append(yes, " ", no); c.hidden = false;
+}
+if (OG) {
+  $("og").hidden = false; $("ogdir").textContent = "/" + OG.dir; $("ogsavem").hidden = false;
+  const lib3 = () => ({ "pieces.txt": $("outp").value, "saves.txt": $("outs").value, "loops.txt": $("outl").value });
+  $("ogload").onclick = ogLoad;
+  $("ogsave").onclick = () => ogSave(lib3(), true, $("libstatus"));
+  $("ogsaveonly").onclick = () => ogSave(lib3(), false, $("libstatus"));
+  $("ogsavem").onclick = () => ogSave({ "controllers/user.txt": $("outm").value }, false, $("filestatus"), "choose Profil: user on the MIDI page");
+  ogLoad();
+}
 
 // ---- controllers: the KORGs' controls, what each does (korg.py's design to start), user.txt
 const MD = D.midi;

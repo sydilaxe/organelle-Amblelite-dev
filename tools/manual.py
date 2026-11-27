@@ -722,7 +722,18 @@ def story():
             "every parameter of every layer and engine, the layers in, the latches, the FAV pages, the tapped rhythms, "
             "a piece's roadmap and its loops (shown as notes; each can be stopped, started or cleared). Copy the files "
             "back over the ones in the AmbleLite folder (keep copies of the old ones); the patch reads them when it "
-            "loads.")]
+            "loads."),
+          P("<b>From the Organelle itself</b> (Organelle OS with its web server, 5.x): the editor is in the AmbleLite "
+            "folder as planner.html. Join the Organelle to your WiFi (or its own hotspot) and start the web server "
+            "from the WiFi menu; on your phone or computer open "
+            "<b>http://&lt;the Organelle's address&gt;:8080/get_file?fpath=sdcard/Patches/AmbleLite/planner.html</b> "
+            "(usbdrive in place of sdcard when the patch is on a USB stick; the address is shown in the WiFi menu). "
+            "It reads the folder's files at once. <b>Save and reload</b> writes them and reloads the patch (the "
+            "sound stops for a moment); <b>Save only</b> writes them while the patch plays on - the patch takes them "
+            "when it next loads. Each save keeps the old file as .bak beside it, and a file the patch saved since "
+            "you opened the page is only overwritten when you say so. The Controllers section saves "
+            "controllers/user.txt the same way (choose Profil: user). The patch plays on while the web server runs; "
+            "stop it from the WiFi menu when you are done.")]
     # ---- the input
     s += [P("Audio input", H1), P(esc(DESC["g:INPUT:Mode"])), P(esc("Amount: " + DESC["g:INPUT:Amount"])),
           P("Off by default: the input is ignored and costs nothing until a mode is chosen.")]
