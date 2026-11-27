@@ -219,6 +219,7 @@ h3 { font-family: var(--display); font-weight: 600; font-size: .85rem; letter-sp
 .lede { color: var(--muted); margin: 4px 0 0; max-width: 68ch; }
 .label { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+section.panel[hidden] { display: none; }
 .field { display: grid; gap: 6px; min-width: 0; }
 input[type=number], select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
@@ -294,7 +295,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
 <div class="wrap">
   <header>
     <h1>Amble Lite Editor</h1>
-    <p class="lede">Open your pieces.txt, saves.txt and loops.txt from the AmbleLite folder, edit any piece or snapshot page by page as on the Organelle, then copy the files back. A piece also holds its roadmap and its loops. Below: what your KORG controllers do.</p>
+    <p class="lede">Edit any piece or snapshot page by page as on the Organelle - a piece also holds its roadmap and its loops - and what your KORG controllers do. Open this page from the Organelle over WiFi (its web server) and it reads and saves the AmbleLite folder's files there.</p>
   </header>
 
   <section class="panel" aria-labelledby="h-lib">
@@ -350,7 +351,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
         <button class="ogonly" id="ogsavem" type="button" hidden>Save user.txt to the Organelle</button></div></div>
   </section>
 
-  <section class="panel" aria-labelledby="h-files">
+  <section class="panel" aria-labelledby="h-files" id="files">
     <h2 id="h-files">Save to the Organelle</h2>
     <p class="note">Easiest: open this page from the Organelle itself (planner.html in the AmbleLite folder, through the Organelle's web server - see the manual); then Save at the top writes these files there. Otherwise copy a file's text and save it over the file of the same name in the AmbleLite folder on the Organelle (keep a copy of the old one). The patch reads them when it loads.</p>
     <div class="files">
@@ -785,6 +786,7 @@ async function ogSave(files, reload, status, then) {
 }
 if (OG) {
   $("og").hidden = false; $("ogdir").textContent = "/" + OG.dir; $("ogsavem").hidden = false;
+  $("files").hidden = true;        // (copying the files by hand: only when the page is opened elsewhere)
   const lib3 = () => ({ "pieces.txt": $("outp").value, "saves.txt": $("outs").value, "loops.txt": $("outl").value });
   $("ogload").onclick = ogLoad;
   $("ogsave").onclick = () => ogSave(lib3(), true, $("libstatus"));
