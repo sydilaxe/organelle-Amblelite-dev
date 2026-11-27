@@ -109,9 +109,9 @@ PAT_X, PAT_W = 16, 7         # the pattern view: cells from x 16, 7 pixels each 
 MIX_X0, MIX_DX, MIX_W = 1, 13, 9    # the MIX view's columns (the 8 layers; the master volume at x 112)
 # the play view: the roadmap strip, then the layer tiles (8 across, x 0 .. 118), a bar under the shown one, the
 # loops' states under that
-INFO_Y, ROAD_Y, ROAD_H = 22, 32, 8
+INFO_Y, ROAD_Y, ROAD_H = 22, 32, 7
 TILE_DX, TILE_W, TILE_Y, TILE_H = 15, 13, 36, 11
-ICON_Y, LABEL_Y = 46, 54
+ICON_Y, LABEL_Y = 45, 54
 
 
 def layer_icon(L, cx, cy):
@@ -190,7 +190,16 @@ def build(c):
         x = TILE_DX * li
         lab = M.SHORT[L][1] if M.kind(L) == "perc" else M.SHORT[L][0]
         on, off = layer_icon(L, x + TILE_W // 2, ICON_Y)
-        play += [If(f"alin[{li}]", on, off),
+        # (a loop: recording or overdubbing (allps 1, 3) - the sign blinks on the 8ths; playing or overdubbing
+        # (2, 3) - a line under it fills as the loop goes round; stopped (4) - a dot there)
+        sign = [If(f"alin[{li}]", on, off)]
+        if li < len(M.NOTE_LAYERS):
+            ph = f"((max(0, alc24) - allp0[{li}]) % max(1, allpl[{li}]))/max(1, allpl[{li}])"
+            sign = [If(f"(allps[{li}] == 1 || allps[{li}] == 3) && int(max(0, altick)/4) % 2", [], sign),
+                    If(f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0",
+                       [SendL(OSC, [f"max(1, int({ph}*{TILE_W}))"], f"/oled/gFillArea 3 {x} {ICON_Y + 6} $1 1 1")]),
+                    If(f"allps[{li}] == 4", [Fill(x + TILE_W // 2, ICON_Y + 6, 1, 1, 1)])]
+        play += sign + [
                  Send(OSC, f"/oled/gPrintln 3 {x + 2} {LABEL_Y} 8 1 {lab}"),
                  If(f"allayer == {li}", [Send(OSC, f"/oled/gInvertArea 3 {x} {LABEL_Y - 1} {TILE_W} 9")])]
         if li < len(M.NOTE_LAYERS):

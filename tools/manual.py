@@ -582,7 +582,9 @@ def story():
                         "it is in, an outline when out: the drone a triangle, the sub a wave, the pads a figure of "
                         "eight, the lanes a stone in its ring, the cloud a square; under each its letter (the shown "
                         "layer's inverted) and a loop's state beside it (R recording, P playing, O overdub, s "
-                        "stopped); at the right edge the MIDI-in light and N in notes mode."),
+                        "stopped). A loop also shows on its layer's sign: it blinks while recording or "
+                        "overdubbing, a line under it fills as the loop goes round, a dot there when stopped. At "
+                        "the right edge the MIDI-in light and N in notes mode."),
              ("2-layer-fav", "A layer's pages: the layer and engine, the page (n / count), the four knobs."),
              ("4-layer-lfo", "An LFO page: its target is any of the layer's parameters."),
              ("6-mix", "MIX: each layer's level as a column (hollow: out), V the master; cpu / pk on top."),

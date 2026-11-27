@@ -563,7 +563,9 @@ def transport(c):
         If("altick > 0 && altick % 32 == 0", [Call("al-phase")]),
         If("altick % 32 == 0", [Call("al-rbar")]),
         # (the play view's countdown: redrawn each beat while a roadmap runs - roadmap.al-rbar redraws each bar)
-        If("altick % 8 == 4 && alrn > 0 && alview == 0 && alpop == 0 && alpatv == 0", [Call("al-redraw")]),
+        # (and each 8th while a loop records, overdubs or plays: its line moves, a recording sign blinks)
+        If(f"alview == 0 && alpop == 0 && alpatv == 0 && ((altick % 8 == 4 && alrn > 0) || (altick % 4 == 0 && ("
+           + " || ".join(f"allps[{i}] > 0" for i in range(len(M.NOTE_LAYERS))) + ")))", [Call("al-redraw")]),
         If("alpatv", [Call("al-patmark")])])
     proc(c, "al-phase", [If(f"{opt(S(L, None, 'Phase'))} > 0 && (altick/32) % "
                             f"{pick(M.PHASE_BARS, opt(S(L, None, 'Phase')))} == 0",
