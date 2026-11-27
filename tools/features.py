@@ -162,6 +162,29 @@ def read_padded(c, tx, name, fname, n, fill):
         c.obj(f"text delete {name}"), 0)
 
 
+def widened(c, src, full):
+    """a line read from saves.txt or pieces.txt, made the current length: a line from before SHAPE (its slots,
+    M.SHAPE, came after the others) is as long as full less theirs - their defaults go in after its slots, where
+    they sit now. Any other line passes as it is"""
+    k = M.NSLOTS - M.OLD_NSLOTS
+    t = c.to(src, "t l l")
+    old = c.ch((t, 1), "list length", f"expr $f1 == {full - k}", "t f f")
+    a, b = c.obj("spigot"), c.obj("spigot")
+    c.c((old, 1), 0, a, 1)
+    c.c(c.to((old, 0), "== 0"), 0, b, 1)
+    c.c((t, 0), 0, a, 0)
+    c.c((t, 0), 0, b, 0)
+    sp = c.to(a, f"list split {M.OLD_NSLOTS}")
+    ap = c.obj("list append")
+    defaults = " ".join(f"{p.default:g}" for _, p in M.SLOTS[M.OLD_NSLOTS:])
+    c.c(c.to((sp, 1), f"list prepend {defaults}"), 0, ap, 1)
+    c.c((sp, 0), 0, ap, 0)
+    out = c.obj("t l")
+    c.c(ap, 0, out, 0)
+    c.c(b, 0, out, 0)
+    return out
+
+
 def saves(c):
     c.comment("the snapshots: saves.txt, a line each (parameters, latches, mutes, FAV pages); line 16: COMPARE's")
     tx = c.obj("text define al-saves")
@@ -189,7 +212,7 @@ def saves(c):
     c.c(c.m((rd, 1), "0"), 0, c.obj("v alsnv"), 0)
     tg = c.obj("text get al-saves")
     c.c((rd, 0), 0, tg, 0)
-    ln = c.to(tg, "t l l")
+    ln = c.to(widened(c, tg, SNAP), "t l l")
     c.c(c.ch((ln, 1), "list length", f"expr $f1 == {SNAP}"), 0, c.obj("v alsnv"), 0)
     sp = c.obj("list split " + str(SNAP))
     c.c((ln, 0), 0, sp, 0)
@@ -278,7 +301,7 @@ def pieces(c):
     c.c(c.m((rd, 1), "0"), 0, c.obj("v alpcv"), 0)
     tg = c.obj("text get al-pieces")
     c.c((rd, 0), 0, tg, 0)
-    ln = c.to(tg, "t l l")
+    ln = c.to(widened(c, tg, PIECE), "t l l")
     c.c(c.ch((ln, 1), "list length", f"expr $f1 == {PIECE}"), 0, c.obj("v alpcv"), 0)
     c.c(c.ch((ln, 0), f"list split {PIECE}"), 0, c.obj("array set alpc"), 0)
     loops_store(c, slot)

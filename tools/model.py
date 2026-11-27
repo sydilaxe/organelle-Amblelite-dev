@@ -375,9 +375,15 @@ GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, l
                 ("SECTN", [Param("Sect", 1, lo=1, hi=MAXSEC), Param("Bars", 16, lo=4, hi=64, key="SBars"),
                            Param("Story", 0, opts=[n for n, _, _ in STORIES], key="SStory"),
                            Param("Role", 0, opts=ROLES, key="SRole")])]
-# the MIX view's pages: existing slots (layer, name)
+# SHAPE: the whole sound at once, on the master (gen.master_shape) - Filter (high-pass left of the middle, neutral at
+# it, low-pass right of it), its Reso, Drive (saturation), Blur (a diffuse smear). Their slots come after every other
+# slot (SLOTS), so snapshots and pieces saved before them still load (features.widened)
+SHAPE = [Param("Filter", 0.5), Param("Reso", 0.3), Param("Drive", 0.0), Param("Blur", 0.0)]
+# the MIX view's pages: existing slots (layer, name); SHAPE last (the MIX key held: straight to it)
 MIX_PAGES = [("MIX 1", [("drone", "Level"), ("sub", "Level"), ("pad", "Level"), ("cloud", "Level")]),
-             ("MIX 2", [(L, "Level") for L in LANES]), ("MIX 3", [("g", "Volume")])]
+             ("MIX 2", [(L, "Level") for L in LANES]), ("MIX 3", [("g", "Volume")]),
+             ("SHAPE", [("g", p.key) for p in SHAPE])]
+SHAPE_PAGE = len(MIX_PAGES) - 1
 
 # ---- Evolve: what moves in each engine, and how far (a weight: the share of the knob's range at Evolve 100 %).
 # ("Cutoff", None) is the layer's filter. Each target moves on two slow sines of its own (control.evolve).
@@ -452,6 +458,9 @@ for L in LAYERS:
     for e, ps in engines(L):
         for p in ps:
             _add((L, e, p.key), p)
+OLD_NSLOTS = len(SLOTS)  # (the slots before SHAPE: an older file's lines are this much shorter)
+for p in SHAPE:
+    _add(("g", None, p.key), p)
 NSLOTS = len(SLOTS)
 
 

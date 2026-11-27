@@ -319,6 +319,9 @@ def pages(c):
                              [V("alview", str(VIEW_GLOBAL)), V("alpage", "0")]), Call("al-pickreset"), Call("al-popup")])
     proc(c, "al-mix", [V("alstick", "0"), If(f"alview == {VIEW_MIX}", [V("alpage", f"(alpage + 1) % {len(M.MIX_PAGES)}")],
                           [V("alview", str(VIEW_MIX)), V("alpage", "0")]), V("alpop", "0"), Call("al-pickreset")])
+    # (the MIX key held, or a controller's 'shape': the SHAPE page - the whole sound at once)
+    proc(c, "al-shape", [V("alstick", "0"), V("alview", str(VIEW_MIX)), V("alpage", str(M.SHAPE_PAGE)), V("alpop", "0"),
+                         Call("al-pickreset"), Call("al-redraw")])
     proc(c, "al-layerview", [V("alstick", "0"), V("alview", "0"), V("alpage", "0"), V("alpop", "0"), V("alpatv", "0"),
                              Call("al-pickreset")])
     # (low F#: the pattern view, then the roadmap view, then neither)
@@ -344,6 +347,7 @@ def pages(c):
 # the low white keys: the seven layers - a tap: in / out; held (LAYER_HOLD ms): its pages
 LAYER_KEYS = {60: "drone", 62: "sub", 64: "pad", 65: "perc1", 67: "perc2", 69: "perc3", 71: "perc4", 79: "cloud"}
 LAYER_HOLD = 400
+MIX_HOLD = 400          # ms: the MIX key held this long - the SHAPE page
 # the low black keys: the views and notes mode; the top octave: playing - the page arrows on the black keys either side
 # of chord prev (top D), the looper's three keys together (F, F#, G#), clear at the far end
 KEY = dict(home=61, mix=63, pattern=66, glob=68, notes=70, start=72, pgprev=73, chordprev=74, pgnext=75,
@@ -382,9 +386,12 @@ def organelle(c):
     # a layer key pressed: wait - held LAYER_HOLD ms shows its pages; let go before: a tap toggles it in / out
     key_down = [If(f"alaux == 0 && ({lk})",
                    [V("alhk", "alkn"), V("alhd", "0"), Arm("al-khold", str(LAYER_HOLD), stop="al-khstop")],
-                   [V("alauxu", "if(alaux, 1, alauxu)"), Send("al-keyfn")])]
+                   [V("alauxu", "if(alaux, 1, alauxu)"), Send("al-keyfn"),
+                    # (the MIX key: a press as ever; held MIX_HOLD ms, the SHAPE page)
+                    If(f"alaux == 0 && alkn == {KEY['mix']}", [Arm("al-shape", str(MIX_HOLD), stop="al-mixhstop")])])]
     key_up = [If("alkn == alhk", [Send("al-khstop"), If("alhd == 0", [SendL("al-togk", ["alkn"])]),
-                                  V("alhk", "-1")])]
+                                  V("alhk", "-1")]),
+              If(f"alkn == {KEY['mix']}", [Send("al-mixhstop")])]
     # (while aux erases, the keys in notes mode play - what you play replaces what is erased - but the loop key
     # still switches to play)
     normal = [If(f"alnotes && (alaux == 0 || (alerase && alkn != {KEY['loop']}))",

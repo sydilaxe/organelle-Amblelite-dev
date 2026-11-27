@@ -37,12 +37,27 @@ def key_name(k):
     return ("low " if k < 72 else "top ") + NAMES[k % 12]
 
 
+# the SHAPE page's knobs (model.SHAPE)
+SHAPE_DESC = {
+    "Filter": "One sweep from high-pass to low-pass. Left of the middle a high-pass rises from 20 Hz to 6 kHz "
+              "(thinner); at the middle (50) nothing is filtered; right of it a low-pass falls from 20 kHz to 100 Hz "
+              "(darker).",
+    "Reso": "The filter's resonance: a peak at the moving cutoff, rising as Filter leaves the middle - up high it "
+            "sings.",
+    "Drive": "Soft saturation of the whole mix, a little lopsided for even harmonics: warm at first, raw and electric "
+             "turned up. The level is held about where it was.",
+    "Blur": "A diffuse smear: the sound spread into a short, wide wash; turned up, more of it and a longer, darker "
+            "tail (up to about 4 s) that drifts between the sides.",
+}
+
+
 # ---------------------------------------------------------------------------------------------- the keys
 # what each function does: a short label (the key chart) and a sentence (the manual)
 FUNCS = {
     "al-layerview": ("HOME", "Home: the play view (also from MIX, pattern and roadmap views)."),
-    "al-mix": ("MIX", "The MIX view: the knobs set the layers' levels; again: the next mix page. Its top line "
-                      "shows the CPU (cpu: this second, pk: the highest of the last ten)."),
+    "al-mix": ("MIX", "The MIX view: the knobs set the layers' levels; again: the next mix page (MIX 1, MIX 2, "
+                      "MIX 3, SHAPE). Held: the SHAPE page at once - Filter, Reso, Drive, Blur on the whole sound. "
+                      "Its top line shows the CPU (cpu: this second, pk: the highest of the last ten)."),
     "al-patview": ("PATT", "The pattern view (every gate and lane as steps, a playhead under each), then the "
                               "roadmap view, then neither."),
     "al-global": ("GLOB", "The global pages (MAIN first); again: the next one."),
@@ -525,7 +540,8 @@ def story():
             "<b>top C#</b> page forward / back. <b>Tap aux</b> to go home to the play view.",
             "The first page (FAV) has the <b>engine</b> on knob 1. Try the engines; each moves slowly on its own "
             "(Evolve).",
-            "<b>Low D#</b>: the MIX view - the knobs are the layers' levels; again for the lanes and the master.",
+            "<b>Low D#</b>: the MIX view - the knobs are the layers' levels; again for the lanes and the master. "
+            "<b>Hold</b> it for SHAPE: a filter, drive and blur over everything.",
             "<b>Low G#</b>: the global pages - MAIN (key, tempo, scale, mode), LAYERS and LANES (every layer's "
             "engine), PIECE ...",
             "Play: <b>low A#</b> turns the Organelle keys into notes for the shown layer (or play a MIDI keyboard). "
@@ -618,6 +634,18 @@ def story():
                 rows.append([M.LAYER_LABEL[p[0]], "its engines" if p[1] == "Engine" else "layers / input / both",
                              "", f"The {M.LAYER_LABEL[p[0]]}'s {p[1].lower()} (as on its own pages)."])
         s += [KeepTogether([P(title, H3), table(rows, [0.75, 1.9, 0.6, 4.0])])]
+    # ---- SHAPE
+    rows = [["Knob", "Range", "Default", "What it does"]]
+    for p in M.SHAPE:
+        rows.append([p.name, value_text(p), default_text(p), SHAPE_DESC[p.key]])
+    s += [KeepTogether([P("SHAPE (the MIX view's last page)", H3),
+                        P("The whole sound at once, for playing live. Hold <b>low D#</b> to open it (or press low D# "
+                          "until it shows); a controller's <i>shape</i> action opens it too, and <i>param g.Filter</i> "
+                          "(g.Reso, g.Drive, g.Blur) puts a knob on a fader. In order on the master: Drive, Blur, "
+                          "then the Filter over both, the tail included. At neutral (Filter at 50, Drive and Blur at "
+                          "0) each is switched off and costs nothing. Saved with snapshots and pieces; older saves "
+                          "load with SHAPE at neutral.", BODY),
+                        table(rows, [0.75, 1.9, 0.6, 4.0])])]
     # ---- looping
     s += [PageBreak(), P("Looping and tapped rhythms", H1),
           P("<b>Top F</b> (aux + top F in notes mode) is the shown layer's looper. Each layer has its own, with its "

@@ -27,11 +27,14 @@ ACTIONS = ["knob", "level", "toggle", "show", "breath", "start", "stop", "starts
            # param <key>: one parameter, always (its key: layer.Name, layer.engine.Name, g.Name - slots.txt);
            # engp <layer*10 + k>: the layer's engine's k-th parameter, whichever engine it plays; loopl <layer>: that
            # layer's loop key (shown, then the loop pressed)
-           "param", "engp", "loopl"]
+           "param", "engp", "loopl",
+           # shape: the MIX view's SHAPE page (Filter, Reso, Drive, Blur) at once
+           "shape"]
 # what the one-press actions call
 CALLS = dict(start="al-start", stop="al-stop", startstop="al-startstop", chordnext="al-chordnext",
              chordprev="al-chordprev", loop="al-loop", loopstop="al-loopstop", loopclear="al-loopclear",
-             pgnext="al-pgnext", pgprev="al-pgprev", play="al-layerview", mix="al-mix", pattern="al-patview")
+             pgnext="al-pgnext", pgprev="al-pgprev", play="al-layerview", mix="al-mix", pattern="al-patview",
+             shape="al-shape")
 
 # the factory profiles. Korg's factory settings differ between versions and scenes: LastCC (MIDI page) shows what
 # yours sends - edit controllers/user.txt (kept across updates) to match.

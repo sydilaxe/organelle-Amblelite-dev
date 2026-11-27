@@ -389,6 +389,33 @@ def main():
     b1, b2 = bright(seg(a, 1.2, 1.9)), bright(seg(a, 2.6, 3.4))
     check("breath moves a layer's target", b2 > b1 * 1.3, f"brightness {b1:.0f} -> {b2:.0f} Hz")
 
+    # SHAPE (the MIX view's last page): the filter's two sides, Drive and Blur on the saws' chord
+    fl, dr, bl = (M.S("g", None, n) for n in ("Filter", "Drive", "Blur"))
+    saws = solo("pad") + [(52, f"al-set {M.S('pad', None, 'Evolve')} 0"),
+                          (54, f"al-set {M.S('pad', None, 'Engine')} {M.engine_value('pad', 'saws')}"), START]
+    shp = {}
+    for name, ev in (("flat", []), ("lp", [(60, f"al-set {fl} 0.85")]), ("hp", [(60, f"al-set {fl} 0.15")]),
+                     ("drive", [(60, f"al-set {dr} 1")]), ("blur", [(60, f"al-set {bl} 1")])):
+        _, x = run(saws + ev, 3)
+        shp[name] = seg(x, 1.5, 3)
+    br = {k: bright(v) for k, v in shp.items()}
+    lvl = {k: H.rms_db(v) for k, v in shp.items()}
+    sane = all(not np.isnan(v).any() and float(np.abs(v).max()) < 0.99 for v in shp.values())
+    def low_db(x, hz=250):
+        m = x.mean(axis=1)
+        sp = np.abs(np.fft.rfft(m * np.hanning(len(m)))) ** 2
+        f = np.fft.rfftfreq(len(m), 1 / SR)
+        return 10 * np.log10(sp[f < hz].sum() + 1e-12)
+    lo_cut = low_db(shp["flat"]) - low_db(shp["hp"])
+    check("SHAPE Filter: low-pass right, high-pass left", br["lp"] < 0.6 * br["flat"] and lo_cut > 12,
+          f"brightness {br['flat']:.0f} Hz, LP {br['lp']:.0f}; HP: below 250 Hz {lo_cut:.1f} dB down")
+    check("SHAPE Drive: brighter, the level kept", br["drive"] > 1.15 * br["flat"] and abs(lvl["drive"] - lvl["flat"]) < 6
+          and sane, f"brightness {br['drive']:.0f} Hz, level {lvl['flat']:.1f} -> {lvl['drive']:.1f} dB")
+    corr = lambda v: float(np.corrcoef(v[:, 0], v[:, 1])[0, 1])
+    check("SHAPE Blur: wider, the level kept", corr(shp["blur"]) < corr(shp["flat"]) - 0.05 and
+          abs(lvl["blur"] - lvl["flat"]) < 6, f"L/R correlation {corr(shp['flat']):.2f} -> {corr(shp['blur']):.2f}, "
+          f"level {lvl['flat']:.1f} -> {lvl['blur']:.1f} dB")
+
     # zones: low notes to the sub, middle ones to the pads (whatever is shown)
     log, _ = H.run([(50, f"al-set {zones} 0.75"), START, (500, "al-midi 40 100 1"), (600, "al-midi 60 100 1")], 1,
                    d=d, keep=True, prints=("al-user-sub", "al-user-pad"))
@@ -697,6 +724,22 @@ def main():
     lens = [len(l.split()) for l in pl]
     check("an older pieces.txt keeps its slots", len(pl) == 8 and lens[3] == features_piece_len() and
           lens[1] == features_piece_len() and lens[0] == 1, f"{len(pl)} lines, fields {lens}")
+
+    # a saves.txt from before the SHAPE page (each line shorter by its slots): a snapshot there still loads - its
+    # Volume comes back - and saved again it is written at the full length, the SHAPE knobs at their defaults
+    import features as _F
+    vol, added = M.S("g", None, "Volume"), M.NSLOTS - M.OLD_NSLOTS
+    oldsnap = [f"{p.default:g}" for _, p in M.SLOTS[:M.OLD_NSLOTS]] + ["0"] * (_F.SNAP - M.NSLOTS)
+    oldsnap[vol] = "0.3"
+    open(os.path.join(dl, "saves.txt"), "w").write(" ".join(oldsnap) + "\n" + "-1\n" * (_F.SCRATCH + 1))
+    H.run([(40, f"al-set {M.S('g', None, 'Morph')} 0"), (100, "notesRaw 82 100"), (120, "notesRaw 60 100"),
+           (140, "notesRaw 60 0"), (300, "aux 1"), (320, "notesRaw 60 100"), (340, "notesRaw 60 0"), (360, "aux 0"),
+           (380, "notesRaw 82 0")], 0.7, d=dl, keep=True)
+    sv = open(os.path.join(dl, "saves.txt")).read().split("\n")[0].split()
+    ok = len(sv) == _F.SNAP and abs(float(sv[vol]) - 0.3) < 1e-3 and \
+        all(abs(float(sv[M.OLD_NSLOTS + i]) - p.default) < 1e-3 for i, p in enumerate(M.SHAPE))
+    check("an older saves.txt still loads (SHAPE added)", ok,
+          f"{len(sv)} fields (of {_F.SNAP}; older {_F.SNAP - added}), Volume {sv[vol] if len(sv) > vol else '-'}")
 
     # ... and the web editor reads that loops.txt (the loop: 4 events, playing) and writes it back the same
     import shutil as _sh2

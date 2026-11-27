@@ -589,6 +589,10 @@ Scan
 Jitter
 Revrse
 Source
+Filter
+Reso
+Drive
+Blur
 C
 C#
 D
@@ -4033,7 +4037,7 @@ SECTN
 MIX\ 1
 MIX\ 2
 MIX\ 3
--
+SHAPE
 -
 -
 -

@@ -10,7 +10,7 @@ WHAT = {**{f"al-sel-{L}": f"show the {M.LAYER_LABEL[L]} pages" for L in M.LAYERS
         "al-startstop": "start / stop", "al-clear": "clear the shown layer (back to its default)",
         "al-chordprev": "previous chord", "al-chordnext": "next chord",
         "al-layerview": "the play view (back from MIX / pattern / pages)",
-        "al-mix": "the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)",
+        "al-mix": "the MIX view: knobs set levels (again: the next mix page; held: SHAPE - Filter, Reso, Drive, Blur on the whole sound); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)",
         "al-patview": "the pattern view (every gate and lane as steps), then the roadmap view, then neither",
         "al-loop": "the shown layer's looper: arm (it starts on the next bar; free: on your first note; again: at once), the first pass, then overdub until a press switches to play (again: overdub)",
         "al-loopstop": "the shown layer's loop: stop / play", "al-loopclear": "clear the shown layer's loop",

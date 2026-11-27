@@ -18,7 +18,7 @@ knob pops up in the play view closes 3 s after the last turn.
 
 THE OTHER KEYS (one press each): the low black keys the views, the top octave playing
   low C#   the play view (back from MIX / pattern / pages)
-  low D#   the MIX view: knobs set levels (again: the next mix page); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)
+  low D#   the MIX view: knobs set levels (again: the next mix page; held: SHAPE - Filter, Reso, Drive, Blur on the whole sound); its top line shows the CPU (cpu: this second, pk: the highest of the last ten, % of one core)
   low F#   the pattern view (every gate and lane as steps), then the roadmap view, then neither
   low G#   the global pages: MAIN (key, tempo, scale, mode), LAYERS and LANES (each layer's engine), STORY, SYNC, MIDI, MIDI 2, PERFRM, HARMNY, ROAD, ROAD 2, SECTN (again: the next one)
   low A#   notes mode: the Organelle keys play the shown layer (again: back to functions)

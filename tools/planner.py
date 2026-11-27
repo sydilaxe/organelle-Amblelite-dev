@@ -47,7 +47,7 @@ def data():
         rhythm.append(dict(layer=M.LAYERS.index(L), steps=M.S(L, None, "Steps"), patt=ps, tapped=1 if lane else 2))
     names = [n for n, _, _ in M.STORIES]
     nslots = M.NSLOTS
-    lay = dict(nslots=nslots, nl=nl, maxeng=M.MAXENG, latch=nslots, inn=nslots + nl, fav=nslots + 2 * nl,
+    lay = dict(nslots=nslots, oldNslots=M.OLD_NSLOTS, nl=nl, maxeng=M.MAXENG, latch=nslots, inn=nslots + nl, fav=nslots + 2 * nl,
                favn=F.FAVN, tap=nslots + 2 * nl + F.FAVN, tapn=F.TAPN, snap=F.SNAP, piece=F.PIECE, maxsec=M.MAXSEC,
                pieces=F.PIECES, saves=F.SAVE_SLOTS, saveLines=F.SCRATCH + 2, loopLayers=F.LOOP_LAYERS,
                maxev=F.MAXEV, maxclk=F.MAXCLK, bar=F.BAR)
@@ -86,17 +86,24 @@ const C = (() => {
     if (t.length && t[t.length - 1].trim() === "") t.pop();
     return t.map(l => l.trim());
   }
-  // a file: a record a line; '-1' (or an empty line) an empty slot
+  // a file: a record a line; '-1' (or an empty line) an empty slot. A line from before the SHAPE page (its slots
+  // came after the others: the line that much shorter) gets their defaults where they sit now
+  const added = Y.nslots - Y.oldNslots;
+  function widen(a, len) {
+    if (added > 0 && a.length === len - added)
+      return [...a.slice(0, Y.oldNslots), ...D.slots.slice(Y.oldNslots).map(s => s.d), ...a.slice(Y.oldNslots)];
+    return a;
+  }
   function parse(text, len) {
     return lines(text).map(l => {
-      const a = l ? l.split(/\s+/).map(Number) : [];
+      const a = widen(l ? l.split(/\s+/).map(Number) : [], len);
       return a.length === len && a.every(Number.isFinite) ? a : null;
     });
   }
   let kindOf = function (text) {
     const lens = lines(text).filter(Boolean).map(l => l.split(/\s+/).length);
-    if (lens.includes(Y.piece)) return "piece";
-    if (lens.includes(Y.snap)) return "snap";
+    if (lens.includes(Y.piece) || lens.includes(Y.piece - added)) return "piece";
+    if (lens.includes(Y.snap) || lens.includes(Y.snap - added)) return "snap";
     return null;
   };
   function write(recs) { return recs.map(r => r ? r.map(q).join(" ") : "-1").join("\n") + "\n"; }
@@ -172,7 +179,7 @@ const C = (() => {
   }
   const _kind = kindOf;
   kindOf = text => _kind(text) || (isLoops(text) ? "loops" : null);
-  return { Y, defaults, parse, kindOf, write, parseLoops, loop, asPiece, asSnap, layerOf, engine, targets, choices, name, index, number,
+  return { Y, defaults, parse, widen, kindOf, write, parseLoops, loop, asPiece, asSnap, layerOf, engine, targets, choices, name, index, number,
            text, setIndex, setNumber, favAt, road, setRoad, optIndex };
 })();
 """
@@ -363,6 +370,10 @@ function store() { try { localStorage.setItem("al-lib", JSON.stringify({ lib, cu
 function restore() {
   try {
     const s = JSON.parse(localStorage.getItem("al-lib") || "null");
+    if (s && s.lib && Array.isArray(s.lib.pieces) && Array.isArray(s.lib.saves)) {
+      s.lib.pieces = s.lib.pieces.map(r => r && C.widen(r, Y.piece));
+      s.lib.saves = s.lib.saves.map(r => r && C.widen(r, Y.snap));
+    }
     if (s && s.lib && s.lib.pieces.length === Y.pieces && s.lib.saves.length === Y.saveLines &&
         [...s.lib.pieces, ...s.lib.saves].every(r => r === null || r.length === Y.piece || r.length === Y.snap)) {
       lib = s.lib; if (!Array.isArray(lib.loops) || lib.loops.length !== Y.pieces * Y.loopLayers) lib.loops = null;
@@ -713,7 +724,7 @@ const ACTS = [["", "—"], ["knob", "Page knob"], ["level", "Layer level"], ["pa
   ["breath", "Breath"], ["toggle", "Layer in / out"], ["show", "Show layer"], ["loopl", "Layer's loop key"],
   ["start", "Start"], ["stop", "Stop"], ["startstop", "Start / stop"], ["chordnext", "Next chord"], ["chordprev", "Previous chord"],
   ["loop", "Loop key"], ["loopstop", "Loop stop"], ["loopclear", "Loop clear"], ["pgnext", "Next page"], ["pgprev", "Previous page"],
-  ["play", "Play view"], ["mix", "MIX view"], ["pattern", "Pattern view"]];
+  ["play", "Play view"], ["mix", "MIX view"], ["shape", "SHAPE page"], ["pattern", "Pattern view"]];
 const fresh = () => JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(MD.devices).map(([k, d]) => [k, d.scenes.map(x => x.map)]))));
 let mmap = fresh(), mdev = "nanoktl", mscene = 0;
 try { const m = JSON.parse(localStorage.getItem("al-midi") || "null"); if (m && m.nanoktl && m.nanokey) mmap = m; } catch (e) {}

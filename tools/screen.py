@@ -10,7 +10,7 @@ Redraws are throttled: at most one every 60 ms, however fast knobs turn."""
 from pdlib import Canvas, proc, If, Call, SendL, Send, run_steps
 import model as M
 from model import S, LAYERS
-from control import words, opt, num, ctx, npages, QUALS, MODE_SLOT, VIEW_GLOBAL
+from control import words, opt, num, ctx, npages, QUALS, MODE_SLOT, VIEW_GLOBAL, VIEW_MIX
 
 OSC = "oscOut"
 
@@ -170,7 +170,8 @@ def build(c):
                  SendL(OSC, [str(23 + 10 * li), f"max(1, int(alp[{lvl}]*20))"], "/oled/gFillArea 3 106 $1 $2 5 1")]
     play += [Call("al-r-perc")]
     # ---- layer view
-    lay = [If("alview", [Call("al-r-ghead")], [Call("al-r-lhead")]), Call("al-r-page")]
+    lay = [If(f"alview == {VIEW_MIX}", [Send(OSC, "/oled/gPrintln 3 0 0 8 1 MIX")],
+              [If("alview", [Call("al-r-ghead")], [Call("al-r-lhead")])]), Call("al-r-page")]
     row(c, "al-r-ghead", 0, 0, [("w", f"{OFF['global']}")])
     row(c, "al-r-lhead", 0, 0, [("w", f"if(alview, {OFF['global']}, {OFF['layer']} + allayer)"),
                                 ("w", f"if(alview, {misc('-')}, {eng_word('allayer')})")])
@@ -252,11 +253,12 @@ def build(c):
     proc(c, "al-patmark", [If("alpatv == 1 && alpop == 0 && altick % 2 == 0", mark)])
     roadv = road_view(c)
     # (the MIX view, after its first frame: only the header and the columns cleared and drawn - its labels stay)
-    mixing = "alpop == 0 && alview == 2"
+    shape = f"alview == {VIEW_MIX} && alpage == {M.SHAPE_PAGE}"     # (SHAPE: drawn as a page of knobs)
+    mixing = f"alpop == 0 && alview == 2 && ({shape}) == 0"
     import vis
     VIS, visv = vis.VIEW_VIS, vis.frame()
     proc(c, "al-draw", [If(f"{mixing} && almixok", [Fill(0, 0, 128, 55, 0)], [Fill(0, 0, 128, 64, 0), V("almixok", "0")]),
-                        If("alpop", lay, [If(f"alview == 2", mixv, [If(f"alview == {VIS}", visv, [If("alpatv == 1", patv,
+                        If(f"alpop || ({shape})", lay, [If(f"alview == 2", mixv, [If(f"alview == {VIS}", visv, [If("alpatv == 1", patv,
                                                                        [If("alpatv == 2", roadv, play)])])])]),
                         If(f"({mixing}) == 0", [V("almixok", "0")]),
                         Send(OSC, "/oled/gFlip 3")])
