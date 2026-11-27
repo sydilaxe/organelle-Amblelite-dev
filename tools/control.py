@@ -17,7 +17,7 @@ PIECE_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("PIECE")
 MODE_SLOT, SCALE_SLOT = S("g", None, "Mode"), S("g", None, "Scale")
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
-GLOBALS = dict(alth=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
+GLOBALS = dict(alth=0, altcm=0, altcs=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
                alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
                alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0, alcb=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
@@ -562,6 +562,8 @@ def transport(c):
         # each bar: the lanes with a Phase move one step against the others (Reich's phasing, in steps)
         If("altick > 0 && altick % 32 == 0", [Call("al-phase")]),
         If("altick % 32 == 0", [Call("al-rbar")]),
+        # (the play view's countdown: redrawn each beat while a roadmap runs - roadmap.al-rbar redraws each bar)
+        If("altick % 8 == 4 && alrn > 0 && alview == 0 && alpop == 0 && alpatv == 0", [Call("al-redraw")]),
         If("alpatv", [Call("al-patmark")])])
     proc(c, "al-phase", [If(f"{opt(S(L, None, 'Phase'))} > 0 && (altick/32) % "
                             f"{pick(M.PHASE_BARS, opt(S(L, None, 'Phase')))} == 0",

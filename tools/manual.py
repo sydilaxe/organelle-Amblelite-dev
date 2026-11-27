@@ -576,11 +576,13 @@ def story():
     # ---- screens
     s += [PageBreak(), P("Screens", H1)]
     shots = [("1-play", "Play view (home): key, mode, tempo, RUN / STOP (RUN*: changed since the snapshot); the "
-                        "chord now and next (with a roadmap: the section, n / count); the roadmap as a strip - a box "
-                        "a section, as wide as its bars, the playing one filled, a playhead moving through it; a tile "
-                        "a layer (D S P 1 2 3 4 C) - filled when it is in, an outline when out - a bar under the "
-                        "shown one, and under that a loop's state (R recording, P playing, O overdub, s stopped); at "
-                        "the right edge the MIDI-in light and N in notes mode."),
+                        "chord now and next. With a roadmap: the section (n / count), the time left counting down "
+                        "and the piece's whole length, and the roadmap as a strip - a box a section, as wide as its "
+                        "bars, the playing one filled, a playhead moving through it. Then a sign a layer, filled when "
+                        "it is in, an outline when out: the drone a triangle, the sub a wave, the pads a figure of "
+                        "eight, the lanes a stone in its ring, the cloud a square; under each its letter (the shown "
+                        "layer's inverted) and a loop's state beside it (R recording, P playing, O overdub, s "
+                        "stopped); at the right edge the MIDI-in light and N in notes mode."),
              ("2-layer-fav", "A layer's pages: the layer and engine, the page (n / count), the four knobs."),
              ("4-layer-lfo", "An LFO page: its target is any of the layer's parameters."),
              ("6-mix", "MIX: each layer's level as a column (hollow: out), V the master; cpu / pk on top."),
