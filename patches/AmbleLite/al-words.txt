@@ -281,10 +281,10 @@ Bend
 Reso
 Mix
 Sweep
-Vowel
-Drift
+Bow
 Bright
-Breath
+Decay
+Spread
 Formnt
 Decay
 Sweep
@@ -594,6 +594,18 @@ Reso
 Drive
 Blur
 NoteOt
+Drop
+Drive
+Tone
+Detune
+Tone
+Drive
+Round
+Warm
+Tone
+Swell
+Source
+Breath
 C
 C#
 D
@@ -881,6 +893,9 @@ sine
 warm
 pulse
 fm
+boom
+reese
+dub
 artic
 legato
 porta
@@ -983,13 +998,13 @@ fm
 saws
 pwm
 wave
-vox
+voice
 part
 fold
 pulsr
 sync
 cz
-choir
+string
 vosim
 lissa
 chip
@@ -2053,52 +2068,52 @@ EVOLVE
 LOOP
 -
 -
+FAV
+LAYER
+BOOM\ 1
+ENV
+PLAY
+GATE
+GATE\ 2
+GATENV
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
 -
 -
+FAV
+LAYER
+REESE\ 1
+ENV
+PLAY
+GATE
+GATE\ 2
+GATENV
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
 -
 -
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
+FAV
+LAYER
+DUB\ 1
+ENV
+PLAY
+GATE
+GATE\ 2
+GATENV
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
 -
 -
 -
@@ -2327,7 +2342,8 @@ EVOLVE
 LOOP
 FAV
 LAYER
-VOX\ 1
+VOICE\ 1
+VOICE\ 2
 ENV
 PLAY
 GATE
@@ -2340,7 +2356,6 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
--
 FAV
 LAYER
 PART\ 1
@@ -2423,7 +2438,7 @@ LOOP
 -
 FAV
 LAYER
-CHOIR\ 1
+STRING\ 1
 ENV
 PLAY
 GATE
@@ -4382,18 +4397,21 @@ sine
 warm
 pulse
 fm
+boom
+reese
+dub
 sine
 fm
 saws
 pwm
 wave
-vox
+voice
 part
 fold
 pulsr
 sync
 cz
-choir
+string
 vosim
 lissa
 chip

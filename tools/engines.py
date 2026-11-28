@@ -1,7 +1,7 @@
 """The sound engines, by layer. Each builder takes (s, ins) - the engine canvas and its inputs (dsp.engine_canvas) -
 and returns (L, R) before the engine's own fade. Parameters by name: P(name) is the slot; prm / cx turn it into a
 signal. Nothing here is random: the only movement is what the parameters ask for."""
-from dsp import mul, add, sub, prm, prmx
+from dsp import mul, add, sub, div, prm, prmx
 from model import S, ENGINES, kind
 
 FM_RATIOS = [0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7]
@@ -215,6 +215,73 @@ def sub_fm(s, ins, L):
     growl = add(s, s.to(mul(s, s.obj("osc~ 0.07"), prm(s, P("Growl"))), "*~ 0.5"), s.obj("sig~ 1"))
     idx = mul(s, cx(s, [P("Index")], f"1.2*{a(P('Index'))}*{a(P('Index'))}"), growl)
     o = s.to(fm2(s, f, ratio, idx, s.to(prm(s, P("Fdbk")), "*~ 0.2")), "*~ 0.6")
+    return o, o
+
+
+def _soft(s, sig, drive):
+    """soft saturation: (sig x drive~) / (1 + |sig x drive~|), the level kept near the input's"""
+    y = mul(s, sig, drive)
+    return s.ch(div(s, y, s.ch(y, "abs~", "+~ 1")), "*~ 1.3")
+
+
+def sub_boom(s, ins, L):
+    """a deep sine that drops into its note on each new note (Drop: from up to an octave above, over 120 ms) - an
+    808's boom - driven (Drive) and darkened (Tone)"""
+    f, env, note = ins
+    P = lambda n: S("sub", "boom", n)
+    pe = s.obj("vline~")
+    s.c(s.m(s.to(note, "t b"), "1, 0 120"), 0, pe, 0)
+    drop = mul(s, s.ch(pe, "*~ 1"), cx(s, [P("Drop")], f"{a(P('Drop'))}"))
+    fq = mul(s, f, s.to(drop, "+~ 1"))
+    y = _soft(s, s.to(fq, "osc~"), cx(s, [P("Drive")], f"1 + 6*{a(P('Drive'))}*{a(P('Drive'))}"))
+    tone = cx(s, [P("Tone")], f"80*pow(15, {a(P('Tone'))})")
+    lp = s.obj("lop~")
+    s.c(y, 0, lp, 0)
+    s.c(tone, 0, lp, 1)
+    o = s.to(add(s, lp, s.to(s.to(f, "osc~"), "*~ 0.3")), "*~ 0.8")
+    return o, o
+
+
+def sub_reese(s, ins, L):
+    """two saws a little apart (Detune: the beating that moves it), a sine under them for weight, through a
+    resonant low-pass (Tone) and driven (Drive) - a reese: thick, slowly phasing; each side its own detune"""
+    f, env, note = ins
+    P = lambda n: S("sub", "reese", n)
+    dt = cx(s, [P("Detune")], f"0.002 + 0.012*{a(P('Detune'))}")
+    tone = cx(s, [P("Tone")], f"60*pow(25, {a(P('Tone'))})")
+    drv = cx(s, [P("Drive")], f"1 + 5*{a(P('Drive'))}*{a(P('Drive'))}")
+    outs = []
+    for side in (1, -1):
+        s1 = saw_n(s, mul(s, f, s.ch(dt, f"*~ {side}", "+~ 1")))
+        s2 = saw_n(s, mul(s, f, s.ch(dt, f"*~ {-side * 0.7}", "+~ 1")))
+        x = add(s, add(s, s1, s2), s.ch(f, "osc~", "*~ 1.2"))
+        v = s.obj("vcf~ 2")
+        s.c(x, 0, v, 0)
+        s.c(tone, 0, v, 1)
+        lp = s.obj("lop~")
+        s.c((v, 1), 0, lp, 0)
+        s.c(tone, 0, lp, 1)
+        outs.append(s.to(_soft(s, lp, drv), "*~ 0.7"))
+    return outs[0], outs[1]
+
+
+def sub_dub(s, ins, L):
+    """a dub bass: round and held - a sine with a touch of triangle (Round), warmed (Warm: a soft saturation), dark
+    (Tone: a low-pass 50 .. 600 Hz) and breathing (Swell: the low-pass moving slowly, about every 7 s)"""
+    f, env, note = ins
+    P = lambda n: S("sub", "dub", n)
+    rnd = prm(s, P("Round"))
+    tri = s.ch(f, "phasor~", "-~ 0.5", "abs~", "-~ 0.25", "*~ 4")
+    x = add(s, mul(s, s.to(f, "osc~"), s.ch(rnd, "*~ -1", "+~ 1")), mul(s, tri, rnd))
+    y = _soft(s, x, cx(s, [P("Warm")], f"1 + 4*{a(P('Warm'))}"))
+    sw = mul(s, s.obj("osc~ 0.14"), prm(s, P("Swell")))
+    cut = mul(s, cx(s, [P("Tone")], f"50*pow(12, {a(P('Tone'))})"), s.ch(sw, "*~ 0.6", "+~ 1"))
+    lp1, lp2 = s.obj("lop~"), s.obj("lop~")
+    s.c(y, 0, lp1, 0)
+    s.c(cut, 0, lp1, 1)
+    s.c(lp1, 0, lp2, 0)
+    s.c(cut, 0, lp2, 1)
+    o = s.to(add(s, lp2, s.ch(f, "osc~", "*~ 0.35")), "*~ 0.85")
     return o, o
 
 
@@ -502,6 +569,7 @@ def perc_metal(s, ins, L):
 BUILD = {
     ("drone", "analog"): drone_analog, ("drone", "fm"): drone_fm, ("drone", "spectr"): drone_spectr,
     ("sub", "sine"): sub_sine, ("sub", "warm"): sub_warm, ("sub", "pulse"): sub_pulse, ("sub", "fm"): sub_fm,
+    ("sub", "boom"): sub_boom, ("sub", "reese"): sub_reese, ("sub", "dub"): sub_dub,
     ("pad", "sine"): pad_sine, ("pad", "fm"): pad_fm, ("pad", "saws"): pad_saws, ("pad", "pwm"): pad_pwm,
     ("pad", "wave"): pad_wave,
     ("perc", "blip"): perc_blip, ("perc", "lpg"): perc_lpg, ("perc", "bowl"): perc_bowl, ("perc", "wood"): perc_wood,

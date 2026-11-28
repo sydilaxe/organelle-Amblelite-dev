@@ -816,6 +816,31 @@ def main():
     check("an older saves.txt still loads (SHAPE added)", ok,
           f"{len(sv)} fields (of {_F.SNAP}; older {_F.SNAP - added}), Volume {sv[vol] if len(sv) > vol else '-'}")
 
+    # a saves.txt from before the engine change (596 slots: the layout recorded in layout_v2.json): a pad on choir
+    # (its four values) and the sub on pulse - loaded and saved again: the pad on voice from glottal pulses with
+    # choir's vowel, drift and breath; the sub still on pulse (1 of 7 now)
+    import json as _json
+    lay2 = _json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "layout_v2.json")))
+    old = [f"{v:g}" for v in lay2["defaults"]] + ["0"] * (_F.SNAP - M.NSLOTS)
+    pe_, se_ = M.S("pad", None, "Engine"), M.S("sub", None, "Engine")
+    st_ = [M.S("pad", "string", p.key) for p in dict(M.engines("pad"))["string"]]
+    old[pe_], old[se_] = f"{11.5 / 16:g}", f"{2.5 / 4:g}"
+    for sl, v in zip(st_, ("0.8", "0.7", "0.2", "0.6")):
+        old[sl] = v
+    open(os.path.join(dl, "saves.txt"), "w").write(" ".join(old) + "\n" + "-1\n" * (_F.SCRATCH + 1))
+    H.run([(40, f"al-set {M.S('g', None, 'Morph')} 0"), (100, "notesRaw 82 100"), (120, "notesRaw 60 100"),
+           (140, "notesRaw 60 0"), (300, "aux 1"), (320, "notesRaw 60 100"), (340, "notesRaw 60 0"), (360, "aux 0"),
+           (380, "notesRaw 82 0")], 0.7, d=dl, keep=True)
+    sv3 = [float(x) for x in open(os.path.join(dl, "saves.txt")).read().split("\n")[0].split()]
+    vo_ = lambda k: sv3[M.S("pad", "voice", k)]
+    names_p, names_s = [e for e, _ in M.engines("pad")], [e for e, _ in M.engines("sub")]
+    pad_e, sub_e = names_p[min(15, int(sv3[pe_] * 16))], names_s[min(6, int(sv3[se_] * 7))]
+    ok = (len(sv3) == _F.SNAP and pad_e == "voice" and sub_e == "pulse" and abs(vo_("Source") - 1) < 1e-3 and
+          abs(vo_("Vowel") - 0.8) < 1e-3 and abs(vo_("Motion") - 0.7) < 1e-3 and abs(vo_("Breath") - 0.6) < 1e-3)
+    check("an older save: choir becomes voice, the sub keeps its engine", ok,
+          f"pad {pad_e} (Source {vo_('Source'):g}, Vowel {vo_('Vowel'):g}, Motion {vo_('Motion'):g}, "
+          f"Breath {vo_('Breath'):g}), sub {sub_e}")
+
     # ... and the web editor reads that loops.txt (the loop: 4 events, playing) and writes it back the same
     import shutil as _sh2
     if _sh2.which("node"):
@@ -885,7 +910,7 @@ if (step === "1") {
     check("only Pd's core objects (nothing from extra)", not found, ", ".join(found) or "none")
 
     # ---- every engine of every layer sounds (one second each, in turn), and nothing in Pd complains
-    for L in ("drone", "pad", "perc1"):
+    for L in ("drone", "sub", "pad", "perc1"):
         names = [e for e, _ in M.engines(L)]
         ev = solo(L) + [START] + [(1000 + 1000 * i, f"al-set {M.S(L, None, 'Engine')} {M.engine_value(L, e)}")
                                   for i, e in enumerate(names)]

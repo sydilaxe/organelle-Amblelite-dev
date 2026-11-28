@@ -119,6 +119,12 @@ ENGINE_DESC = {
     ("sub", "warm"): "A rounder saturation and the octave above.",
     ("sub", "pulse"): "A pulse of adjustable width, low-passed twice.",
     ("sub", "fm"): "2-operator FM with a slow growl in its index.",
+    ("sub", "boom"): "A deep sine that drops into each new note from up to an octave above (an 808's boom), "
+                     "driven and darkened.",
+    ("sub", "reese"): "Two saws a little apart over a sine, through a resonant low-pass and driven: thick, slowly "
+                      "phasing.",
+    ("sub", "dub"): "A dub bass: round and held - a sine with a touch of triangle, warmed, dark, the low-pass "
+                    "breathing slowly. For long held notes: Gate off or long, Sustain high, Release long.",
     ("pad", "sine"): "A sine with up to 8 harmonics built from it (Chebyshev), their slope and odd / even balance; "
                      "Chorus detunes the right side.",
     ("pad", "fm"): "Classic 2-operator FM with an index envelope at each note (EnvAmt, EnvDec).",
@@ -128,7 +134,8 @@ ENGINE_DESC = {
                     "sweeping low-pass - a Juno-like string.",
     ("pad", "wave"): "A wavetable from the shared bank: Pos scans its frames, 8-bit or smooth, a shimmer an octave "
                      "up, the right side detuned.",
-    ("pad", "vox"): "A saw through two vowel formants that drift; the right side sings the mirror vowel.",
+    ("pad", "voice"): "A voice: a source - from a bright saw to narrow glottal pulses (Source) - and a little breath "
+                      "through two vowel formants that drift; the right side sings the mirror vowel.",
     ("pad", "part"): "Four sines at a set of ratios (harmonic, bell, fifths, odd, stretched), each swelling on its "
                      "own cycle, placed left and right.",
     ("pad", "fold"): "A sine wavefolded and ringed by its sub-octave; Bias makes the fold lopsided (even "
@@ -138,8 +145,8 @@ ENGINE_DESC = {
     ("pad", "sync"): "A hard-synced saw, the slave's ratio sweeping slowly - an electric lead.",
     ("pad", "cz"): "Phase distortion (the Casio CZ): a bent-phase wave on the left, the resonant wave on the "
                    "right, crossed by Mix.",
-    ("pad", "choir"): "Glottal pulses and breath through two formants wandering through nine vowels; each side its "
-                      "own vowel.",
+    ("pad", "string"): "A bowed string: breathy noise or a saw through four narrow resonances at the note's "
+                       "harmonics, a hair stretched; long and singing with Decay up, the right side a little sharp.",
     ("pad", "vosim"): "VOSIM: three sin-squared pulses each period at a formant, each weaker than the last - "
                       "vowel-like, a little nasal.",
     ("pad", "lissa"): "Lissajous: the note on the left, a ratio of it on the right drifting in phase, so the "
@@ -163,6 +170,22 @@ ENGINE_DESC = {
 # ---------------------------------------------------------------------------------------------- the knobs
 # by name, or by context: 'page:Name' (a layer page), 'kind/engine/Name' (an engine), 'g:PAGE:Name' (global)
 DESC = {
+    "pad/voice/Source": "The source: a bright saw (0) to narrow glottal pulses (100) - vox to choir.",
+    "pad/voice/Breath": "Breath noise under the voice.",
+    "pad/string/Bow": "The excitation: breathy noise (0) to a saw (100).",
+    "pad/string/Bright": "How strongly the upper harmonics ring.",
+    "pad/string/Decay": "How narrow the resonances: how long the string rings and sings.",
+    "pad/string/Spread": "The right side's string a little sharp: width and a slow beat.",
+    "sub/boom/Drop": "How far each note drops in from (up to an octave above, over 120 ms).",
+    "sub/boom/Drive": "Saturation: harmonics that carry the sub on small speakers.",
+    "sub/boom/Tone": "A low-pass over it, 80 Hz .. 1.2 kHz.",
+    "sub/reese/Detune": "How far apart the two saws: the speed of the phasing.",
+    "sub/reese/Tone": "The resonant low-pass, 60 Hz .. 1.5 kHz.",
+    "sub/reese/Drive": "Saturation.",
+    "sub/dub/Round": "A sine (0) towards a triangle (100): a little more body.",
+    "sub/dub/Warm": "Soft saturation.",
+    "sub/dub/Tone": "The low-pass, 50 .. 600 Hz.",
+    "sub/dub/Swell": "The low-pass moving slowly (about every 7 s): a held note breathes.",
     # layer controls
     "LAYER:Engine": "The layer's sound engine (also on the LAYERS / LANES global pages).",
     "LAYER:Level": "The layer's level in the mix (as its MIX column).",

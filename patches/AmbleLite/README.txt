@@ -139,6 +139,6 @@ following it; Bars sets how often it moves on (manual: top D / top E).
 
 ENGINES
   DRONE  analog, fm, spectr, frost, choir, bowed, gendy
-  SUB    sine, warm, pulse, fm
-  PAD    sine, fm, saws, pwm, wave, vox, part, fold, pulsr, sync, cz, choir, vosim, lissa, chip, vector
+  SUB    sine, warm, pulse, fm, boom, reese, dub
+  PAD    sine, fm, saws, pwm, wave, voice, part, fold, pulsr, sync, cz, string, vosim, lissa, chip, vector
   PERC   blip, lpg, bowl, wood, metal, wave

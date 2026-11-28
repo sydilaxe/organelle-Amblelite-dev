@@ -179,7 +179,11 @@ def widened(c, src, full):
         gates.append(g)
         c.col(220)
     out = c.obj("t l")
+    # (alwold: the line just read was older - engine_fix then sets it right)
+    wo = c.obj("v alwold")
+    c.c(c.m(c.to(gates[-1], "t b"), "0"), 0, wo, 0)
     for h, g in zip(hs, gates):
+        c.c(c.m(c.to(g, "t b"), "1"), 0, wo, 0)
         sp = c.to(g, f"list split {h}")
         ap = c.obj("list append")
         defaults = " ".join(f"{p.default:g}" for _, p in M.SLOTS[h:])
@@ -188,6 +192,31 @@ def widened(c, src, full):
         c.c(ap, 0, out, 0)
     c.c(gates[-1], 0, out, 0)
     return out
+
+
+def engine_fix(arr):
+    """steps setting an older line (read into arr) right for the engine change: the sub's Engine was 1 of 4 (now 7,
+    the first four the same); a pad on choir becomes voice from glottal pulses, with choir's vowel, drift and
+    breath (choir's slots are string's now: back to its defaults); the sub's FAV pages for its new engines take
+    their defaults"""
+    se, pe = S("sub", None, "Engine"), S("pad", None, "Engine")
+    ns, npd = len(M.engines("sub")), len(M.engines("pad"))
+    st = [S("pad", "string", p.key) for p in dict(M.engines("pad"))["string"]]
+    vo = lambda k: S("pad", "voice", k)
+    ks, _, _ = M.knob_table()
+    li = LAYERS.index("sub")
+    fav = []
+    for ei in range(M.OLD_ENGINES["sub"], ns):
+        for k in range(4):
+            pos = NSLOTS + 2 * NL + (li * MAXENG + ei) * 4 + k
+            fav.append(T(arr, str(pos), str(ks[((li * MAXENG + ei) * MAXPAGES) * 4 + k])))
+    return [
+        T(arr, str(se), f"(min({M.OLD_ENGINES['sub'] - 1}, int({arr}[{se}]*{M.OLD_ENGINES['sub']})) + 0.5)/{ns}"),
+        If(f"min({npd - 1}, int({arr}[{pe}]*{npd})) == {M.CHOIR_INDEX}", [
+            T(arr, str(pe), f"({M.VOICE_INDEX} + 0.5)/{npd}"), T(arr, str(vo("Source")), "1"),
+            T(arr, str(vo("Vowel")), f"{arr}[{st[0]}]"), T(arr, str(vo("Motion")), f"{arr}[{st[1]}]"),
+            T(arr, str(vo("Breath")), f"{arr}[{st[3]}]")] +
+           [T(arr, str(sl), f"{p.default:g}") for sl, p in zip(st, dict(M.engines("pad"))["string"])])] + fav
 
 
 def saves(c):
@@ -234,8 +263,9 @@ def saves(c):
     proc(c, "al-save", [Call("al-gather"), SendL("al-snapwrite", ["alslot"]), ACopy("alsnap", 0, SNAP, "alsbase", 0),
                         V("alhasbase", "1"), V("alchg", "0"), V("alcmp", "0"), Call("al-redraw")]
          + toast("SAVED", "alslot + 1"))
+    proc(c, "al-wfix-snap", engine_fix("alsnap"))
     proc(c, "al-recall", [
-        SendL("al-snapread", ["alslot"]),
+        SendL("al-snapread", ["alslot"]), If("alsnv && alwold", [Call("al-wfix-snap")]),
         If("alsnv", [V("allast", "alslot"), ACopy("alsnap", 0, SNAP, "alsbase", 0), V("alhasbase", "1"),
                      V("alcmp", "0"), Call("al-apply"), V("alchg", "0"), Call("al-redraw")]
            + toast("LOADED", "alslot + 1"), toast("EMPTY"))])
@@ -310,7 +340,8 @@ def pieces(c):
     c.c(c.ch((ln, 1), "list length", f"expr $f1 == {PIECE}"), 0, c.obj("v alpcv"), 0)
     c.c(c.ch((ln, 0), f"list split {PIECE}"), 0, c.obj("array set alpc"), 0)
     loops_store(c, slot)
-    proc(c, "al-pload", [SendL("al-pcread", [slot]), If("alpcv", [
+    proc(c, "al-wfix-pc", engine_fix("alpc"))
+    proc(c, "al-pload", [SendL("al-pcread", [slot]), If("alpcv && alwold", [Call("al-wfix-pc")]), If("alpcv", [
         ACopy("alpc", 0, SNAP, "alsnap", 0), V("alrn", f"alpc[{SNAP}]")] +
         [ACopy("alpc", SNAP + 1 + k * M.MAXSEC, M.MAXSEC, a_, 0) for a_, k in road] +
         [V("alpinst", "1"), Call("al-apply"), V("alpinst", "0"), Call("al-lpload"), Call("al-rcpload"), V("alrc", "0"), V("alrb0", "0"),
@@ -542,7 +573,7 @@ def opt_layer(key, n):
     return f"min({n - 1}, int(alp[{sl}]*{n}))"
 
 
-GLOBALS = dict(alhasbase=0, alchg=0, alapl=0, alcmpg=0, alpinst=0, alpcv=0, allj=0, allq=0, alftg=-1, alfold=0, alfnew=0, alfph=0, alfv=0, allftime=0, altw=-1, altn=-1, alslot=0, allast=-1,
+GLOBALS = dict(alwold=0, alhasbase=0, alchg=0, alapl=0, alcmpg=0, alpinst=0, alpcv=0, allj=0, allq=0, alftg=-1, alfold=0, alfnew=0, alfph=0, alfv=0, allftime=0, altw=-1, altn=-1, alslot=0, allast=-1,
                alcmp=0, alsnv=0, alsi=0, almdur=0, almt0=0, almp=0, almcnt=0, alslh=0, alslu=0, alasv=0,
                allx=0, allst=0, allln=0, allcn=0, allbn=0, allrt=0, allk=0, alli=0, allsz=0, allpos=0, alzl=0, allbp=0, albdirty=0)
 for _li in range(NL):

@@ -24,11 +24,19 @@ PART_SETS = ["harm", "bell", "fifths", "odd", "strtch"]
 PART_RATIOS = [[2, 3, 4], [2.76, 5.4, 8.93], [1.5, 3, 4.5], [3, 5, 7], [2.02, 3.05, 4.1]]
 
 
-def pad_vox(s, ins, L):
-    """a saw through two vowel formants that drift; the right side sings the mirror vowel (Amble's vox)"""
+def pad_voice(s, ins, L):
+    """vox and choir in one: a source - Source from a bright saw to narrow glottal pulses - and a little breath
+    (Breath) through two vowel formants that drift (Motion); the right side sings the mirror vowel (Amble's vox and
+    choir)"""
     f, env, note = ins
-    P = lambda n: S("pad", "vox", n)
-    saw = saw_n(s, f)
+    P = lambda n: S("pad", "voice", n)
+    sv = prm(s, P("Source"))
+    glot = s.ch(f, "phasor~", "-~ 0.5", "*~ 2", "abs~")
+    gp = s.obj("pow~ 8")
+    s.c(glot, 0, gp, 0)
+    gl = s.ch(gp, "hip~ 60", "*~ 2.5")
+    br = mul(s, s.ch(s.obj("noise~"), "hip~ 300"), s.to(prm(s, P("Breath")), "*~ 0.3"))
+    saw = add(s, add(s, mul(s, saw_n(s, f), s.ch(sv, "*~ -1", "+~ 1")), mul(s, gl, sv)), br)
     vw = cx(s, [P("Vowel")], f"0.6 + 0.8*{a(P('Vowel'))}")
     mo = prm(s, P("Motion"))
     l1 = mul(s, vosc(s, 0.031), mo)
@@ -187,6 +195,36 @@ def _vowel_tables(s, vtab):
         vals = [VOWELS[-1][j]] + [v[j] for v in VOWELS] + [VOWELS[0][j], VOWELS[1][j]]
         s.obj(f"array define {vtab}{j} {len(vals)}")
         s.c(s.m(lb, " ".join(str(x) for x in vals)), 0, s.obj(f"array set {vtab}{j}"), 0)
+
+
+def pad_string(s, ins, L):
+    """a string, bowed: an excitation - Bow from breathy noise to a saw - through four narrow resonances at the
+    note's first four harmonics, a hair stretched (as a real string's); Bright: how strong the upper ones ring;
+    Decay: how narrow (how long they ring - a held, singing string up high); the right side's string a little
+    sharp (Spread) - resonant, a little raw"""
+    f, env, note = ins
+    P = lambda n: S("pad", "string", n)
+    bw = prm(s, P("Bow"))
+    ex = add(s, mul(s, s.ch(s.obj("noise~"), "lop~ 3000"), s.ch(bw, "*~ -1", "+~ 1")),
+             mul(s, s.to(saw_n(s, f), "*~ 0.5"), bw))
+    q = s.ch(s.recv(f"al-s{P('Decay')}"), "expr 10 + 140*$f1*$f1")
+    gq = cx(s, [P("Decay")], f"0.35*sqrt(10 + 140*{a(P('Decay'))}*{a(P('Decay'))})")
+    gains = cx(s, [P("Bright")], "; ".join(f"pow(0.2 + 0.65*{a(P('Bright'))}, {k})" for k in (1, 2, 3)), outs=3)
+    sp = cx(s, [P("Spread")], f"1 + 0.008*{a(P('Spread'))}")
+    outs = []
+    for side in (0, 1):
+        fs = f if side == 0 else mul(s, f, sp)
+        sm = s.obj("+~")
+        for k, h in enumerate((1, 2.003, 3.009, 4.018)):
+            v = s.obj("vcf~ 30")
+            s.c(ex, 0, v, 0)
+            s.c(s.to(fs, f"*~ {h}"), 0, v, 1)
+            s.c(q, 0, v, 2)
+            o = v if k == 0 else mul(s, v, gains[k - 1])
+            s.c(o, 0, sm, 0)
+        outs.append(mul(s, sm, gq))
+        s.col(240)
+    return outs[0], outs[1]
 
 
 def pad_choir(s, ins, L):
@@ -498,8 +536,8 @@ def perc_wave(s, ins, L):
 
 
 BUILD2 = {
-    ("pad", "vox"): pad_vox, ("pad", "part"): pad_part, ("pad", "fold"): pad_fold, ("pad", "pulsr"): pad_pulsr,
-    ("pad", "sync"): pad_sync, ("pad", "cz"): pad_cz, ("pad", "choir"): pad_choir, ("pad", "vosim"): pad_vosim,
+    ("pad", "voice"): pad_voice, ("pad", "part"): pad_part, ("pad", "fold"): pad_fold, ("pad", "pulsr"): pad_pulsr,
+    ("pad", "sync"): pad_sync, ("pad", "cz"): pad_cz, ("pad", "string"): pad_string, ("pad", "vosim"): pad_vosim,
     ("pad", "lissa"): pad_lissa, ("pad", "chip"): pad_chip, ("pad", "vector"): pad_vector,
     ("drone", "frost"): drone_frost, ("drone", "choir"): drone_choir, ("drone", "bowed"): drone_bowed,
     ("drone", "gendy"): drone_gendy,

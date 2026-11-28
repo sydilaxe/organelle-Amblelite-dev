@@ -241,7 +241,9 @@ def targets(layer, engine):
     else:
         own = ["Cutoff", "Level", "Pan", "Attack", "Decay", "Sustn", "Releas", "GAtk", "GDec", "GSus", "GRel",
                "Length", "Swing"]
-    out = [S(layer, engine, p.key) for p in dict(engines(layer))[engine]] + [S(layer, None, k) for k in own]
+    ps = dict(engines(layer))[engine]
+    out = ([S(layer, engine, p.key) for p in ps if not p.late] + [S(layer, None, k) for k in own] +
+           [S(layer, engine, p.key) for p in ps if p.late])      # (added later: last, so the others keep their places)
     assert len(out) < MAXC, (layer, engine, len(out))
     return out
 
@@ -292,6 +294,11 @@ ENGINES = {
         ("pulse", [Param("Width", 0.5), Param("Body", 0.5)]),
         ("fm", [Param("Ratio", 1, opts=["0.5", "1", "1.5", "2", "3"]), Param("Index", 0.3), Param("Fdbk", 0.0),
                 Param("Growl", 0.3)]),
+        # (added later: their slots after all the others - late)
+        ("boom", [Param("Drop", 0.5, late=True), Param("Drive", 0.4, late=True), Param("Tone", 0.4, late=True)]),
+        ("reese", [Param("Detune", 0.4, late=True), Param("Tone", 0.4, late=True), Param("Drive", 0.3, late=True)]),
+        ("dub", [Param("Round", 0.3, late=True), Param("Warm", 0.4, late=True), Param("Tone", 0.35, late=True),
+                 Param("Swell", 0.3, late=True)]),
     ],
     "pad": [
         ("sine", [Param("Harm", 0.0), Param("Slope", 0.5), Param("OddEv", 0.5), Param("Count", 6, opts=[str(n) for n in range(2, 9)]),
@@ -304,14 +311,17 @@ ENGINES = {
                  Param("Bright", 0.6), Param("Sweep", 0.4)]),
         ("wave", [Param("Table", 0, opts=WAVE_TABLES), Param("Pos", 0.3), Param("Mode", 1, opts=["8bit", "smooth"]),
                   Param("Shimr", 0.0), Param("Detune", 0.3)]),
-        ("vox", [Param("Vowel", 0.5), Param("Motion", 0.4), Param("Reso", 0.4), Param("Body", 0.4)]),
+        # voice (vox and choir together): Source from a saw to glottal pulses, Breath (both added later: late)
+        ("voice", [Param("Vowel", 0.5), Param("Motion", 0.4), Param("Reso", 0.4), Param("Body", 0.4),
+                   Param("Source", 0.0, late=True), Param("Breath", 0.0, late=True)]),
         ("part", [Param("Set", 0, opts=["harm", "bell", "fifths", "odd", "strtch"]), Param("Tilt", 0.5),
                   Param("Swell", 0.4), Param("Spread", 0.6)]),
         ("fold", [Param("Fold", 0.4), Param("Sub", 0.3), Param("Bias", 0.5), Param("Motion", 0.3)]),
         ("pulsr", [Param("Formnt", 0.5), Param("Cycles", 0.4), Param("Sweep", 0.4), Param("Spread", 0.5)]),
         ("sync", [Param("Ratio", 0.4), Param("Sweep", 0.4), Param("Rate", 0.3), Param("Detune", 0.3)]),
         ("cz", [Param("Bend", 0.4), Param("Reso", 0.3), Param("Mix", 0.5), Param("Sweep", 0.4)]),
-        ("choir", [Param("Vowel", 0.5), Param("Drift", 0.5), Param("Bright", 0.5), Param("Breath", 0.2)]),
+        # string (in choir's place - its four slots, so nothing saved moves)
+        ("string", [Param("Bow", 0.4), Param("Bright", 0.5), Param("Decay", 0.6), Param("Spread", 0.5)]),
         ("vosim", [Param("Formnt", 0.5), Param("Decay", 0.5), Param("Sweep", 0.3), Param("Spread", 0.5)]),
         ("lissa", [Param("Ratio", 1, opts=["1:1", "3:2", "2:1", "4:3", "5:4"]), Param("Drift", 0.4),
                    Param("Bright", 0.3), Param("Cross", 0.25)]),
@@ -398,6 +408,9 @@ EVOLVE = {
     ("sub", "warm"): [("Octave", 0.4), ("Body", 0.3)],
     ("sub", "pulse"): [("Width", 0.5), ("Body", 0.3)],
     ("sub", "fm"): [("Index", 0.4), ("Growl", 0.3)],
+    ("sub", "boom"): [("Tone", 0.3), ("Drive", 0.2)],
+    ("sub", "reese"): [("Detune", 0.4), ("Tone", 0.3)],
+    ("sub", "dub"): [("Tone", 0.3), ("Round", 0.3)],
     ("pad", "sine"): [("Harm", 0.5), ("Slope", 0.4), ("OddEv", 0.5), (None, 0.3)],
     ("pad", "fm"): [("Index", 0.5), ("Fdbk", 0.3), ("EnvAmt", 0.3), (None, 0.3)],
     ("pad", "saws"): [("Detune", 0.3), ("Spread", 0.4), ("Centre", 0.4), ("Bright", 0.4), (None, 0.3)],
@@ -407,13 +420,13 @@ EVOLVE = {
     ("drone", "choir"): [("Vowel", 0.5), ("Breath", 0.3), (None, 0.2)],
     ("drone", "bowed"): [("Press", 0.4), ("Body", 0.3), (None, 0.2)],
     ("drone", "gendy"): [("Steps", 0.4), ("Rough", 0.3), (None, 0.2)],
-    ("pad", "vox"): [("Vowel", 0.4), ("Reso", 0.2), (None, 0.3)],
+    ("pad", "voice"): [("Vowel", 0.4), ("Reso", 0.2), (None, 0.3)],
     ("pad", "part"): [("Tilt", 0.4), ("Swell", 0.3), (None, 0.3)],
     ("pad", "fold"): [("Fold", 0.4), ("Bias", 0.3), (None, 0.25)],
     ("pad", "pulsr"): [("Formnt", 0.4), ("Cycles", 0.3), (None, 0.3)],
     ("pad", "sync"): [("Ratio", 0.3), (None, 0.3)],
     ("pad", "cz"): [("Bend", 0.4), ("Mix", 0.3), (None, 0.3)],
-    ("pad", "choir"): [("Vowel", 0.5), ("Bright", 0.3), (None, 0.2)],
+    ("pad", "string"): [("Bright", 0.3), ("Bow", 0.3), (None, 0.2)],
     ("pad", "vosim"): [("Formnt", 0.4), ("Decay", 0.3), (None, 0.2)],
     ("pad", "lissa"): [("Drift", 0.3), ("Bright", 0.3), ("Cross", 0.3)],
     ("pad", "chip"): [("Tri", 0.3), ("Crush", 0.2)],
@@ -460,7 +473,8 @@ for L in LAYERS:
             _add((L, None, p.key), p)
     for e, ps in engines(L):
         for p in ps:
-            _add((L, e, p.key), p)
+            if not p.late:
+                _add((L, e, p.key), p)
 # slots added since files were first saved go after all the others, so an older file's line is only shorter: its
 # slots stay where they are, and the newer ones take their defaults (features.widened, the editor's widen).
 # SLOT_HISTORY: how many slots there were before each addition, oldest first
@@ -472,7 +486,18 @@ for _, ps in GLOBAL_PAGES:          # (NoteOut)
     for p in ps:
         if isinstance(p, Param) and p.late:
             _add(("g", None, p.key), p)
+SLOT_HISTORY.append(len(SLOTS))
+for L in LAYERS:                    # (voice's Source and Breath; the subs boom, reese, dub)
+    if L in ("pad", "sub"):
+        for e, ps in engines(L):
+            for p in ps:
+                if p.late:
+                    _add((L, e, p.key), p)
 NSLOTS = len(SLOTS)
+# the engine change (a file from before it: the sub's Engine was 1 of 4; a pad on choir becomes voice) -
+# features.engine_fix, the editor's widen
+OLD_ENGINES = {"sub": 4}
+CHOIR_INDEX, VOICE_INDEX = 11, 5
 OLD_NSLOTS = SLOT_HISTORY[0]
 
 
