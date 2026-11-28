@@ -6320,7 +6320,7 @@
 #X obj 20 68 sel 0;
 #X obj 20 92 b;
 #X obj 20 116 t b b;
-#X msg 20 140 /oled/gCircle 3 51 45 4 1;
+#X msg 20 140 /oled/gCircle 3 51 45 5 1;
 #X obj 20 164 s oscOut;
 #X obj 20 188 expr alhitp[0];
 #X obj 20 212 sel 0;
@@ -6411,7 +6411,7 @@
 #X obj 20 68 sel 0;
 #X obj 20 92 b;
 #X obj 20 116 t b b;
-#X msg 20 140 /oled/gCircle 3 66 45 4 1;
+#X msg 20 140 /oled/gCircle 3 66 45 5 1;
 #X obj 20 164 s oscOut;
 #X obj 20 188 expr alhitp[1];
 #X obj 20 212 sel 0;
@@ -6502,7 +6502,7 @@
 #X obj 20 68 sel 0;
 #X obj 20 92 b;
 #X obj 20 116 t b b;
-#X msg 20 140 /oled/gCircle 3 81 45 4 1;
+#X msg 20 140 /oled/gCircle 3 81 45 5 1;
 #X obj 20 164 s oscOut;
 #X obj 20 188 expr alhitp[2];
 #X obj 20 212 sel 0;
@@ -6593,7 +6593,7 @@
 #X obj 20 68 sel 0;
 #X obj 20 92 b;
 #X obj 20 116 t b b;
-#X msg 20 140 /oled/gCircle 3 96 45 4 1;
+#X msg 20 140 /oled/gCircle 3 96 45 5 1;
 #X obj 20 164 s oscOut;
 #X obj 20 188 expr alhitp[3];
 #X obj 20 212 sel 0;
@@ -9555,7 +9555,7 @@
 #X obj 20 68 sel 0;
 #X obj 20 92 b;
 #X obj 20 116 t b b;
-#X msg 20 140 /oled/gCircle 3 51 45 4 1;
+#X msg 20 140 /oled/gCircle 3 51 45 5 1;
 #X obj 20 164 s oscOut;
 #X obj 20 188 expr alhitp[0];
 #X obj 20 212 sel 0;
@@ -9677,7 +9677,7 @@
 #X obj 20 68 sel 0;
 #X obj 20 92 b;
 #X obj 20 116 t b b;
-#X msg 20 140 /oled/gCircle 3 66 45 4 1;
+#X msg 20 140 /oled/gCircle 3 66 45 5 1;
 #X obj 20 164 s oscOut;
 #X obj 20 188 expr alhitp[1];
 #X obj 20 212 sel 0;
@@ -9732,7 +9732,7 @@
 #X obj 20 68 sel 0;
 #X obj 20 92 b;
 #X obj 20 116 t b b;
-#X msg 20 140 /oled/gCircle 3 81 45 4 1;
+#X msg 20 140 /oled/gCircle 3 81 45 5 1;
 #X obj 20 164 s oscOut;
 #X obj 20 188 expr alhitp[2];
 #X obj 20 212 sel 0;
@@ -9854,7 +9854,7 @@
 #X obj 20 68 sel 0;
 #X obj 20 92 b;
 #X obj 20 116 t b b;
-#X msg 20 140 /oled/gCircle 3 96 45 4 1;
+#X msg 20 140 /oled/gCircle 3 96 45 5 1;
 #X obj 20 164 s oscOut;
 #X obj 20 188 expr alhitp[3];
 #X obj 20 212 sel 0;

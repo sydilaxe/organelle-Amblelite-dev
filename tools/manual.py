@@ -653,7 +653,7 @@ def story():
                         "and the piece's whole length, and the roadmap as a strip - a box a section, as wide as its "
                         "bars, the playing one filled, a playhead moving through it. Then a sign a layer, filled when "
                         "it is in, an outline when out: the drone a triangle, the sub a wave, the pads a figure of "
-                        "eight, the lanes a ring (the same in or out - its stone, the dot, shows it playing), the cloud a square; under each its letter (the shown "
+                        "eight, the lanes a ring (bigger when in) with its stone, the dot, lit as it plays, the cloud a square; under each its letter (the shown "
                         "layer's inverted) and a loop's state beside it (R recording, P playing, O overdub, s "
                         "stopped). A loop also shows on its layer's sign: it blinks while recording or "
                         "overdubbing, a line under it fills as the loop goes round, a dot there when stopped. The "

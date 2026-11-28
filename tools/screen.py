@@ -132,7 +132,7 @@ ICON_Y, LABEL_Y = 45, 54
 def layer_icon(L, cx, cy):
     """a layer's icon on the play view: (steps when it is in - bold or filled, steps when out - a thin outline).
     drone a triangle; sub a wave; pads two circles (a figure of eight: their Lissajous in the visualizer); a lane a
-    ring, the same in or out, with its stone - the centre dot - lit as it strikes; the cloud a square"""
+    ring (bigger when in) with its stone - the centre dot - lit as it strikes; the cloud a square"""
     def ln(pts, dy=0):
         return [Send(OSC, f"/oled/gLine 3 {x1} {y1 + dy} {x2} {y2 + dy} 1") for (x1, y1), (x2, y2) in zip(pts, pts[1:])]
     circ = lambda r, fill=False, dx=0: Send(OSC, f"/oled/{'gFilledCircle' if fill else 'gCircle'} 3 {cx + dx} {cy} {r} 1")
@@ -148,7 +148,7 @@ def layer_icon(L, cx, cy):
         return [circ(3, True, -3), circ(3, True, 3)], [circ(3, False, -3), circ(3, False, 3)]
     if L == "cloud":
         return [Fill(cx - 5, cy - 5, 11, 11, 1)], [Send(OSC, f"/oled/gBox 3 {cx - 5} {cy - 5} 11 11 1")]
-    return [circ(4), circ(1, True)], [circ(4)]                 # (a lane: the same ring in or out - only its dot moves)
+    return [circ(5), circ(1, True)], [circ(4)]                 # (a lane: in, a bigger ring; its dot lit as it strikes)
 PAT_LAYERS = M.NOTE_LAYERS          # the pattern view's rows (the cloud has no pattern)
 
 
