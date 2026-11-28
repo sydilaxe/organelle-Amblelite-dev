@@ -71,7 +71,7 @@ FUNCS = {
     "al-pgnext": ("PAGE >", "Page forward."),
     "al-chordprev": ("CHORD <", "The chord story's previous chord."),
     "al-chordnext": ("CHORD >", "The chord story's next chord."),
-    "al-loop": ("LOOP", "The shown layer's looper: arm, the first pass, overdub, play (see Looping)."),
+    "al-loop": ("LOOP", "The shown layer's looper: arm, the first pass, overdub, play (see Looping). With aux, held half a second: stop / play its loop."),
     "al-loopstop": ("STOP", "Stop / play the shown layer's loop."),
     "al-loopclear": ("CLR LOOP", "Clear the shown layer's loop (or cancel an armed one)."),
     "al-latch": ("LATCH", "Latch on / off for the shown layer (drone, sub, pads): notes keep sounding."),
@@ -668,9 +668,14 @@ def story():
                  ["First pass", "-", "Len bars, or (auto / free) until your next press sets the length"],
                  ["Overdub", "automatic after the first pass", "pass after pass, until a press"],
                  ["Play", "a press", "a press again: overdub"],
-                 ["Stop / clear", "top F# / top G#", "top G# also cancels an armed loop"]], [1.0, 1.9, 4.3]),
+                 ["Stop / clear", "top F# / top G#", "top G# also cancels an armed loop"],
+                 ["In notes mode", "aux + top F; held: stop / play", "aux + a layer key chooses the layer (the play "
+                                   "view stays); aux + top F taps through arm, pass, overdub, play as above; held "
+                                   "half a second it stops the loop, or starts it again; aux + top G# clears"]],
+                [1.0, 1.9, 4.3]),
           Spacer(1, 6),
-          P("<b>Erase</b>: while anything records, hold aux alone for a moment. What passes under the playhead is "
+          P("<b>Erase</b>: while anything records, hold aux alone for a moment (0.6 s - an aux combo pressed within "
+            "it never erases). What passes under the playhead is "
             "erased, and what you play meanwhile replaces it (in notes mode the keys play while aux erases). Let go: "
             "it overdubs again."),
           P("<b>Tapped rhythms</b>: aux + top F# arms the shown layer's pattern the same way; every cycle (Steps x "

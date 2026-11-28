@@ -433,6 +433,25 @@ def main():
     log, _ = H.run([START], 1.5, d=d, keep=True, prints=("al-xnote",))
     check("notes out: nothing while off", "al-xnote" not in log, "silent" if "al-xnote" not in log else "sent")
 
+    # notes mode: aux + a layer key chooses the pads; aux + top F taps arm, record, overdub, play; held 0.5 s it
+    # stops the loop, held again plays it - and aux held so long in a combo never erases
+    import re as _re
+    tp = lambda t, k: [(t, f"notesRaw {k} 100"), (t + 60, f"notesRaw {k} 0")]
+    ev = tp(100, 72) + tp(200, 70) + [(300, "aux 1")] + tp(320, 64) + [(400, "aux 0")]
+    ev += [(500, "aux 1")] + tp(520, 77) + [(600, "aux 0")]
+    ev += [(3000 + 200 * i, f"notesRaw {60 + i} 100") for i in range(4)] + [(3100 + 200 * i, f"notesRaw {60 + i} 0") for i in range(4)]
+    ev += [(4000, "aux 1")] + tp(4020, 77) + [(4100, "aux 0"), (5000, "aux 1")] + tp(5020, 77) + [(5100, "aux 0")]
+    ev += [(6000, "aux 1"), (6020, "notesRaw 77 100"), (6800, "notesRaw 77 0"), (6850, "aux 0")]
+    ev += [(7500, "aux 1"), (7520, "notesRaw 77 100"), (8300, "notesRaw 77 0"), (8350, "aux 0")]
+    log, _ = H.run(ev, 9, d=d, keep=True, prints=("oscOut",))
+    seen = []
+    for l in log.splitlines():
+        m = _re.search(r"gPrintln 3 0 0 8 1 (\S+)", l)
+        if m and m.group(1) in ("ARMED", "REC", "DUB", "PLAY", "STOPPED", "ERASE") and (not seen or seen[-1] != m.group(1)):
+            seen.append(m.group(1))
+    check("notes mode: the loop by aux + top F, held to stop and start",
+          seen == ["ARMED", "REC", "DUB", "PLAY", "DUB", "STOPPED", "PLAY"], " -> ".join(seen))
+
     # zones: low notes to the sub, middle ones to the pads (whatever is shown)
     log, _ = H.run([(50, f"al-set {zones} 0.75"), START, (500, "al-midi 40 100 1"), (600, "al-midi 60 100 1")], 1,
                    d=d, keep=True, prints=("al-user-sub", "al-user-pad"))
@@ -680,7 +699,7 @@ def main():
                         (1000, "notesRaw 77 100"), (1100, "h-q bang"), (int(T0 + BARMS + 100), "h-q bang"),
                         (int(T0 + BARMS + 200), "al-midi 57 100 1"), (int(T0 + BARMS + 500), "al-midi 57 0 1"),
                         (int(T0 + 2 * BARMS + 100), "h-q bang"), (int(T0 + 2 * BARMS + 150), "h-n bang"),
-                        (int(T0 + 3 * BARMS - 300), "aux 1"), (int(T0 + 3 * BARMS + 250), "al-midi 62 100 1"),
+                        (int(T0 + 3 * BARMS - 750), "aux 1"), (int(T0 + 3 * BARMS + 250), "al-midi 62 100 1"),
                         (int(T0 + 3 * BARMS + 600), "al-midi 62 0 1"), (int(T0 + 3 * BARMS + 900), "aux 0"),
                         (int(T0 + 4 * BARMS - 100), "h-n bang"), (int(T0 + 4 * BARMS + 100), "notesRaw 77 100"),
                         (int(T0 + 4 * BARMS + 200), "h-q bang")]

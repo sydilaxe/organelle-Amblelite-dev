@@ -27,7 +27,7 @@ THE OTHER KEYS (one press each): the low black keys the views, the top octave pl
   top D    previous chord
   top D#   page forward
   top E    next chord
-  top F    the shown layer's looper: arm (it starts on the next bar; free: on your first note; again: at once), the first pass, then overdub until a press switches to play (again: overdub)
+  top F    the shown layer's looper: arm (it starts on the next bar; free: on your first note; again: at once), the first pass, then overdub until a press switches to play (again: overdub); with aux, held 0.5 s: stop / play the loop (notes mode: aux + a layer key chooses the layer)
   top F#   the shown layer's loop: stop / play
   top G#   clear the shown layer's loop
   top A    latch on / off for the shown layer (drone, sub, pads)
@@ -55,7 +55,7 @@ AUX held + key
   top D    clear your own story
   top D#   page forward
   top E    the HARMNY page's suggestion: played now, added to your own story
-  top F    the shown layer's looper: arm (it starts on the next bar; free: on your first note; again: at once), the first pass, then overdub until a press switches to play (again: overdub)
+  top F    the shown layer's looper: arm (it starts on the next bar; free: on your first note; again: at once), the first pass, then overdub until a press switches to play (again: overdub); with aux, held 0.5 s: stop / play the loop (notes mode: aux + a layer key chooses the layer)
   top F#   tapped rhythm: arm the shown layer's (next bar; again: at once), each cycle takes what you play, a press: play
   top G    show the CLOUD pages
   top G#   clear the shown layer's loop
@@ -87,7 +87,7 @@ LOOPING: top F arms the shown layer's loop. It starts on the next bar (Len free:
 second press: at once, even with nothing played - a blank loop). The first pass lasts Len (auto / free: until
 the next press sets its length); then it overdubs, pass after pass, until a press switches it to play (a
 press again: overdub). Top F# stops / plays it, top G# clears it. In notes mode: aux + those keys.
-ERASE: while a loop or tapped pattern records, hold aux (alone, a moment) - what passes under the playhead
+ERASE: while a loop or tapped pattern records, hold aux (alone, 0.6 s) - what passes under the playhead
 is erased, and what you play meanwhile replaces it (in notes mode the keys play while aux erases); let go:
 it overdubs again. (While anything records, aux + a knob doesn't assign.)
 TAPPED RHYTHMS: aux + top F# arms the shown layer's pattern the same way; each cycle (Steps x Rate) takes
