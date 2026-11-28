@@ -395,7 +395,7 @@ def main():
     saws = solo("pad") + [(52, f"al-set {M.S('pad', None, 'Evolve')} 0"),
                           (54, f"al-set {M.S('pad', None, 'Engine')} {M.engine_value('pad', 'saws')}"), START]
     shp = {}
-    for name, ev in (("flat", []), ("lp", [(60, f"al-set {fl} 0.85")]), ("hp", [(60, f"al-set {fl} 0.15")]),
+    for name, ev in (("flat", []), ("lp", [(60, f"al-set {fl} 0.15")]), ("hp", [(60, f"al-set {fl} 0.85")]),
                      ("drive", [(60, f"al-set {dr} 1")]), ("blur", [(60, f"al-set {bl} 1")])):
         _, x = run(saws + ev, 3)
         shp[name] = seg(x, 1.5, 3)
@@ -408,7 +408,7 @@ def main():
         f = np.fft.rfftfreq(len(m), 1 / SR)
         return 10 * np.log10(sp[f < hz].sum() + 1e-12)
     lo_cut = low_db(shp["flat"]) - low_db(shp["hp"])
-    check("SHAPE Filter: low-pass right, high-pass left", br["lp"] < 0.6 * br["flat"] and lo_cut > 12,
+    check("SHAPE Filter: low-pass left, high-pass right", br["lp"] < 0.6 * br["flat"] and lo_cut > 12,
           f"brightness {br['flat']:.0f} Hz, LP {br['lp']:.0f}; HP: below 250 Hz {lo_cut:.1f} dB down")
     check("SHAPE Drive: brighter, the level kept", br["drive"] > 1.15 * br["flat"] and abs(lvl["drive"] - lvl["flat"]) < 6
           and sane, f"brightness {br['drive']:.0f} Hz, level {lvl['flat']:.1f} -> {lvl['drive']:.1f} dB")

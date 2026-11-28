@@ -62,7 +62,7 @@ def row(c, name, x, y, parts):
                             f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1)))))")
             mo = sc.to(wl, "moses 0")
             _sym(sc, sc.ch((mo, 1), "text get al-words"), (pk, i))
-            # (SHAPE's Filter: its place from the middle - minus: high-pass, plus: low-pass, 0 in the neutral zone)
+            # (SHAPE's Filter: its place from the middle - minus: low-pass, plus: high-pass, 0 in the neutral zone)
             fsl, dz = S("g", None, "Filter"), gen_dz()
             fpos = (f"if(abs(alp[{sl}] - 0.5) <= {dz}, 0, if(alp[{sl}] < 0.5, -int((0.5 - alp[{sl}])*100 + 0.5), "
                     f"int((alp[{sl}] - 0.5)*100 + 0.5)))")
@@ -261,7 +261,7 @@ def build(c):
                                               ("v", k)])
         fsl = S("g", None, "Filter")
         y = 23 + 10 * k
-        # (SHAPE's Filter: a mark at the middle, its bar from there to the left (high-pass) or the right (low-pass))
+        # (SHAPE's Filter: a mark at the middle, its bar from there to the left (low-pass) or the right (high-pass))
         fpx = f"(80 + int(alp[{fsl}]*46))"
         lay += [Call(f"al-r-k{k}"),
                 If(f"alsl{k} == {fsl}", [Fill(103, y - 1, 1, 7, 1),

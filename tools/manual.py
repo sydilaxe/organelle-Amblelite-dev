@@ -39,13 +39,14 @@ def key_name(k):
 
 # the SHAPE page's knobs (model.SHAPE)
 SHAPE_DESC = {
-    "Filter": "One sweep from high-pass to low-pass, shown from the middle (-50 .. 0 .. 50, its bar from a mark "
-              "at the middle). Left of the middle a high-pass rises from 20 Hz to 6 kHz (thinner); right of it a "
-              "low-pass falls from 20 kHz to 100 Hz (darker). The knob upright - anywhere within 4 of the middle, "
-              "shown as 0 - filters nothing and costs nothing; that is its default. Like every knob it takes over "
-              "only once it passes the stored value (pickup).",
-    "Reso": "The filter's resonance: a peak at the moving cutoff, rising as Filter leaves the middle - up high it "
-            "sings.",
+    "Filter": "One sweep, as a DJ filter, shown from the middle (-50 .. 0 .. 50, its bar from a mark at the "
+              "middle). Left of the middle a low-pass closes the sound down (to 40 Hz fully left); at the middle it is "
+              "open and clean; right of it a high-pass sweeps up and thins it (to 10 kHz fully right). One cutoff and "
+              "one resonance: only the side the knob is on filters. The knob upright - anywhere within 4 of the "
+              "middle, shown as 0 - filters nothing and costs nothing; that is its default. Like every knob it takes "
+              "over only once it passes the stored value (pickup).",
+    "Reso": "The filter's resonance: a peak at the moving cutoff, on either side, rising as Filter leaves the middle "
+            "- turned up it sings, near the top it whistles (Q up to 30).",
     "Drive": "Soft saturation of the whole mix, a little lopsided for even harmonics: warm at first, raw and electric "
              "turned up. The level is held about where it was.",
     "Blur": "A diffuse smear: the sound spread into a short, wide wash; turned up, more of it and a longer, darker "

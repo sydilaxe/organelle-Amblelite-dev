@@ -160,10 +160,11 @@ FILTER_DZ = 0.04        # (SHAPE Filter: the neutral zone each side of the middl
 
 
 def shape_filter(c, sides):
-    """Filter: one knob from high-pass through neutral to low-pass - left of the middle a high-pass (12 dB an octave)
-    rises from 20 Hz to 6 kHz, right of it a low-pass falls from 20 kHz to 100 Hz; both always in series, so the
-    middle passes everything (and the subpatch is off there). Reso: a band-pass at the moving cutoff added on top,
-    growing in as the knob leaves the middle. Cutoffs at audio rate (no steps)"""
+    """Filter: one sweep, as a DJ filter - left of the middle a low-pass (12 dB an octave) that closes from 20 kHz to
+    40 Hz at the far left; the middle open, clean (and the subpatch off); right of it a high-pass that sweeps up from
+    20 Hz to 10 kHz. One cutoff, one resonance: only the side the knob is on filters - the other stage stays open.
+    Reso: a band-pass at the cutoff, from the filter's own output (so a closed low-pass lets no highs back), added
+    on top, growing in as the knob leaves the middle. Cutoffs at audio rate (no steps)"""
     fs, rs = M.S("g", None, "Filter"), M.S("g", None, "Reso")
 
     def build(f, fins):
@@ -171,13 +172,15 @@ def shape_filter(c, sides):
         # (u: how far from the neutral middle, 0 .. 1 either side, past a dead zone of FILTER_DZ - the knob
         # roughly upright is no filter at all, and the sweep starts from nothing at the zone's edge)
         u = f"(max(0, abs({fv} - 0.5) - {FILTER_DZ})/{0.5 - FILTER_DZ})"
-        hz = f.obj(f"expr if({fv} < 0.5, 20*pow(300, {u}), 5); "
-                   f"if({fv} > 0.5, 20000*pow(0.005, {u}), 20000); "
-                   f"if({fv} < 0.5, 20*pow(300, {u}), 20000*pow(0.005, {u}))")
+        lpf, hpf = f"20000*pow(0.002, {u})", f"20*pow(500, {u})"
+        hz = f.obj(f"expr if({fv} > 0.5, {hpf}, 5); if({fv} < 0.5, {lpf}, 20000); "
+                   f"if({fv} > 0.5, {hpf}, {lpf})")
         f.c(f.ch(f.recv(f"al-s{fs}"), "t b"), 0, hz, 0)
         hp, lp, rc = (f.ch(f.to((hz, i), "pack f 40"), "line~") for i in range(3))
-        k = f.obj(f"expr 14*alpe[{rs}]*alpe[{rs}]*min(1, {u}*5)")
-        q = f.obj(f"expr 0.7 + 14*alpe[{rs}]*alpe[{rs}]")
+        # (Reso: up to Q 30 and a peak 24 times the level - extreme near the top, a whistle; the master's soft
+        # limit keeps it below clipping)
+        k = f.obj(f"expr 24*alpe[{rs}]*alpe[{rs}]*min(1, {u}*5)")
+        q = f.obj(f"expr 0.7 + 30*alpe[{rs}]*alpe[{rs}]")
         for sl in (fs, rs):
             t = f.ch(f.recv(f"al-s{sl}"), "t b b")
             f.c((t, 0), 0, k, 0)
@@ -191,13 +194,13 @@ def shape_filter(c, sides):
                 f.c(h, 0, l, 0)
                 f.c(hp, 0, l, 1)
                 h = sub(f, h, l)
-            bp = f.obj("vcf~ 1")            # (the resonance from the high-passed signal: its skirts no lows back)
-            f.c(h, 0, bp, 0)
             for _ in range(2):
                 l = f.obj("lop~")
                 f.c(h, 0, l, 0)
                 f.c(lp, 0, l, 1)
                 h = l
+            bp = f.obj("vcf~ 1")
+            f.c(h, 0, bp, 0)
             f.c(rc, 0, bp, 1)
             f.c(q, 0, bp, 2)
             outs.append(add(f, h, mul(f, bp, ks)))

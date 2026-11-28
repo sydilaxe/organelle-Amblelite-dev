@@ -378,8 +378,8 @@ GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, l
                 ("SECTN", [Param("Sect", 1, lo=1, hi=MAXSEC), Param("Bars", 16, lo=4, hi=64, key="SBars"),
                            Param("Story", 0, opts=[n for n, _, _ in STORIES], key="SStory"),
                            Param("Role", 0, opts=ROLES, key="SRole")])]
-# SHAPE: the whole sound at once, on the master (gen.master_shape) - Filter (high-pass left of the middle, neutral at
-# it, low-pass right of it), its Reso, Drive (saturation), Blur (a diffuse smear). Their slots come after every other
+# SHAPE: the whole sound at once, on the master (gen.master_shape) - Filter (low-pass left of the middle, neutral at
+# it, high-pass right of it: a DJ filter), its Reso, Drive (saturation), Blur (a diffuse smear). Their slots come after every other
 # slot (SLOTS), so snapshots and pieces saved before them still load (features.widened)
 SHAPE = [Param("Filter", 0.5), Param("Reso", 0.3), Param("Drive", 0.0), Param("Blur", 0.0)]
 # the MIX view's pages: existing slots (layer, name); SHAPE last (the MIX key held: straight to it)
