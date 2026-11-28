@@ -216,8 +216,11 @@ def build(c):
         # (2, 3) - a line under it fills as the loop goes round; stopped (4) - a dot there)
         sign = [If(f"alin[{li}]", on, off)]
         if li < len(M.NOTE_LAYERS):
-            ph = f"((max(0, alc24) - allp0[{li}]) % max(1, allpl[{li}]))/max(1, allpl[{li}])"
-            sign = [If(f"(allps[{li}] == 1 || allps[{li}] == 3) && int(max(0, altick)/4) % 2", [], sign),
+            from features import ck, pmod, FREE_MS
+            ph = f"{pmod(f'{ck(li)} - allp0[{li}]', f'allpl[{li}]')}/max(1, allpl[{li}])"
+            # (the blink: on the transport's 8ths - a free loop's on its own clock, each quarter second)
+            blink = f"if(allpf[{li}], int(alfc*{FREE_MS}/250) % 2, int(max(0, altick)/4) % 2)"
+            sign = [If(f"(allps[{li}] == 1 || allps[{li}] == 3) && {blink}", [], sign),
                     If(f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0",
                        [SendL(OSC, [f"max(1, int({ph}*{TILE_W}))"], f"/oled/gFillArea 3 {x} {ICON_Y + 6} $1 1 1")]),
                     If(f"allps[{li}] == 4", [Fill(x + TILE_W // 2, ICON_Y + 6, 1, 1, 1)])]

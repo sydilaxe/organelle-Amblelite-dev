@@ -585,6 +585,8 @@ def transport(c):
         Send("al-panicstop"), V("alpanicing", "0"), SendL("al-panicg", ["1", "300"]),
         V("alrun", "1"), V("altick", "-1"), V("alc24", "-1"), V("alstep", "0"), Call("al-rstart"),
         Loop("4", "alj", [T("allane", "alj", "-1"), T("allrot", "alj", "0")]), Call("al-chord"),
+        # (each loop on the clock from its start, with the transport: a free one keeps its own time)
+        Loop(str(len(M.NOTE_LAYERS)), "alj", [If("allpf[alj] == 0", [T("allp0", "alj", "0"), T("allpi", "alj", "0")])]),
         If(f"{opt(clk)} == 1", [Send("al-midibyte", "250")]),
         If(f"{opt(sync)} == 0", [Send("al-clock", "1")]), Call("al-redraw")])])
     proc(c, "al-stop", [If("alrun", [

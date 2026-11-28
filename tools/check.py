@@ -480,6 +480,57 @@ def main():
     ok = "al-user-sub: 40 0.787402" in log and "al-user-pad: 60 0.787402" in log
     check("zones split the keyboard", ok, "40 -> sub, 60 -> pads" if ok else log[-200:])
 
+    # ---- free loops (Len free): a 2.1 s loop played with the transport stopped. Lock off: it goes round on its own
+    # (the transport stays stopped); clock: it locks to 1 bar at 84 bpm and starts the transport; tempo: the tempo
+    # becomes 113, the loop 1 bar of it. On the clock, a loop starts from its beginning when the transport starts
+    lpl_, lck_ = S_("drone", None, "LpLen"), S_("drone", None, "Lock")
+    tmp_ = S_("g", None, "Tempo")
+
+    def freeloop(lockv, more=(), secs=9):
+        ev = solo("drone") + [(100, f"al-set {lpl_} {1.5 / len(M.LOOP_LENS)}"),
+                              (101, f"al-set {lck_} {(lockv + 0.5) / len(M.LOOP_LOCKS)}"),
+                              (300, "al-notesmode bang"), (320, "al-sel-drone bang"), (400, "al-loop bang"),
+                              (1000, "notesRaw 64 100"), (1200, "notesRaw 64 0"), (1700, "notesRaw 67 100"),
+                              (1900, "notesRaw 67 0"), (3100, "al-loop bang"), (8800, "h-q bang")] + list(more)
+        ev += [(t, f"h-mark {t}") for t in range(0, secs * 1000, 10)]
+
+        def probe(c):
+            c.c(c.obj("r h-mark", 900, 700), 0, c.obj("print MARK", 900, 730), 0)
+            c.c(c.ch(c.obj("r h-q", 900, 760), f"expr alrun*1000 + {num_(tmp_)}"), 0, c.obj("print Q", 900, 800), 0)
+        log, _ = H.run(ev, secs, d=d, keep=True, prints=("al-in-drone",), extra=probe)
+        cur, hits, q = 0, [], None
+        for l in log.splitlines():
+            if l.startswith("MARK"):
+                cur = int(l.split()[-1])
+            elif l.startswith("al-in-drone") and not l.endswith(" 0"):
+                hits.append((cur, int(l.split()[1])))
+            elif l.startswith("Q"):
+                q = float(l.split()[-1])
+        return hits, q
+    num_ = lambda sl: f"int({M.SLOTS[sl][1].lo} + alp[{sl}]*{M.SLOTS[sl][1].hi - M.SLOTS[sl][1].lo} + 0.5)"
+    # (the cycles from the first note's: the first, as played - then each repeat)
+    period = lambda hits: [b[0] - a[0] for a, b in zip([h for h in hits if h[1] == 64], [h for h in hits if h[1] == 64][1:])]
+    h0, q0 = freeloop(0)
+    p0 = period(h0)
+    check("a free loop plays on its own clock (Lock off)", q0 is not None and q0 < 1000 and len(p0) >= 3 and
+          all(abs(x - 2120) <= 30 for x in p0), f"transport {'running' if q0 and q0 >= 1000 else 'stopped'}, "
+          f"cycles {p0} ms (played 2.1 s)")
+    h1, q1 = freeloop(1)
+    p1 = period(h1)
+    bar84 = 240000 / 84
+    check("Lock clock: the loop fits to whole bars and starts the transport", q1 is not None and q1 >= 1000 and
+          len(p1) >= 2 and abs(p1[0] - 2100) <= 30 and all(abs(x - bar84) <= 30 for x in p1[1:]),
+          f"cycles {p1} ms (played 2.1 s; a bar at 84 bpm: {bar84:.0f})")
+    h2, q2 = freeloop(2)
+    p2 = period(h2)
+    check("Lock tempo: the tempo is set so the loop is whole bars", q2 is not None and int(q2) % 1000 == 113 and
+          len(p2) >= 2 and all(abs(x - 240000 / 113) <= 30 for x in p2[1:]),
+          f"tempo {int(q2) % 1000 if q2 else '-'}, cycles {p2} ms")
+    h3, _ = freeloop(1, [(6000, "al-startstop bang"), (7000, "al-startstop bang")], 10)
+    first = [t for t, n in h3 if t >= 6990]
+    check("on the clock, a loop starts from its beginning with the transport", bool(first) and first[0] <= 7040 and
+          [n for t, n in h3 if t >= 6990][:1] == [64], f"first note after the restart (7000 ms): {first[:1]}")
+
     # a zone's breath, looped: the sub's breath (to its level) recorded with its notes in one bar; the next cycle
     # plays it back with no breath - loud where it blew, quiet where it didn't
     zb = solo("sub") + [(50, f"al-set {zones} 0.75"), (51, f"al-set {S_('sub', None, 'BTgt')} {M.target_value('sub', M.engines('sub')[0][0], 'Level')}"),
@@ -751,8 +802,9 @@ def main():
     log, _ = H.run(ev, 2, d=d, keep=True, extra=fq)
     fr = [float(l.split()[-1]) for l in log.splitlines() if l.startswith("FR")]
     p0 = fr[0] - 1000 if fr else -1
-    check("loop: free starts on the first note", fr and fr[0] >= 1000 and p0 % 96 != 0 and abs(p0 - 1500 / 29.76) < 3,
-          f"state {int(fr[0] // 1000) if fr else '-'}, from clock {p0:.0f} (the note: {1500 / 29.76:.0f})")
+    # (a free loop counts on its own clock - a tick each FREE_MS from the start: the note at 1700 ms)
+    check("loop: free starts on the first note", fr and fr[0] >= 1000 and abs(p0 - 1700 / M.FREE_MS) < 3,
+          f"state {int(fr[0] // 1000) if fr else '-'}, from tick {p0:.0f} of its own clock (the note: {1700 / M.FREE_MS:.0f})")
 
     # ---- a tapped rhythm: aux + top D# with lane 1 shown, three notes at steps 0, 3 and 5 of the cycle (8 steps of a
     # 16th): it becomes the lane's pattern - those gaps (3 2 3), and then 3 hits a cycle (2 cycles: 6)
@@ -874,6 +926,30 @@ def main():
     check("an older save: choir becomes voice, the sub keeps its engine", ok,
           f"pad {pad_e} (Source {vo_('Source'):g}, Vowel {vo_('Vowel'):g}, Motion {vo_('Motion'):g}, "
           f"Breath {vo_('Breath'):g}), sub {sub_e}, cloud {cl_e}")
+
+    # a save from before AAFilt (and Lock): 626 slots - the cloud on delay, the layers' latch and in as saved. Loaded
+    # and saved again: the cloud still on delay, AAFilt and Lock at their defaults, the latch and in in their places
+    h626 = M.SLOT_HISTORY[4]
+    nl_ = len(M.LAYERS)
+    l626 = [f"{p.default:g}" for _, p in M.SLOTS[:h626]] + ["0"] * (_F.SNAP - M.NSLOTS)
+    ce_ = M.S("cloud", None, "Engine")
+    l626[ce_] = f"{2.5 / 3:g}"
+    latch_ = ["0", "1"] + ["0"] * (nl_ - 2)
+    in_ = ["1", "0"] + ["1"] * (nl_ - 2)
+    l626[h626:h626 + 2 * nl_] = latch_ + in_
+    open(os.path.join(dl, "saves.txt"), "w").write(" ".join(l626) + "\n" + "-1\n" * (_F.SCRATCH + 1))
+    H.run([(40, f"al-set {M.S('g', None, 'Morph')} 0"), (100, "notesRaw 82 100"), (120, "notesRaw 60 100"),
+           (140, "notesRaw 60 0"), (300, "aux 1"), (320, "notesRaw 60 100"), (340, "notesRaw 60 0"), (360, "aux 0"),
+           (380, "notesRaw 82 0")], 0.7, d=dl, keep=True)
+    sv4 = open(os.path.join(dl, "saves.txt")).read().split("\n")[0].split()
+    cl4 = cl_n[min(len(cl_n) - 1, int(float(sv4[ce_]) * len(cl_n)))]
+    aa_ = M.S("cloud", "delay", "AAFilt")
+    lk_ = [M.S(L, None, "Lock") for L in M.NOTE_LAYERS]
+    ok = (len(sv4) == _F.SNAP and cl4 == "delay" and abs(float(sv4[aa_]) - M.SLOTS[aa_][1].default) < 1e-3 and
+          all(abs(float(sv4[k]) - M.SLOTS[k][1].default) < 1e-3 for k in lk_) and
+          sv4[M.NSLOTS:M.NSLOTS + 2 * nl_] == latch_ + in_)
+    check("a save from before AAFilt loads in place", ok,
+          f"cloud {cl4}, AAFilt {sv4[aa_]}, latch / in {' '.join(sv4[M.NSLOTS:M.NSLOTS + 2 * nl_])}")
 
     # ... and the web editor reads that loops.txt (the loop: 4 events, playing) and writes it back the same
     import shutil as _sh2

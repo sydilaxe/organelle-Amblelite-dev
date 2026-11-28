@@ -160,6 +160,11 @@ LOOP_LENS = ["auto", "free", "1bar", "2bar", "4bar", "8bar", "16bar"]
 LOOP_BARS = [0, 0, 1, 2, 4, 8, 16]
 QUANTS = ["off", "1/16", "1/8", "1/8T", "1/4"]
 QUANT_CLOCKS = [1, 6, 12, 8, 24]
+# a free loop (Len free): played on its own clock (FREE_MS a tick), the transport running or not. Lock: off - it
+# stays free; clock - closed (or Lock turned on), it fits to whole bars at the tempo and plays on the clock, starting
+# and stopping with it; tempo - the same, but with the transport stopped the tempo is set to make it whole bars
+LOOP_LOCKS = ["off", "clock", "tempo"]
+FREE_MS = 20
 MAXC = 32          # an LFO's targets: off + up to 31 of the layer's parameters
 
 LANES = ["perc1", "perc2", "perc3", "perc4"]
@@ -197,6 +202,7 @@ def layer_controls(layer, engines=()):
                           Param("Shape", 0, opts=LFO_SHAPES, key=f"L{n}Shp")]) for n in (1, 2)]
     loop = ("LOOP", [Param("Len", 0, opts=LOOP_LENS, key="LpLen"), Param("Quant", 1, opts=QUANTS),
                      Param("Follow", 0, opts=["chord", "exact"]), Param("Vel", 0.8, key="LpVel")])
+    loop2 = ("LOOP 2", [Param("Lock", 0, opts=LOOP_LOCKS, late=3)])
     zone = ZONE_DEFAULT.get(layer, (127, 0))
     breath = ("BREATH", [Param("Target", 0, key="BTgt", target=True), Param("Depth", 0.5, key="BDep"),
                          Param("ZoneLo", zone[0], lo=0, hi=127, key="ZnLo"), Param("ZoneHi", zone[1], lo=0, hi=127, key="ZnHi")])
@@ -214,7 +220,7 @@ def layer_controls(layer, engines=()):
                         Param("Patt", 0, opts=["euclid", "tapped"])]),
             # a motif (its Pitch 'motif'): the notes of another layer's loop, transformed
             ("MOTIF", [Param("Source", 2, opts=MOTIF_SRC, key="MSrc"), Param("Transf", 0, opts=MOTIF_TRANS, key="MTran")]),
-            feel] + lfos + [breath, evolve, loop]
+            feel] + lfos + [breath, evolve, loop, loop2]
     return front, [
         ("ENV", [Param("Attack", 0.45), Param("Decay", 0.6), Param("Sustn", 0.85), Param("Releas", 0.55)]),
         ("PLAY", [Param("Artic", 2, opts=ARTIC), Param("Glide", 0.45), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
@@ -230,7 +236,7 @@ def layer_controls(layer, engines=()):
         # the gate's own envelope: its hits shaped apart from the notes you play
         ("GATENV", [Param("Attack", 0.15, key="GAtk"), Param("Decay", 0.4, key="GDec"),
                     Param("Sustn", 0.6, key="GSus"), Param("Releas", 0.35, key="GRel")]),
-        feel] + lfos + [breath, evolve, loop]
+        feel] + lfos + [breath, evolve, loop, loop2]
 
 
 def targets(layer, engine):
@@ -354,7 +360,7 @@ ENGINES = {
                    Param("Source", 0, opts=["layers", "input", "both"], late=True),
                    # (an anti-alias low-pass on what goes in, before the long delay's lower rate: 0 open - all the
                    # aliasing - .. 1 smooth; a touch to start)
-                   Param("AAFilt", 0.15, late=True)]),
+                   Param("AAFilt", 0.15, late=2)]),
     ],
     "perc": [
         ("blip", [Param("Cutoff", 0.5), Param("Flick", 0.5), Param("FlTime", 0.3), Param("Reso", 0.4),
@@ -494,7 +500,8 @@ for L in LAYERS:
     LAYER_PAGES[L] = layer_controls(L, [e for e, _ in engines(L)])
     for _, ps in LAYER_PAGES[L][0] + LAYER_PAGES[L][1]:
         for p in ps:
-            _add((L, None, p.key), p)
+            if not p.late:
+                _add((L, None, p.key), p)
     for e, ps in engines(L):
         for p in ps:
             if not p.late:
@@ -520,8 +527,21 @@ for L in LAYERS:                    # (voice's Source and Breath; the subs boom,
 SLOT_HISTORY.append(len(SLOTS))
 for e, ps in engines("cloud"):      # (the cloud's rhythm and delay)
     for p in ps:
-        if p.late:
+        if p.late == 1:
             _add(("cloud", e, p.key), p)
+SLOT_HISTORY.append(len(SLOTS))
+# (the layouts before the cloud's engines: the first four - features.engine_fix sets their cloud to grains)
+CLOUD_FIX_UPTO = 4
+for e, ps in engines("cloud"):      # (the delay's AAFilt)
+    for p in ps:
+        if p.late == 2:
+            _add(("cloud", e, p.key), p)
+SLOT_HISTORY.append(len(SLOTS))
+for L in LAYERS:                    # (each looping layer's Lock)
+    for _, ps in LAYER_PAGES[L][1]:
+        for p in ps:
+            if p.late == 3:
+                _add((L, None, p.key), p)
 NSLOTS = len(SLOTS)
 # the engine change (a file from before it: the sub's Engine was 1 of 4; a pad on choir becomes voice) -
 # features.engine_fix, the editor's widen

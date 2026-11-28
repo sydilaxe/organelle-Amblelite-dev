@@ -278,10 +278,13 @@ DESC = {
     "EVOLVE:Pace": "How slow: 5 minutes .. 25 s a cycle.",
     "EVOLVE:EvSync": "Free, or locked to the clock.",
     "EVOLVE:Drift": "A slight pitch wander (0: exact).",
-    "LOOP:Len": "Loop length: auto (rounded to bars), free (as played), or 1-16 bars.",
+    "LOOP:Len": "Loop length: auto (rounded to bars), free (as played, on its own clock - see Free loops), or 1-16 bars.",
     "LOOP:Quant": "Recording quantised to: off, 1/16, 1/8, 1/8T, 1/4.",
     "LOOP:Follow": "chord: the loop moves with the chord story; exact: as played.",
     "LOOP:Vel": "The loop's playback level.",
+    "LOOP 2:Lock": "A free loop: off - it keeps its own time; clock - closed, it fits to whole bars at the tempo and "
+                   "plays with the transport; tempo - the same, but with the transport stopped the tempo is set to "
+                   "make it whole bars.",
     "HIT:Decay": "How long each strike rings.",
     "HIT:Velo": "How much the strikes' loudness varies.",
     "HIT:Octave": "The lane's octave.",
@@ -749,8 +752,29 @@ def story():
             "play. A lane's Patt (MOTION page) or a gate's Gate turns to 'tapped'; euclid / on goes back, keeping "
             "it. Tapped rhythms rotate, swing and phase, and are kept in snapshots and pieces."),
           P("Loop settings (each layer's LOOP page): Len, Quant, Follow (the loop moves with the chord story, or "
-            "stays exact), Vel. With MIDI Zones on, the loop key records every zoned layer at once, and their "
-            "breath.")]
+            "stays exact), Vel; LOOP 2: Lock. With MIDI Zones on, the loop key records every zoned layer at once, "
+            "and their breath."),
+          P("<b>Free loops</b> (Len free): the loop keeps its own clock, so it needs no transport. Arm it with the "
+            "transport stopped and nothing else starts: your first note starts the recording, the next press closes "
+            "it exactly where you press, and it goes round on its own - played, overdubbed, stopped and erased as "
+            "any loop. Quant does not apply while it is free. Lock (LOOP 2) decides what happens next:"),
+          table([["Lock", "When the loop closes"],
+                 ["off", "It stays free: its own time, the transport running or not - against the sequencers it "
+                         "drifts (a phasing loop). Start / stop leave it playing."],
+                 ["clock", "It locks: fitted to the nearest whole number of bars at the tempo (stretched or squeezed "
+                           "a little), each note snapped to Quant. With the transport stopped it starts it, the loop at "
+                           "bar 1; running, the loop starts at the nearest bar line. From then on it starts and stops "
+                           "with the transport, from its beginning (also with MIDI clock)."],
+                 ["tempo", "The same, but with the transport stopped (and its own clock) the tempo is set so that the "
+                           "loop is a whole number of bars - the loop sets the tempo for the sequencers. Running, or "
+                           "with MIDI clock: as clock."]],
+                [0.8, 6.4]),
+          Spacer(1, 6),
+          P("Turning Lock on while a free loop plays locks it as its cycle comes round. A locked loop stays on the "
+            "clock (Lock off afterwards leaves it). A free loop holds up to 256 events (about 128 notes) with no "
+            "limit on its length; its breath line keeps its first 30 seconds. Every loop is kept with its piece "
+            "(loops.txt), a free one as free. On the clock, every loop now starts from its beginning when the "
+            "transport starts.")]
     # ---- saves
     s += [P("Snapshots, COMPARE and pieces", H1),
           table([["", "Snapshots", "Pieces"],

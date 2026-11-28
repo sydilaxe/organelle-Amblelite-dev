@@ -82,6 +82,15 @@ tri, saw up / down, square, steps, random smooth, random stepped: a new value ea
 
 LOOP: Len (auto: rounded to bars; free: as played; or 1 - 16 bars), Quant, Follow (chord: the loop
 moves with the chord story; exact), Vel. Records what you play into the layer, and its breath.
+LOOP 2: Lock - for a free loop: off (it keeps its own time), clock (closed, it fits to whole bars at the
+tempo and plays with the transport), tempo (the same, but stopped, the tempo is set to fit the loop).
+
+FREE LOOPS: with Len free a loop has its own clock - arm it with the transport stopped and nothing else
+starts; your first note begins it, the next press closes it exactly there. Lock off: it stays free (it
+drifts against the sequencers). Lock clock / tempo: it locks as it closes, starting the transport with the
+loop at bar 1 (running: the loop starts at the nearest bar line), each note snapped to Quant. Turned on
+while a free loop plays: it locks as its cycle comes round. Loops on the clock start from their
+beginning with the transport.
 
 LOOPING: top F arms the shown layer's loop. It starts on the next bar (Len free: on your first note; a
 second press: at once, even with nothing played - a blank loop). The first pass lasts Len (auto / free: until
