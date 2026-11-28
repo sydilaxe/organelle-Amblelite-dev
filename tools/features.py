@@ -182,8 +182,8 @@ def widened(c, src, full):
     # (alwold: the line just read was older - engine_fix then sets it right)
     wo = c.obj("v alwold")
     c.c(c.m(c.to(gates[-1], "t b"), "0"), 0, wo, 0)
-    for h, g in zip(hs, gates):
-        c.c(c.m(c.to(g, "t b"), "1"), 0, wo, 0)
+    for i, (h, g) in enumerate(zip(hs, gates)):
+        c.c(c.m(c.to(g, "t b"), str(i + 1)), 0, wo, 0)      # (which layout: 1 the oldest)
         sp = c.to(g, f"list split {h}")
         ap = c.obj("list append")
         defaults = " ".join(f"{p.default:g}" for _, p in M.SLOTS[h:])
@@ -210,13 +210,19 @@ def engine_fix(arr):
         for k in range(4):
             pos = NSLOTS + 2 * NL + (li * MAXENG + ei) * 4 + k
             fav.append(T(arr, str(pos), str(ks[((li * MAXENG + ei) * MAXPAGES) * 4 + k])))
-    return [
+    ce, nc = S("cloud", None, "Engine"), len(M.engines("cloud"))
+    lc = LAYERS.index("cloud")
+    cfav = [T(arr, str(NSLOTS + 2 * NL + (lc * MAXENG + ei) * 4 + k), str(ks[((lc * MAXENG + ei) * MAXPAGES) * 4 + k]))
+            for ei in range(M.CLOUD_OLD_ENGINES, nc) for k in range(4)]
+    # (alwold: the layout's place in SLOT_HISTORY, 1 the oldest - the sub and choir fix for those before the engine
+    # change (the first three); the cloud's for every older one: its engine grains, its new engines' FAV pages)
+    return [If("alwold >= 1", [T(arr, str(ce), f"0.5/{nc}")] + cfav), If("alwold <= 3", [
         T(arr, str(se), f"(min({M.OLD_ENGINES['sub'] - 1}, int({arr}[{se}]*{M.OLD_ENGINES['sub']})) + 0.5)/{ns}"),
         If(f"min({npd - 1}, int({arr}[{pe}]*{npd})) == {M.CHOIR_INDEX}", [
             T(arr, str(pe), f"({M.VOICE_INDEX} + 0.5)/{npd}"), T(arr, str(vo("Source")), "1"),
             T(arr, str(vo("Vowel")), f"{arr}[{st[0]}]"), T(arr, str(vo("Motion")), f"{arr}[{st[1]}]"),
             T(arr, str(vo("Breath")), f"{arr}[{st[3]}]")] +
-           [T(arr, str(sl), f"{p.default:g}") for sl, p in zip(st, dict(M.engines("pad"))["string"])])] + fav
+           [T(arr, str(sl), f"{p.default:g}") for sl, p in zip(st, dict(M.engines("pad"))["string"])])] + fav)]
 
 
 def saves(c):

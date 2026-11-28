@@ -56,10 +56,14 @@ def row(c, name, x, y, parts):
             sug = S("g", None, "Sugg")
             so = f"min(3, int(alp[{sug}]*4))"
             mode_w = f"{OFF['mode']} + {opt(MODE_SLOT)}"          # (the Mode knob: its mode's name)
-            wl = sc.to(src, f"expr if({sl} == {MODE_SLOT}, {mode_w}, if({sl} == {sug}, {OFF['chord']} + alsuR[{so}]*{len(QUALS)} + altq[alsuT[{so}]], "
+            # (the cloud delay's Time, synced: the subdivision it picks)
+            import cloud as _cl
+            dt, dsy = S("cloud", "delay", "Time"), S("cloud", "delay", "Sync")
+            dly = f"if({sl} == {dt} && alp[{dsy}] >= 0.5, {OFF['ddiv']} + {_cl.delay_div()}, "
+            wl = sc.to(src, f"expr {dly}if({sl} == {MODE_SLOT}, {mode_w}, if({sl} == {sug}, {OFF['chord']} + alsuR[{so}]*{len(QUALS)} + altq[alsuT[{so}]], "
                             f"if({sl} < 0, {OFF['misc']}, if(aln[{sl}] == -2, if({tgi} == 0, {OFF['off']}, "
                             f"if({tg} < 0, {OFF['misc']}, {OFF['name']} + {tg})), if(aln[{sl}] > 0, {OFF['opt']} + "
-                            f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1)))))")
+                            f"alob[{sl}] + min(aln[{sl}] - 1, int(alp[{sl}]*aln[{sl}])), -1))))))")
             mo = sc.to(wl, "moses 0")
             _sym(sc, sc.ch((mo, 1), "text get al-words"), (pk, i))
             # (SHAPE's Filter: its place from the middle - minus: low-pass, plus: high-pass, 0 in the neutral zone)
@@ -93,6 +97,8 @@ LINES.append("GLOBAL")
 OFF["global"] = len(LINES) - 1
 LINES.append("off")
 OFF["off"] = len(LINES) - 1
+OFF["ddiv"] = len(LINES)                    # (the cloud delay's subdivisions: its Time, synced)
+LINES += [n for n, _ in M.DELAY_DIVS]
 LINES.append("out")
 OFF["out"] = len(LINES) - 1
 from features import TOASTS

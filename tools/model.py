@@ -273,6 +273,10 @@ def target_value(layer, engine, name):
 # ---- engines: (name, [Param ...]); the DSP of each is in eng_<layer>.py under the same name
 WAVE_TABLES = ["amble", "basic", "reson", "pulse", "formnt", "harmon", "mini"] + [f"user{i + 1}" for i in range(8)]
 
+DELAY_PITCHES = ["-12", "-7", "-5", "0", "+5", "+7", "+12"]      # (the delay's Pitch: semitones a repeat)
+# (the delay's Sync: free - Time in ms - or tempo - Time steps through these, in beats at the piece's tempo)
+DELAY_DIVS = [("1/16", 0.25), ("1/8T", 1 / 3), ("1/8", 0.5), ("1/8.", 0.75), ("1/4", 1), ("1/4.", 1.5), ("1/2", 2),
+              ("bar", 4)]
 ENGINES = {
     "drone": [
         ("analog", [Param("WaveA", 0.67), Param("WaveB", 0.67), Param("Intvl", 0, opts=["unison", "5th", "oct", "-oct", "4th"]),
@@ -333,6 +337,19 @@ ENGINES = {
         ("grains", [Param("Size", 0.55), Param("Densty", 1.0), Param("Pitch", 0, opts=CLOUD_PITCHES),
                     Param("Spread", 0.9), Param("Scan", 0.15), Param("Jitter", 0.7), Param("Revrse", 0.2),
                     Param("Source", 0, opts=["layers", "input", "both"])]),
+        # (added later - late): grains in time with the piece, on Euclidean patterns at three subdivisions that
+        # cascade one into the next (cloud.rhythm)
+        ("rhythm", [Param("Size", 0.6, late=True), Param("Densty", 0.5, late=True), Param("Spread", 0.8, late=True),
+                    Param("Morph", 0.0, late=True), Param("Rate", 1, opts=["1/4", "1/8", "1/16"], late=True),
+                    Param("Cascad", 0.5, late=True), Param("Scan", 0.15, late=True), Param("Jitter", 0.4, late=True),
+                    Param("Source", 0, opts=["layers", "input", "both"], late=True)]),
+        # a digital delay after the RDS-8000: feedback (Hold: the loop kept - dub: and played into), each repeat
+        # pitched (Pitch), the time wavering (Mod), the sides apart (Width) (cloud.delay)
+        ("delay", [Param("Time", 0.5, late=True), Param("Fdbk", 0.45, late=True), Param("Width", 0.5, late=True),
+                   Param("Mod", 0.2, late=True), Param("Pitch", 3, opts=DELAY_PITCHES, late=True),
+                   Param("Hold", 0, opts=["off", "hold", "dub"], late=True),
+                   Param("Sync", 0, opts=["free", "tempo"], late=True), Param("Tone", 0.6, late=True),
+                   Param("Source", 0, opts=["layers", "input", "both"], late=True)]),
     ],
     "perc": [
         ("blip", [Param("Cutoff", 0.5), Param("Flick", 0.5), Param("FlTime", 0.3), Param("Reso", 0.4),
@@ -355,7 +372,7 @@ VOICES = {"drone": 1, "sub": 1, "pad": 4, "perc1": 3, "perc2": 3, "perc3": 3, "p
 GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, lo=30, hi=200),
                           Param("Scale", 0, opts=[n for n, _ in SCALES]),
                           Param("Mode", 1, opts=[str(i + 1) for i in range(MAX_MODES)])]),
-                ("LAYERS", [("drone", "Engine"), ("sub", "Engine"), ("pad", "Engine"), ("cloud", "Source")]),
+                ("LAYERS", [("drone", "Engine"), ("sub", "Engine"), ("pad", "Engine"), ("cloud", "Engine")]),
                 ("LANES", [("perc1", "Engine"), ("perc2", "Engine"), ("perc3", "Engine"), ("perc4", "Engine")]),
                 # pieces (features.pieces): the slot (top A#: load it; aux + top A#: save to it), and how layers
                 # enter and leave - over the Fade time, or by their own envelope (FadeBy env: Attack in, Release out)
@@ -433,6 +450,8 @@ EVOLVE = {
     ("pad", "vector"): [("X", 0.6), ("Y", 0.6), (None, 0.2)],
     ("perc", "wave"): [("Pos", 0.5), ("Bright", 0.3)],
     ("cloud", "grains"): [("Scan", 0.5), ("Size", 0.4), ("Spread", 0.3), ("Jitter", 0.3), (None, 0.25)],
+    ("cloud", "rhythm"): [("Scan", 0.5), ("Jitter", 0.3), ("Morph", 0.15), (None, 0.25)],
+    ("cloud", "delay"): [("Mod", 0.3), ("Tone", 0.3), (None, 0.25)],
     ("perc", "blip"): [("Cutoff", 0.5), ("Flick", 0.3), ("FEnv", 0.3)],
     ("perc", "lpg"): [("Fold", 0.5), ("Open", 0.5), ("Vactrl", 0.3)],
     ("perc", "bowl"): [("Hard", 0.5), ("Beat", 0.4), ("Strtch", 0.2)],
@@ -493,10 +512,17 @@ for L in LAYERS:                    # (voice's Source and Breath; the subs boom,
             for p in ps:
                 if p.late:
                     _add((L, e, p.key), p)
+SLOT_HISTORY.append(len(SLOTS))
+for e, ps in engines("cloud"):      # (the cloud's rhythm and delay)
+    for p in ps:
+        if p.late:
+            _add(("cloud", e, p.key), p)
 NSLOTS = len(SLOTS)
 # the engine change (a file from before it: the sub's Engine was 1 of 4; a pad on choir becomes voice) -
 # features.engine_fix, the editor's widen
 OLD_ENGINES = {"sub": 4}
+# (the cloud's engines: a file from before them - SLOT_HISTORY up to the last - had the one, grains)
+CLOUD_OLD_ENGINES = 1
 CHOIR_INDEX, VOICE_INDEX = 11, 5
 OLD_NSLOTS = SLOT_HISTORY[0]
 
@@ -516,7 +542,8 @@ def pages(layer, engine):
         chunk = [S(layer, engine, p.key) for p in eps[k:k + 4]]
         ep.append((f"{engine.upper()} {k // 4 + 1}", chunk + [-1] * (4 - len(chunk))))
     # FAV: the engine choice on knob 1 (when the layer has more than one), then the engine's first parameters
-    fav = ([S(layer, None, "Engine")] + ep[0][1][:3]) if len(engines(layer)) > 1 else list(ep[0][1])
+    # (the cloud: its engine's own four - its engine is on the LAYERS page and its LAYER page)
+    fav = ([S(layer, None, "Engine")] + ep[0][1][:3]) if len(engines(layer)) > 1 and layer != "cloud" else list(ep[0][1])
     out = [("FAV", fav)]
     out += [(n, [S(layer, None, p.key) for p in ps] + [-1] * (4 - len(ps))) for n, ps in front]
     out += ep

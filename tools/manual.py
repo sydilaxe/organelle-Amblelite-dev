@@ -119,6 +119,12 @@ ENGINE_DESC = {
     ("sub", "warm"): "A rounder saturation and the octave above.",
     ("sub", "pulse"): "A pulse of adjustable width, low-passed twice.",
     ("sub", "fm"): "2-operator FM with a slow growl in its index.",
+    ("cloud", "rhythm"): "Grains in time with the piece: three levels - Rate, then twice and four times as fine - each "
+                         "a Euclidean pattern of 8 steps whose hits strike a grain, cascading one into the next; Morph "
+                         "turns each level's pattern its own amount, so they morph against each other.",
+    ("cloud", "delay"): "A digital delay after the Digitech RDS-8000: free, or tempo-synced (Time then picks a subdivision), feedback up to a "
+                        "held loop, each repeat pitched (rising or falling cascades), the time wavering, the sides "
+                        "apart; Hold keeps the loop - hold: nothing new in, dub: what plays is added.",
     ("sub", "boom"): "A deep sine that drops into each new note from up to an octave above (an 808's boom), "
                      "driven and darkened.",
     ("sub", "reese"): "Two saws a little apart over a sine, through a resonant low-pass and driven: thick, slowly "
@@ -170,6 +176,28 @@ ENGINE_DESC = {
 # ---------------------------------------------------------------------------------------------- the knobs
 # by name, or by context: 'page:Name' (a layer page), 'kind/engine/Name' (an engine), 'g:PAGE:Name' (global)
 DESC = {
+    "cloud/rhythm/Size": "Each grain's length: a share of its step (short ticks .. legato).",
+    "cloud/rhythm/Densty": "Hits per 8 steps (1 .. 8), in each level's Euclidean pattern.",
+    "cloud/rhythm/Spread": "How far the grains are placed between the sides.",
+    "cloud/rhythm/Morph": "The patterns' variation: each level's pattern turned its own amount - turn it slowly and "
+                          "the cascade shifts.",
+    "cloud/rhythm/Rate": "The first level's step: 1/4, 1/8 or 1/16 (the others twice and four times as fine, never "
+                         "finer than a 32nd).",
+    "cloud/rhythm/Cascad": "How many levels sound: the first only .. all three.",
+    "cloud/rhythm/Scan": "How far back in the 8 s recording the grains read.",
+    "cloud/rhythm/Jitter": "How far around Scan each grain starts (up to 2 s).",
+    "cloud/rhythm/Source": "What the cloud records: the layers, the input, or both.",
+    "cloud/delay/Time": "The delay: free - 20 ms .. 3 s; with Sync tempo - steps through 1/16, 1/8T, 1/8, 1/8., 1/4, "
+                        "1/4., 1/2 and a bar at the piece's tempo (the screen shows which).",
+    "cloud/delay/Fdbk": "Feedback: one repeat .. endless (a little over, held by a soft limit).",
+    "cloud/delay/Width": "The right side longer and the repeats crossing between the sides: mono .. wide ping-pong.",
+    "cloud/delay/Mod": "The time wavering (two slow sines, a side each): chorus .. tape warble.",
+    "cloud/delay/Pitch": "Each repeat shifted by an interval: -12 .. +12 semitones - rising or falling cascades.",
+    "cloud/delay/Hold": "off; hold - the loop kept, repeating forever, nothing new in; dub - kept, and what plays "
+                        "is added to it.",
+    "cloud/delay/Sync": "free (Time in ms) or tempo (Time picks a subdivision of the beat).",
+    "cloud/delay/Tone": "The repeats darkening: a low-pass in the loop, 800 Hz .. 12 kHz.",
+    "cloud/delay/Source": "What the delay takes: the layers, the input, or both.",
     "pad/voice/Source": "The source: a bright saw (0) to narrow glottal pulses (100) - vox to choir.",
     "pad/voice/Breath": "Breath noise under the voice.",
     "pad/string/Bow": "The excitation: breathy noise (0) to a saw (100).",

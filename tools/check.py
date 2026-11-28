@@ -452,6 +452,28 @@ def main():
     check("notes mode: the loop by aux + top F, held to stop and start",
           seen == ["ARMED", "REC", "DUB", "PLAY", "DUB", "STOPPED", "PLAY"], " -> ".join(seen))
 
+    # the cloud's engines on the drone: each adds to the sound (grains, rhythm in time, the delay); the delay held
+    # keeps its loop after the drone has gone - without Hold (and no feedback) it falls silent
+    ce = M.S("cloud", None, "Engine")
+    cl_names = [e for e, _ in M.engines("cloud")]
+    dron = [(60 + i, f"al-inset {i} {1 if o in ('drone', 'cloud') else 0}") for i, o in enumerate(M.LAYERS)]
+    # (measured once the drone has left - only the cloud can sound there: grains and rhythm read the recording,
+    # the delay repeats)
+    gone = (2600, f"al-inset {M.LAYERS.index('drone')} 0")
+    lv = []
+    for e in cl_names:
+        _, a1 = run(dron + [(70, f"al-set {ce} {M.engine_value('cloud', e)}"), START, gone], 4)
+        lv.append((e, H.rms_db(seg(a1, 3.2, 4))))
+    check("every cloud engine sounds", all(v > -60 for _, v in lv), ", ".join(f"{e} {v:.0f} dB" for e, v in lv) +
+          " (after the drone left)")
+    dl = lambda k: M.S("cloud", "delay", k)
+    held = dron + [(70, f"al-set {ce} {M.engine_value('cloud', 'delay')}"), (71, f"al-set {dl('Time')} 0.6"), START,
+                   (2500, f"al-set {dl('Hold')} 0.5"), (2600, f"al-inset {M.LAYERS.index('drone')} 0")]
+    _, ah = run(held, 7)
+    _, af = run(held[:-2] + [(2500, f"al-set {dl('Fdbk')} 0"), (2600, f"al-inset {M.LAYERS.index('drone')} 0")], 7)
+    check("the delay held keeps its loop", H.rms_db(seg(ah, 5.5, 7)) > H.rms_db(seg(af, 5.5, 7)) + 30,
+          f"held {H.rms_db(seg(ah, 5.5, 7)):.0f} dB, not held {H.rms_db(seg(af, 5.5, 7)):.0f} dB, 3 s after the drone went")
+
     # zones: low notes to the sub, middle ones to the pads (whatever is shown)
     log, _ = H.run([(50, f"al-set {zones} 0.75"), START, (500, "al-midi 40 100 1"), (600, "al-midi 60 100 1")], 1,
                    d=d, keep=True, prints=("al-user-sub", "al-user-pad"))
@@ -835,11 +857,13 @@ def main():
     vo_ = lambda k: sv3[M.S("pad", "voice", k)]
     names_p, names_s = [e for e, _ in M.engines("pad")], [e for e, _ in M.engines("sub")]
     pad_e, sub_e = names_p[min(15, int(sv3[pe_] * 16))], names_s[min(6, int(sv3[se_] * 7))]
-    ok = (len(sv3) == _F.SNAP and pad_e == "voice" and sub_e == "pulse" and abs(vo_("Source") - 1) < 1e-3 and
+    cl_n = [e for e, _ in M.engines("cloud")]
+    cl_e = cl_n[min(len(cl_n) - 1, int(sv3[M.S("cloud", None, "Engine")] * len(cl_n)))]
+    ok = (len(sv3) == _F.SNAP and pad_e == "voice" and sub_e == "pulse" and cl_e == "grains" and abs(vo_("Source") - 1) < 1e-3 and
           abs(vo_("Vowel") - 0.8) < 1e-3 and abs(vo_("Motion") - 0.7) < 1e-3 and abs(vo_("Breath") - 0.6) < 1e-3)
     check("an older save: choir becomes voice, the sub keeps its engine", ok,
           f"pad {pad_e} (Source {vo_('Source'):g}, Vowel {vo_('Vowel'):g}, Motion {vo_('Motion'):g}, "
-          f"Breath {vo_('Breath'):g}), sub {sub_e}")
+          f"Breath {vo_('Breath'):g}), sub {sub_e}, cloud {cl_e}")
 
     # ... and the web editor reads that loops.txt (the loop: 4 events, playing) and writes it back the same
     import shutil as _sh2

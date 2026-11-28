@@ -606,6 +606,24 @@ Tone
 Swell
 Source
 Breath
+Size
+Densty
+Spread
+Morph
+Rate
+Cascad
+Scan
+Jitter
+Source
+Time
+Fdbk
+Width
+Mod
+Pitch
+Hold
+Sync
+Tone
+Source
 C
 C#
 D
@@ -1688,6 +1706,8 @@ user6
 user7
 user8
 grains
+rhythm
+delay
 loop
 16bar
 8bar
@@ -1748,6 +1768,27 @@ input
 both
 off
 on
+1/4
+1/8
+1/16
+layers
+input
+both
+-12
+-7
+-5
+0
++5
++7
++12
+off
+hold
+dub
+free
+tempo
+layers
+input
+both
 FAV
 LAYER
 ANALOG\ 1
@@ -3556,6 +3597,15 @@ EVOLVE
 -
 -
 -
+FAV
+LAYER
+RHYTHM\ 1
+RHYTHM\ 2
+RHYTHM\ 3
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
 -
 -
 -
@@ -3563,24 +3613,15 @@ EVOLVE
 -
 -
 -
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
+FAV
+LAYER
+DELAY\ 1
+DELAY\ 2
+DELAY\ 3
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
 -
 -
 -
@@ -4441,6 +4482,8 @@ wood
 metal
 wave
 grains
+rhythm
+delay
 C
 Cm
 Cdim
@@ -4868,6 +4911,14 @@ B6/9
 +
 GLOBAL
 off
+1/16
+1/8T
+1/8
+1/8.
+1/4
+1/4.
+1/2
+bar
 out
 SAVED
 LOADED
