@@ -11,9 +11,9 @@ rhythm  the same recording, read in time with the piece: three levels - Rate, th
         step), so the levels cascade one into the next (Cascad: how many sound); Morph rotates each level its own
         amount - the patterns morph against each other. Each grain at its own place (Spread), read from Scan back
         (plus Jitter).
-delay   a 12-bit digital delay after the Digitech RDS-8000: Time 20 ms .. 10 s - each pass through the loop
-        quantised to 12 bits, and past a second the line runs at a lower rate (down to a quarter at 10 s) with no
-        filter before it, so long delays alias, as the RDS's did; Fdbk (at the top just over unity: the loop keeps
+delay   a 12-bit digital delay after the Digitech RDS-8000: Time 20 ms .. 10 s, clean - each pass through the
+        loop quantised to 12 bits, and past 2 s what goes in is taken at a slightly lower rate (five sixths at 10 s, blended in at half)
+        with no filter, a hint of aliasing on long delays; the repeats themselves stay clean; Fdbk (at the top just over unity: the loop keeps
         everything and builds, a soft limit holding it - a little lower, a loop whose layers slowly fade), Width (the
         right side longer, the repeats crossing between the sides), Mod (the time wavering: chorus to tape warble),
         Pitch (each repeat shifted by an interval: rising or falling cascades), Hold (hold: the loop kept, repeating
@@ -286,9 +286,10 @@ def _delay(c, k):
     tdel = ctl(f"min({DEL_MS - 300}, if(alp[{DL('Sync')}] >= 0.5, ({delay_beats()})*60000/{num(tempo)}, "
                f"20*pow(500, alp[{DL('Time')}])))", (DL("Time"), DL("Sync"), tempo))
     tms = c.ch(tdel, "pack f 80", "line~")
-    # (the line's rate: full up to 1 s, then lower - a quarter at 10 s - a sample held for 1 .. 4 of the system's,
-    # no filter before it: the aliasing of a long digital delay. m: how much of the held signal - none below 1 s)
-    dec = c.to(tdel, "expr 1 + 3*max(0, min(1, ($f1 - 1000)/9000)); min(1, max(0, ($f1 - 1000)/300))")
+    # (the rate of what goes in: full up to 2 s, then a little lower - five sixths at 10 s - a sample held for 1 ..
+    # 1.2 of the system's, no filter before it, blended in at half: a hint of a long digital delay's aliasing. m:
+    # how much of the held signal - none below 2 s. Only on the way in: the repeats themselves stay clean)
+    dec = c.to(tdel, "expr 1 + 0.2*max(0, min(1, ($f1 - 2000)/8000)); 0.5*min(1, max(0, ($f1 - 2000)/300))")
     clk = c.ch(c.to((dec, 0), "expr 44100/$f1"), "pack f 80", "line~", "phasor~")
     hm = c.ch((dec, 1), "pack f 80", "line~")
     wid = prm(c, DL("Width"))
@@ -321,19 +322,19 @@ def _delay(c, k):
             heads.append(mul(c, rd, win))
         pitched = add(c, *heads)
         fbsig = add(c, mul(c, pitched, on), mul(c, mix, c.ch(on, "*~ -1", "+~ 1")))
-        src = mul(c, c.obj(f"r~ al-crec{name}"), ing)
+        src0 = mul(c, c.obj(f"r~ al-crec{name}"), ing)
+        # (the lower rate on the way in: held between the clock's turns, crossfaded in past 2 s)
+        sh = c.obj("samphold~")
+        c.c(src0, 0, sh, 0)
+        c.c(clk, 0, sh, 1)
+        src = add(c, src0, mul(c, sub(c, sh, src0), hm))
         x = add(c, src, mul(c, fbsig, fb))
         lp = lop(c, x, tone)
         lim = div(c, lp, c.ch(lp, "abs~", "*~ 0.5", "+~ 1"))
         # (12 bits: each pass rounded to 1/2048 - floor(x*2048 + 0.5), x - wrap~ - the repeats grainier as they go)
         sc = c.ch(lim, "*~ 2048", "+~ 0.5")
         q = c.to(sub(c, sc, c.to(sc, "wrap~")), "*~ 0.000488281")
-        # (the lower rate: held between the clock's turns, crossfaded in past 1 s)
-        sh = c.obj("samphold~")
-        c.c(q, 0, sh, 0)
-        c.c(clk, 0, sh, 1)
-        w_ = add(c, q, mul(c, sub(c, sh, q), hm))
-        c.c(w_, 0, c.obj(f"delwrite~ al-cd{name} {DEL_MS}"), 0)
+        c.c(q, 0, c.obj(f"delwrite~ al-cd{name} {DEL_MS}"), 0)
         c.c(mul(c, c.to(ys[side], "*~ 0.8"), gain), 0, c.obj(f"throw~ al-cloud-{name}"), 0)
         c.col(300)
 

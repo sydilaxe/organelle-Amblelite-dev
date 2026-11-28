@@ -124,8 +124,9 @@ ENGINE_DESC = {
     ("cloud", "rhythm"): "Grains in time with the piece: three levels - Rate, then twice and four times as fine - each "
                          "a Euclidean pattern of 8 steps whose hits strike a grain, cascading one into the next; Morph "
                          "turns each level's pattern its own amount, so they morph against each other.",
-    ("cloud", "delay"): "A 12-bit digital delay after the Digitech RDS-8000, up to 10 s: each pass rounded to 12 bits, and "
-                        "past a second the line runs at a lower rate with no filter, so long delays alias. Free, or "
+    ("cloud", "delay"): "A clean 12-bit digital delay after the Digitech RDS-8000, up to 10 s: each pass rounded to 12 bits, "
+                        "and past 2 s what goes in is taken at a slightly lower rate - a hint of aliasing on long delays; "
+                        "the repeats stay clean. Free, or "
                         "tempo-synced (Time then picks a subdivision); feedback at the top just over unity - the loop "
                         "keeps everything and builds, layering on itself; a little lower, a loop whose layers slowly "
                         "fade. Each repeat can be pitched (rising or falling cascades), the time wavering, the sides "
@@ -194,7 +195,7 @@ DESC = {
                            "it starts (up to half a step), and how often an extra grain falls somewhere in the step - "
                            "0 locked to the pattern, up: a spray of grains around it.",
     "cloud/rhythm/Source": "What the cloud records: the layers, the input, or both.",
-    "cloud/delay/Time": "The delay: free - 20 ms .. 10 s (past 1 s, the longer the more it aliases); with Sync tempo - steps through 1/16, 1/8T, 1/8, 1/8., 1/4, "
+    "cloud/delay/Time": "The delay: free - 20 ms .. 10 s (past 2 s, a hint of aliasing, more the longer); with Sync tempo - steps through 1/16, 1/8T, 1/8, 1/8., 1/4, "
                         "1/4., 1/2 and a bar at the piece's tempo (the screen shows which).",
     "cloud/delay/Fdbk": "Feedback: one repeat .. a loop whose layers slowly fade .. at the top just over unity, held by a "
                         "soft limit: everything kept, layering and oscillating.",
