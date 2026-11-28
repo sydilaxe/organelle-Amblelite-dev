@@ -164,6 +164,9 @@ QUANT_CLOCKS = [1, 6, 12, 8, 24]
 # stays free; clock - closed (or Lock turned on), it fits to whole bars at the tempo and plays on the clock, starting
 # and stopping with it; tempo - the same, but with the transport stopped the tempo is set to make it whole bars
 LOOP_LOCKS = ["off", "clock", "tempo"]
+# when an armed loop starts recording: auto - the next bar line (a free loop: its first note); instant - at the
+# press; 1 bar / 2 bars - a count-in of at least that many whole bars (on the clock: to a bar line)
+LOOP_STARTS = ["auto", "instant", "1 bar", "2 bars"]
 FREE_MS = 20
 MAXC = 32          # an LFO's targets: off + up to 31 of the layer's parameters
 
@@ -202,7 +205,7 @@ def layer_controls(layer, engines=()):
                           Param("Shape", 0, opts=LFO_SHAPES, key=f"L{n}Shp")]) for n in (1, 2)]
     loop = ("LOOP", [Param("Len", 0, opts=LOOP_LENS, key="LpLen"), Param("Quant", 1, opts=QUANTS),
                      Param("Follow", 0, opts=["chord", "exact"]), Param("Vel", 0.8, key="LpVel")])
-    loop2 = ("LOOP 2", [Param("Lock", 0, opts=LOOP_LOCKS, late=3)])
+    loop2 = ("LOOP 2", [Param("Lock", 0, opts=LOOP_LOCKS, late=3), Param("Start", 0, opts=LOOP_STARTS, key="LpStrt", late=3)])
     zone = ZONE_DEFAULT.get(layer, (127, 0))
     breath = ("BREATH", [Param("Target", 0, key="BTgt", target=True), Param("Depth", 0.5, key="BDep"),
                          Param("ZoneLo", zone[0], lo=0, hi=127, key="ZnLo"), Param("ZoneHi", zone[1], lo=0, hi=127, key="ZnHi")])
@@ -537,7 +540,7 @@ for e, ps in engines("cloud"):      # (the delay's AAFilt)
         if p.late == 2:
             _add(("cloud", e, p.key), p)
 SLOT_HISTORY.append(len(SLOTS))
-for L in LAYERS:                    # (each looping layer's Lock)
+for L in LAYERS:                    # (each looping layer's Lock and Start)
     for _, ps in LAYER_PAGES[L][1]:
         for p in ps:
             if p.late == 3:

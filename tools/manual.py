@@ -285,6 +285,9 @@ DESC = {
     "LOOP 2:Lock": "A free loop: off - it keeps its own time; clock - closed, it fits to whole bars at the tempo and "
                    "plays with the transport; tempo - the same, but with the transport stopped the tempo is set to "
                    "make it whole bars.",
+    "LOOP 2:Start": "When an armed loop starts recording: auto - the next bar line (a free loop: your first note); "
+                    "instant - at the press; 1 bar / 2 bars - after a count-in of at least that many whole bars, "
+                    "the beats left counting down on the screen.",
     "HIT:Decay": "How long each strike rings.",
     "HIT:Velo": "How much the strikes' loudness varies.",
     "HIT:Octave": "The lane's octave.",
@@ -732,8 +735,10 @@ def story():
           P("<b>Top F</b> (aux + top F in notes mode) is the shown layer's looper. Each layer has its own, with its "
             "own length - loops of different lengths drift against each other."),
           table([["", "Press", "Then"],
-                 ["Arm", "the first press", "it starts on the next bar (Len free: on your first note); a second "
-                                            "press starts it at once, even with nothing played - a blank loop"],
+                 ["Arm", "the first press", "it starts as Start (LOOP 2) says - auto: on the next bar (Len free: on "
+                                            "your first note); instant: at once; 1 bar / 2 bars: after a count-in, the "
+                                            "beats left on the screen. A second press starts it at once, even with "
+                                            "nothing played - a blank loop"],
                  ["First pass", "-", "Len bars, or (auto / free) until your next press sets the length"],
                  ["Overdub", "automatic after the first pass", "pass after pass, until a press"],
                  ["Play", "a press", "a press again: overdub"],
@@ -752,7 +757,7 @@ def story():
             "play. A lane's Patt (MOTION page) or a gate's Gate turns to 'tapped'; euclid / on goes back, keeping "
             "it. Tapped rhythms rotate, swing and phase, and are kept in snapshots and pieces."),
           P("Loop settings (each layer's LOOP page): Len, Quant, Follow (the loop moves with the chord story, or "
-            "stays exact), Vel; LOOP 2: Lock. With MIDI Zones on, the loop key records every zoned layer at once, "
+            "stays exact), Vel; LOOP 2: Lock, Start. With MIDI Zones on, the loop key records every zoned layer at once, "
             "and their breath."),
           P("<b>Free loops</b> (Len free): the loop keeps its own clock, so it needs no transport. Arm it with the "
             "transport stopped and nothing else starts: your first note starts the recording, the next press closes "

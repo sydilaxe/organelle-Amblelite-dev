@@ -626,12 +626,19 @@ Tone
 Source
 AAFilt
 Lock
+Start
 Lock
+Start
 Lock
+Start
 Lock
+Start
 Lock
+Start
 Lock
+Start
 Lock
+Start
 C
 C#
 D
@@ -1800,24 +1807,52 @@ both
 off
 clock
 tempo
+auto
+instant
+1\ bar
+2\ bars
 off
 clock
 tempo
+auto
+instant
+1\ bar
+2\ bars
 off
 clock
 tempo
+auto
+instant
+1\ bar
+2\ bars
 off
 clock
 tempo
+auto
+instant
+1\ bar
+2\ bars
 off
 clock
 tempo
+auto
+instant
+1\ bar
+2\ bars
 off
 clock
 tempo
+auto
+instant
+1\ bar
+2\ bars
 off
 clock
 tempo
+auto
+instant
+1\ bar
+2\ bars
 FAV
 LAYER
 ANALOG\ 1

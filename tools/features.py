@@ -524,7 +524,7 @@ def looper(c):
     c.comment("the looper: one per layer. al-user-<layer> (what you play) is recorded, then goes to al-in-<layer>")
     for name in ("allpt", "allpn", "allpv", "allpq", "allpw"):
         c.obj(f"array define {name} {NL * MAXEV}")
-    for name in ("allpc", "allpl", "allps", "allp0", "allpi", "allpx", "allpr", "allpf", "allpk"):
+    for name in ("allpc", "allpl", "allps", "allp0", "allpi", "allpx", "allpr", "allpf", "allpk", "allpa", "allpd"):
         c.obj(f"array define {name} {NL}")
     # (a lock's scratch: the events and the breath line while they are moved)
     for name in ("alltt", "alltn", "alltv", "alltq", "alltw"):
@@ -553,7 +553,7 @@ def looper(c):
         # insert in time order: shift the later events up one place. (A free loop armed: its first note starts it;
         # an event played while erasing keeps the erase session's number, so that erase passes over it)
         free = f"{opt(p(L, 'LpLen'))} == 1"
-        proc(c, f"al-lrec{li}", [If(f"allps[{li}] == 5 && {free} && allrv{li} > 0", [
+        proc(c, f"al-lrec{li}", [If(f"allps[{li}] == 5 && {free} && allpa[{li}] < 0 && allrv{li} > 0", [
             T("allps", str(li), "1"), T("allp0", str(li), ck(li)), T("allpi", str(li), "0")] + toast("REC")),
             If(f"(allps[{li}] == 1 || allps[{li}] == 3) && allpc[{li}] < {MAXEV}", [
             V("allrt", tm), V("allk", f"allpc[{li}]"),
@@ -590,7 +590,13 @@ def looper(c):
         If("allps[allx] == 0", [T("allpf", "allx", f"{opt_layer('LpLen', nl)} == 1"), T("allpk", "allx", "0")]),
         If("alrun == 0 && allpf[allx] == 0", [Call("al-start")]),
         If("allps[allx] == 0", [T("allps", "allx", "5"), T("allpc", "allx", "0"), T("allpl", "allx", f"{lb}*{BAR}"),
-                                T("allpi", "allx", "0")] + toast("ARMED"),
+                                T("allpi", "allx", "0"), T("allpd", "allx", "-1"),
+                                # (Start: auto -1 - the bar line, a free loop's first note; else the tick it starts at)
+                                V("allsn", opt_layer("LpStrt", len(M.LOOP_STARTS))),
+                                T("allpa", "allx", f"if(allsn == 0, -1, if(allsn == 1, {ck('allx')}, if(allpf[allx], "
+                                                   f"alfc + int((allsn - 1)*240000/({num(S('g', None, 'Tempo'))}*{FREE_MS}) + 0.5), "
+                                                   f"int((max(0, alc24) + (allsn - 1)*{BAR} + {BAR - 1})/{BAR})*{BAR})))")]
+           + toast("ARMED") + [If("allsn == 1", [T("allps", "allx", "1"), T("allp0", "allx", ck("allx"))] + toast("REC"))],
            [If("allps[allx] == 5", [T("allps", "allx", "1"), T("allp0", "allx", ck("allx"))] + toast("REC"),
                [If("allps[allx] == 1", [Call("al-loopclose")] + toast("DUB"),
                    [If("allps[allx] == 3", [T("allps", "allx", "2")] + toast("PLAY"),
@@ -632,10 +638,19 @@ def looper(c):
         base = f"{li}*{MAXEV}"
         fol = opt(S(L, None, "Follow"))
         playing = f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0"
-        # (armed: it starts on the next bar line - a free loop waits for its first note)
+        # (a count-in - Start 1 bar / 2 bars: the beats left shown as they pass; a beat on the clock is 24 clocks, on
+        # a free loop's clock 60000 / (tempo x FREE_MS) ticks)
+        bt = "24" if not free else f"(60000/({num(S('g', None, 'Tempo'))}*{FREE_MS}))"
+        steps.append(If(f"{mine} && allps[{li}] == 5 && allpa[{li}] >= 0", [
+            V("allbl", f"int((allpa[{li}] - {clk})/{bt} + 0.999)"),
+            If(f"allbl != allpd[{li}] && allbl > 0", [T("allpd", str(li), "allbl")] + toast("ARMED", "allbl"))]))
+        # (armed: it starts on the next bar line - a free loop waits for its first note - or where its count-in ends)
         if not free:
-            steps.append(If(f"{mine} && allps[{li}] == 5 && {opt(S(L, None, 'LpLen'))} != 1 && alc24 % {BAR} == 0", [
+            steps.append(If(f"{mine} && allps[{li}] == 5 && if(allpa[{li}] >= 0, alc24 >= allpa[{li}], alc24 % {BAR} == 0)", [
                 T("allps", str(li), "1"), T("allp0", str(li), "alc24"), T("allpi", str(li), "0")] + toast("REC")))
+        else:
+            steps.append(If(f"{mine} && allps[{li}] == 5 && allpa[{li}] >= 0 && alfc >= allpa[{li}]", [
+                T("allps", str(li), "1"), T("allp0", str(li), "alfc"), T("allpi", str(li), "0")] + toast("REC")))
         erasing = f"alerase && allps[{li}] == 3"
         rm = [Loop(f"allpc[{li}] - allpi[{li}] - 1", "allj", [
             T(a_, f"{base} + allpi[{li}] + allj", f"{a_}[{base} + allpi[{li}] + allj + 1]")
@@ -690,7 +705,7 @@ def opt_layer(key, n):
 GLOBALS = dict(alwold=0, alhasbase=0, alchg=0, alapl=0, alcmpg=0, alpinst=0, alpcv=0, allj=0, allq=0, alftg=-1, alfold=0, alfnew=0, alfph=0, alfv=0, allftime=0, altw=-1, altn=-1, alslot=0, allast=-1,
                alcmp=0, alsnv=0, alsi=0, almdur=0, almt0=0, almp=0, almcnt=0, alslh=0, alslu=0, alasv=0,
                allx=0, allst=0, allln=0, allcn=0, allbn=0, allrt=0, allk=0, alli=0, allsz=0, allpos=0, alzl=0, allbp=0, albdirty=0,
-               alfc=0, allfl=1, allfd=1, alltp=0, allnb=1, allstp=0, allcl=1, allsc=1, allqq=1, allwr=0)
+               alfc=0, allsn=0, allbl=0, allfl=1, allfd=1, alltp=0, allnb=1, allstp=0, allcl=1, allsc=1, allqq=1, allwr=0)
 for _li in range(NL):
     GLOBALS.update({f"allrn{_li}": 0, f"allrv{_li}": 0})
 

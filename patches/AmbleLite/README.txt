@@ -84,6 +84,8 @@ LOOP: Len (auto: rounded to bars; free: as played; or 1 - 16 bars), Quant, Follo
 moves with the chord story; exact), Vel. Records what you play into the layer, and its breath.
 LOOP 2: Lock - for a free loop: off (it keeps its own time), clock (closed, it fits to whole bars at the
 tempo and plays with the transport), tempo (the same, but stopped, the tempo is set to fit the loop).
+Start - when an armed loop begins: auto (the next bar line; free: your first note), instant (at the
+press), 1 bar / 2 bars (a count-in of at least that many whole bars, the beats left on the screen).
 
 FREE LOOPS: with Len free a loop has its own clock - arm it with the transport stopped and nothing else
 starts; your first note begins it, the next press closes it exactly there. Lock off: it stays free (it

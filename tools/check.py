@@ -531,6 +531,38 @@ def main():
     check("on the clock, a loop starts from its beginning with the transport", bool(first) and first[0] <= 7040 and
           [n for t, n in h3 if t >= 6990][:1] == [64], f"first note after the restart (7000 ms): {first[:1]}")
 
+    # Start (LOOP 2): when an armed loop begins recording - instant: at the press; 1 bar (the transport stopped, the
+    # press starts it): a bar later, the beats counted down 4 3 2 1; a free loop's 1 bar: a bar at the tempo later
+    st_ = S_("drone", None, "LpStrt")
+
+    def rec_at(lenv, sv):
+        ev = solo("drone") + [(100, f"al-set {lpl_} {(lenv + 0.5) / len(M.LOOP_LENS)}"),
+                              (101, f"al-set {st_} {(sv + 0.5) / len(M.LOOP_STARTS)}"),
+                              (300, "al-notesmode bang"), (320, "al-sel-drone bang"), (1000, "al-loop bang")]
+
+        def probe(c):
+            m = c.obj("metro 5", 900, 680)
+            c.c(c.obj("loadbang", 900, 660), 0, m, 0)
+            t = c.obj("timer", 1000, 700)
+            c.c(c.obj("loadbang", 1000, 660), 0, t, 0)
+            tb = c.to(c.ch(m, "expr allps[0]*1000 + altn + 1", "change"), "t b f")
+            pk = c.obj("pack f f", 900, 760)
+            c.c((tb, 1), 0, pk, 1)
+            c.c((tb, 0), 0, t, 1)
+            c.c(t, 0, pk, 0)
+            c.c(pk, 0, c.obj("print ST", 900, 800), 0)
+        log, _ = H.run(ev, 5, d=d, keep=True, prints=(), extra=probe)
+        ch = [(float(l.split()[1]), int(float(l.split()[2]))) for l in log.splitlines() if l.startswith("ST")]
+        rec = [t for t, v in ch if v // 1000 == 1]
+        cnt = [v % 1000 - 1 for t, v in ch if v // 1000 == 5 and v % 1000 > 1]
+        return (rec[0] if rec else None), cnt
+    ri, _ = rec_at(0, 1)
+    rb, cb = rec_at(0, 2)
+    rf, _ = rec_at(1, 2)
+    check("Start: instant, 1 bar (counted down), a free loop's 1 bar", ri is not None and abs(ri - 1000) <= 10 and
+          rb is not None and abs(rb - 1000 - bar84) <= 40 and cb == [4, 3, 2, 1] and rf is not None and
+          abs(rf - 1000 - bar84) <= 40, f"recording from {ri} / {rb} (count {cb}) / {rf} ms - pressed at 1000, a bar {bar84:.0f}")
+
     # a zone's breath, looped: the sub's breath (to its level) recorded with its notes in one bar; the next cycle
     # plays it back with no breath - loud where it blew, quiet where it didn't
     zb = solo("sub") + [(50, f"al-set {zones} 0.75"), (51, f"al-set {S_('sub', None, 'BTgt')} {M.target_value('sub', M.engines('sub')[0][0], 'Level')}"),
