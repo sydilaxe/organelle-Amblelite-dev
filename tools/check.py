@@ -835,9 +835,9 @@ def main():
     log, _ = H.run(ev, 2, d=d, keep=True, extra=fq)
     fr = [float(l.split()[-1]) for l in log.splitlines() if l.startswith("FR")]
     p0 = fr[0] - 1000 if fr else -1
-    # (a free loop counts on its own clock - a tick each FREE_MS from the start: the note at 1700 ms)
-    check("loop: free starts on the first note", fr and fr[0] >= 1000 and abs(p0 - 1700 / M.FREE_MS) < 3,
-          f"state {int(fr[0] // 1000) if fr else '-'}, from tick {p0:.0f} of its own clock (the note: {1700 / M.FREE_MS:.0f})")
+    # (a free loop counts on its own clock - a tick each FREE_MS, running from the arming at 1000 ms: the note at 1700)
+    check("loop: free starts on the first note", fr and fr[0] >= 1000 and abs(p0 - 700 / M.FREE_MS) < 3,
+          f"state {int(fr[0] // 1000) if fr else '-'}, from tick {p0:.0f} of its own clock (the note: {700 / M.FREE_MS:.0f})")
 
     # ---- a tapped rhythm: aux + top D# with lane 1 shown, three notes at steps 0, 3 and 5 of the cycle (8 steps of a
     # 16th): it becomes the lane's pattern - those gaps (3 2 3), and then 3 hits a cycle (2 cycles: 6)

@@ -445,7 +445,9 @@ def loops_store(c, slot):
         T("alblp", "allx", "0"),
         V("allpos", f"if(allpf[allx], 0, {pmod('max(0, alc24) - allp0[allx]', 'allpl[allx]')})"), T("allpi", "allx", "0"),
         Loop("allpc[allx]", "alli", [T("allpw", f"{base} + alli", "-1"),
-                                     If(f"allpt[{base} + alli] < allpos", [T("allpi", "allx", "allpi[allx] + 1")])])]),
+                                     If(f"allpt[{base} + alli] < allpos", [T("allpi", "allx", "allpi[allx] + 1")])]),
+        # (a free loop loaded: its clock running)
+        If("allpf[allx] && allps[allx] > 0", [Send("al-fclock", "1")])]),
         Call("al-breathapply"), Call("al-redraw")])
 
 
@@ -464,13 +466,16 @@ def pmod(x, n):
 
 
 def free_clock(c):
-    """the free loops' clock: a tick each FREE_MS, always - the transport running or not. With the transport stopped
-    the play view's loop zone is redrawn by it (each quarter second) while a free loop records or plays"""
+    """the free loops' clock: a tick each FREE_MS, the transport running or not - only while a free loop is armed,
+    records, plays or is stopped (al-fclock 1 as one is armed or loaded; with none left, it stops itself: no ticks,
+    no cost). With the transport stopped the play view's loop zone is redrawn by it (each quarter second) while a
+    free loop records or plays"""
     met = c.obj(f"metro {FREE_MS}")
-    c.c(c.m(c.recv("al-init"), "1"), 0, met, 0)
+    c.c(c.ch(c.recv("al-fclock"), "change"), 0, met, 0)
     c.c(met, 0, c.obj("s al-ftick"), 0)
     act = " || ".join(f"(allpf[{li}] && allps[{li}] >= 1 && allps[{li}] <= 3)" for li in range(len(M.NOTE_LAYERS)))
-    proc(c, "al-ftick", [V("alfc", "alfc + 1"), Call("al-floops"),
+    any_ = " || ".join(f"(allpf[{li}] && allps[{li}] >= 1)" for li in range(len(M.NOTE_LAYERS)))
+    proc(c, "al-ftick", [V("alfc", "alfc + 1"), Call("al-floops"), If(f"({any_}) == 0", [Send("al-fclock", "0")]),
                          If(f"alrun == 0 && alfc % {250 // FREE_MS} == 0 && alview == 0 && alpop == 0 && alpatv == 0 && ({act})",
                             [V("alzlp", "1"), Send("al-playdraw")] +
                             [If(f"allps[{li}] == 1 || allps[{li}] == 3", [T("alpdf", str(li), "1")])
@@ -603,7 +608,9 @@ def looper(c):
                [If("allps[allx] == 1", [Call("al-loopclose")] + toast("DUB"),
                    [If("allps[allx] == 3", [T("allps", "allx", "2")] + toast("PLAY"),
                        [If("allps[allx] == 2", [T("allps", "allx", "3")] + toast("DUB"),
-                           [T("allps", "allx", "2"), T("allpi", "allx", "0")] + toast("PLAY"))])])])])])
+                           [T("allps", "allx", "2"), T("allpi", "allx", "0")] + toast("PLAY"))])])])]),
+        # (a free loop armed: its clock started - after the arming, so its first tick finds it)
+        If("allpf[allx] && allps[allx] >= 1", [Send("al-fclock", "1")])])
     # closing the first recording: its length (auto: rounded to bars; free: as played - up to the next tick of its
     # clock, which is then the cycle's start: nothing played at its first moment is missed). Free with Lock on: locked
     proc(c, "al-loopclose", [
