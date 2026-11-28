@@ -41,7 +41,7 @@ def key_name(k):
 SHAPE_DESC = {
     "Filter": "One sweep, as a DJ filter, shown from the middle (-50 .. 0 .. 50, its bar from a mark at the "
               "middle). Left of the middle a low-pass closes the sound down (to 40 Hz fully left); at the middle it is "
-              "open and clean; right of it a high-pass sweeps up and thins it (to 10 kHz fully right). One cutoff and "
+              "open and clean; right of it a high-pass sweeps up and thins it (to 1 kHz fully right). One cutoff and "
               "one resonance: only the side the knob is on filters. The knob upright - anywhere within 4 of the "
               "middle, shown as 0 - filters nothing and costs nothing; that is its default. Like every knob it takes "
               "over only once it passes the stored value (pickup).",
@@ -64,7 +64,7 @@ FUNCS = {
     "al-patview": ("PATT", "The pattern view (every gate and lane as steps, a playhead under each), then the "
                               "roadmap view, then neither."),
     "al-global": ("GLOB", "The global pages (MAIN first); again: the next one."),
-    "al-notesmode": ("NOTES", "Notes mode (N at the play view's right edge): the Organelle keys play the shown layer; aux + low A# goes back to "
+    "al-notesmode": ("NOTES", "Notes mode (N at the play view's right edge): the Organelle keys play the shown layer (its letter inverted on the play view) - aux + a layer key (low white keys, top G the cloud) chooses another and stays on the play view (so does knob 1 with aux held, or with low C# held outside notes mode); aux + top F loops it; aux + low A# goes back to "
                               "functions."),
     "al-startstop": ("START", "Start / stop the clock (the patch loads silent and waits for it)."),
     "al-pgprev": ("PAGE <", "Page back (the shown layer's or the global pages)."),

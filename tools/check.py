@@ -395,7 +395,7 @@ def main():
     saws = solo("pad") + [(52, f"al-set {M.S('pad', None, 'Evolve')} 0"),
                           (54, f"al-set {M.S('pad', None, 'Engine')} {M.engine_value('pad', 'saws')}"), START]
     shp = {}
-    for name, ev in (("flat", []), ("lp", [(60, f"al-set {fl} 0.15")]), ("hp", [(60, f"al-set {fl} 0.85")]),
+    for name, ev in (("flat", []), ("lp", [(60, f"al-set {fl} 0.15")]), ("hp", [(60, f"al-set {fl} 1")]),
                      ("drive", [(60, f"al-set {dr} 1")]), ("blur", [(60, f"al-set {bl} 1")])):
         _, x = run(saws + ev, 3)
         shp[name] = seg(x, 1.5, 3)
