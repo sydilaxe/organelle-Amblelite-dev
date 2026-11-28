@@ -20,7 +20,7 @@ delay   a digital delay after the Digitech RDS-8000: Time 20 ms .. 3 s, Fdbk (to
 Out: each engine fades in and out over 40 ms as Engine changes, and is switched off once out (the recording
 goes on)."""
 from pdlib import Canvas, proc, V, T, If, Loop, SendL, Call
-from dsp import mul, add, sub, div, prm
+from dsp import mul, add, sub, div, prm, lop
 import model as M
 from model import S
 from control import opt, num
@@ -277,9 +277,7 @@ def _delay(c, k):
         fbsig = add(c, mul(c, pitched, on), mul(c, mix, c.ch(on, "*~ -1", "+~ 1")))
         src = mul(c, c.obj(f"r~ al-crec{name}"), ing)
         x = add(c, src, mul(c, fbsig, fb))
-        lp = c.obj("lop~")
-        c.c(x, 0, lp, 0)
-        c.c(tone, 0, lp, 1)
+        lp = lop(c, x, tone)
         lim = div(c, lp, c.ch(lp, "abs~", "*~ 0.5", "+~ 1"))
         c.c(lim, 0, c.obj(f"delwrite~ al-cd{name} {DEL_MS}"), 0)
         c.c(mul(c, c.to(ys[side], "*~ 0.8"), gain), 0, c.obj(f"throw~ al-cloud-{name}"), 0)

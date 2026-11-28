@@ -639,7 +639,7 @@ def story():
                         "layer's inverted) and a loop's state beside it (R recording, P playing, O overdub, s "
                         "stopped). A loop also shows on its layer's sign: it blinks while recording or "
                         "overdubbing, a line under it fills as the loop goes round, a dot there when stopped. The "
-                        "rhythm shows too: a lane's stone swells as each hit lands (more for an accent), and a gated "
+                        "rhythm shows too: a lane's stone (the dot in its ring) lights while each hit's gate is open, and a gated "
                         "drone, sub or pads sign shows while its gate is open, gone between. At "
                         "the right edge the MIDI-in light and N in notes mode."),
              ("2-layer-fav", "A layer's pages: the layer and engine, the page (n / count), the four knobs."),

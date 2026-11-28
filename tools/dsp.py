@@ -37,6 +37,17 @@ def div(c, a, b):
     return m
 
 
+def lop(c, x, hz, sr=44100):
+    """a one-pole low-pass whose cutoff is a signal (Hz) - as [lop~] computes it (k = 2 pi f / sr, at most 1;
+    y += k (x - y)), built from [rpole~]: [lop~] takes a signal cutoff only from Pd 0.54 (older, the Organelle's,
+    the connection fails without a word and the filter sits closed - silent)"""
+    k = c.ch(hz, f"*~ {6.283185307 / sr:.9g}", "clip~ 0 1")
+    rp = c.obj("rpole~")
+    c.c(mul(c, x, k), 0, rp, 0)
+    c.c(c.ch(k, "*~ -1", "+~ 1"), 0, rp, 1)
+    return rp
+
+
 def prm(c, slot, ms=150):
     """slot as a smoothed signal 0..1 (every change ramps over ms: no zipper noise, no steps)"""
     return c.ch(c.recv(f"al-s{slot}"), f"pack f {ms}", "line~")

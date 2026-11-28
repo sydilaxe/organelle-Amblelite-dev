@@ -943,6 +943,39 @@ if (step === "1") {
                     for w in ln.replace(";", " ").split()[4:5] if w in extra})
     check("only Pd's core objects (nothing from extra)", not found, ", ".join(found) or "none")
 
+    # ... and nothing newer than the Organelle's Pd: a signal into [lop~] / [hip~] / [bp~]'s cutoff is Pd 0.54's
+    # (older, the connection fails without a word and the filter sits closed - silence); dsp.lop does it instead
+    sigcut = []
+    for f in _glob.glob(os.path.join(d, "*.pd")):
+        objs = [[]]
+        for ln in open(f).read().split(";\n"):
+            ln = ln.strip()
+            if ln.startswith("#N canvas"):
+                objs.append([])
+            elif ln.startswith("#X restore"):
+                objs.pop()
+                objs[-1].append("subpatch")
+            elif ln.startswith(("#X obj", "#X msg", "#X text", "#X floatatom", "#X symbolatom", "#X array")):
+                w = ln.split()
+                objs[-1].append(" ".join(w[4:]) if w[1] == "obj" else w[1])
+            elif ln.startswith("#X connect"):
+                a_, _, b_, bi = map(int, ln.split()[2:6])
+                o = objs[-1]
+                if bi >= 1 and o[b_].split()[:1] in (["lop~"], ["hip~"], ["bp~"]) and o[a_].split()[0].endswith("~"):
+                    sigcut.append(f"{os.path.basename(f)}: {o[a_]} -> {o[b_]}")
+    check("no signal cutoffs into lop~ / hip~ / bp~ (the Organelle's Pd)", not sigcut, "; ".join(sigcut[:3]) or "none")
+    # ... and [expr] only with functions of long standing (not the newer mtof / ftom / dbtorms ...: their arithmetic)
+    import re as _re
+    known = {"abs", "cos", "sin", "tan", "sqrt", "fmod", "if", "int", "max", "min", "pow", "random", "exp", "log",
+             "atan", "atan2", "floor", "ceil", "rint", "log10"}
+    used = set()
+    for f in _glob.glob(os.path.join(d, "*.pd")):
+        for ln in open(f).read().split(";\n"):
+            w = ln.split()
+            if len(w) > 4 and w[0] == "#X" and w[1] == "obj" and w[4] in ("expr", "expr~", "fexpr~"):
+                used |= set(_re.findall(r"([A-Za-z_][A-Za-z_0-9]*)\s*\(", " ".join(w[5:])))
+    check("expr: only long-standing functions (the Organelle's Pd)", used <= known, ", ".join(sorted(used - known)) or "none new")
+
     # ---- every engine of every layer sounds (one second each, in turn), and nothing in Pd complains
     for L in ("drone", "sub", "pad", "perc1"):
         names = [e for e, _ in M.engines(L)]
