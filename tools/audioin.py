@@ -85,7 +85,7 @@ def _dsp(d):
     m, k_ = opt(mode), opt(key)
     for i in range(8):
         note = f"48 + {k_} + alsc[{m}*7 + ({2 * i}) % alscn[{m}]] + 12*int({2 * i}/alscn[{m}])"
-        nx = d.obj(f"expr mtof({note})")
+        nx = d.obj(f"expr 8.17579891564*exp(0.0577622650467*({note}))")      # (mtof, as plain arithmetic)
         for sl in (key, mode, P("Scale")):
             d.c(d.ch(d.recv(f"al-s{sl}"), "t b"), 0, nx, 0)
         d.c(d.recv("al-init"), 0, nx, 0)
@@ -155,8 +155,8 @@ def _tracker():
     p.c(tb, 1, p.obj("v alini2"), 0)
     y0, y1, y2 = "alinacf[int(alini2)-1]", "alinacf[int(alini2)]", "alinacf[int(alini2)+1]"
     den = f"({y0} - 2*{y1} + {y2})"
-    run_steps(p, (tb, 0), [X(f"if(alinclr > 0.35 && alinlv > 48, ftom(22050/(alini2 + max(-1, min(1, if({den} < -1e-09, "
-                             f"0.5*({y0} - {y2})/{den}, 0))))), -1)", "s al-inpitch")])
+    run_steps(p, (tb, 0), [X(f"if(alinclr > 0.35 && alinlv > 48, 17.3123405046*log(0.12231220585*22050/(alini2 + max(-1, min(1, if({den} < -1e-09, "
+                             f"0.5*({y0} - {y2})/{den}, 0))))), -1)", "s al-inpitch")])        # (ftom, as plain arithmetic)
     return p
 
 

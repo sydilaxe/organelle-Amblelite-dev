@@ -111,7 +111,8 @@ def build(c):
 
 
 def rms(li):
-    return f"dbtorms(alvl{li})"
+    # (dbtorms, as plain arithmetic - Pd's: 0 at 0 dB or less, 100 dB = 1)
+    return f"if(alvl{li} <= 0, 0, exp(0.115129255*(min(alvl{li}, 485) - 100)))"
 
 
 def frame():
