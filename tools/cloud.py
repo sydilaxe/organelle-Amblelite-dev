@@ -11,11 +11,14 @@ rhythm  the same recording, read in time with the piece: three levels - Rate, th
         step), so the levels cascade one into the next (Cascad: how many sound); Morph rotates each level its own
         amount - the patterns morph against each other. Each grain at its own place (Spread), read from Scan back
         (plus Jitter).
-delay   a digital delay after the Digitech RDS-8000: Time 20 ms .. 3 s, Fdbk (to just over unity, held by a soft
-        limit), Width (the right side longer, the repeats crossing between the sides), Mod (the time wavering:
-        chorus to tape warble), Pitch (each repeat shifted by an interval: rising or falling cascades), Hold (hold:
-        the loop kept, repeating forever, nothing new in - dub: kept, and what plays is added to it), Tone (the
-        repeats darkening).
+delay   a 12-bit digital delay after the Digitech RDS-8000: Time 20 ms .. 10 s - each pass through the loop
+        quantised to 12 bits, and past a second the line runs at a lower rate (down to a quarter at 10 s) with no
+        filter before it, so long delays alias, as the RDS's did; Fdbk (at the top just over unity: the loop keeps
+        everything and builds, a soft limit holding it - a little lower, a loop whose layers slowly fade), Width (the
+        right side longer, the repeats crossing between the sides), Mod (the time wavering: chorus to tape warble),
+        Pitch (each repeat shifted by an interval: rising or falling cascades), Hold (hold: the loop kept, repeating
+        forever, nothing new in - dub: kept, and what plays is added to it), Tone (open at the top; lower, the
+        repeats darken).
 
 Out: each engine fades in and out over 40 ms as Engine changes, and is switched off once out (the recording
 goes on)."""
@@ -27,7 +30,7 @@ from control import opt, num
 
 STREAMS = 4
 BUF_MS = 8000
-DEL_MS = 3600
+DEL_MS = 10400                  # (the delay: up to 10 s)
 ENGS = [e for e, _ in M.engines("cloud")]
 
 
@@ -158,24 +161,48 @@ RH_LEVELS = 3
 RH_STEPS = 8
 
 
+RH_VOICES = 2         # (grain voices a level: grains overlap - a scattered one doesn't cut the last)
+
+
 def _rhythm(c, k):
-    """three grain voices, one a level: each struck by 'al-rg<j> pos_ms dur_ms pan' - a constant read point (the
-    recording at its own pitch), an envelope up in 3 ms and down over the grain, placed between the sides"""
-    c.comment("rhythm: a grain voice a level, struck in time (rhythm_clock)")
+    """two grain voices a level, in turn: each struck by 'al-rg<j> pos_ms dur_ms pan delay_ms' - after delay_ms
+    (the grain scattered off the step: Jitter), a constant read point (the recording at its own pitch), an envelope
+    up in 3 ms and down over the grain, placed between the sides"""
+    c.comment("rhythm: grain voices a level, struck in time (rhythm_clock), scattered off it by Jitter")
     gain = engine_switch(c, k)
-    L, R = c.obj("*~ 0.55"), c.obj("*~ 0.55")
+    L, R = c.obj("*~ 0.5"), c.obj("*~ 0.5")
     for j in range(RH_LEVELS):
-        up = c.ch(c.recv(f"al-rg{j}"), "unpack f f f")
-        rd = c.ch(c.to(up, "sig~"), "delread4~ al-cbuf")
-        env = c.obj("vline~")
-        c.c(c.m((up, 1), "1 3, 0 $1 3"), 0, env, 0)
-        g = mul(c, rd, env)
-        q = c.ch((up, 2), "* 0.25", "pack f 5", "line~")
-        c.c(mul(c, g, c.to(q, "cos~")), 0, L, 0)
-        c.c(mul(c, g, c.ch(q, "-~ 0.25", "cos~")), 0, R, 0)
-        c.col(260)
+        # (the grain after its delay, then to the next voice of the level)
+        pp = c.ch(c.recv(f"al-rg{j}"), "pipe f f f 0")
+        pk = c.obj("pack f f f")
+        for i in (2, 1, 0):
+            c.c(pp, i, pk, i)
+        tl = c.to(pk, "t l b")
+        cnt = c.obj("f")
+        c.c((tl, 1), 0, cnt, 0)
+        c.c(c.to(cnt, f"expr ($f1 + 1) % {RH_VOICES}"), 0, cnt, 1)
+        vsel = c.obj("list prepend 0")
+        c.c(cnt, 0, vsel, 1)
+        c.c((tl, 0), 0, vsel, 0)
+        rt = c.to(vsel, "route " + " ".join(str(v) for v in range(RH_VOICES)))
+        for v in range(RH_VOICES):
+            _rhythm_voice(c, (rt, v), L, R)
+            c.col(260)
     for x, side in ((L, "L"), (R, "R")):
         c.c(mul(c, x, gain), 0, c.obj(f"throw~ al-cloud-{side}"), 0)
+
+
+def _rhythm_voice(c, src, L, R):
+    """one grain voice: 'pos_ms dur_ms pan' - read pos back, up in 3 ms (from where it is: a voice still sounding
+    isn't cut) and down over dur, placed between the sides"""
+    up = c.to(src, "unpack f f f")
+    rd = c.ch(c.to(up, "sig~"), "delread4~ al-cbuf")
+    env = c.obj("vline~")
+    c.c(c.m((up, 1), "1 3, 0 $1 3"), 0, env, 0)
+    g = mul(c, rd, env)
+    q = c.ch((up, 2), "* 0.25", "pack f 5", "line~")
+    c.c(mul(c, g, c.to(q, "cos~")), 0, L, 0)
+    c.c(mul(c, g, c.ch(q, "-~ 0.25", "cos~")), 0, R, 0)
 
 
 def rhythm_clock(c):
@@ -192,12 +219,19 @@ def rhythm_clock(c):
         stp = f"max(3, int({base}/{2 ** j}))"
         rot = f"int(alp[{RH('Morph')}]*{RH_STEPS - 1}*{1 + j * 0.75} + 0.5)"
         pos = f"((int(alc24/{stp}) + {rot}) % {RH_STEPS})"
+        # (a grain: its read point Scan back plus Jitter, its length Size of the step, its place (Spread), and how
+        # late it starts - Jitter scatters it up to half a step off the beat; with Jitter, now and then a second
+        # grain anywhere in the step: the pattern dissolves into a spray around it)
+        sms = f"{stp}*60000/({num(tempo)}*24)"
+        jit = f"alp[{RH('Jitter')}]"
+        grain = lambda late: SendL(f"al-rg{j}", [
+            f"min({BUF_MS - 2300}, 20 + alp[{RH('Scan')}]*{BUF_MS - 2600} + random(0, 1000)/1000*{jit}*2000)",
+            f"max(10, alp[{RH('Size')}]*{sms} - 3)",
+            f"0.5 + (random(0, 1000)/1000 - 0.5)*alp[{RH('Spread')}]", late])
         steps.append(If(f"alp[{RH('Cascad')}]*{RH_LEVELS} >= {j} - 0.001 && alc24 % {stp} == 0 && "
                         f"({pos}*{hits}) % {RH_STEPS} < {hits}", [
-            SendL(f"al-rg{j}", [
-                f"min({BUF_MS - 2300}, 20 + alp[{RH('Scan')}]*{BUF_MS - 2600} + random(0, 1000)/1000*alp[{RH('Jitter')}]*2000)",
-                f"max(10, alp[{RH('Size')}]*{stp}*60000/({num(tempo)}*24) - 3)",
-                f"0.5 + (random(0, 1000)/1000 - 0.5)*alp[{RH('Spread')}]"])]))
+            grain(f"random(0, 1000)/1000*{jit}*{jit}*0.5*{sms}"),
+            If(f"random(0, 1000)/1000 < {jit}*0.6", [grain(f"random(0, 1000)/1000*{sms}")])]))
     eng = S("cloud", None, "Engine")
     proc(c, "al-crhythm", [If(f"alrun && alclin && min({len(ENGS) - 1}, int(alp[{eng}]*{len(ENGS)})) == "
                               f"{ENGS.index('rhythm')}", steps)])
@@ -239,17 +273,28 @@ def _delay(c, k):
         for sl in slots:
             c.c(c.ch(c.recv(f"al-s{sl}"), "t b"), 0, e, 0)
         return e
-    # (feedback: Hold - exactly 1; else Fdbk up to 1.05, the soft limit holding it; in: not while holding)
-    fb = c.ch(ctl(f"if({hold} > 0, 1, 1.05*alp[{DL('Fdbk')}])", (DL("Hold"), DL("Fdbk"))), "pack f 50", "line~")
+    # (feedback: Hold - exactly 1; else Fdbk up to 1.06 - unity at 94 % - the soft limit holding it; in: not
+    # while holding)
+    fb = c.ch(ctl(f"if({hold} > 0, 1, 1.06*alp[{DL('Fdbk')}])", (DL("Hold"), DL("Fdbk"))), "pack f 50", "line~")
     ing = c.ch(ctl(f"{hold} != 1", (DL("Hold"),)), "pack f 50", "line~")
     # (the pitch: on unless 0; the heads' turn - (1 - ratio) x 1000 / the 60 ms window, in Hz)
     shift = ctl(f"{st} != 0; (1 - pow(2, ({st})/12))*1000/60", (DL("Pitch"),))
-    tone = c.ch(c.recv(f"al-s{DL('Tone')}"), "expr 800*pow(15, $f1)", "pack f 50", "line~")
+    # (Tone: 1 kHz .. open - at the top the low-pass passes everything (k = 1), so the repeats stay bright)
+    tone = c.ch(c.recv(f"al-s{DL('Tone')}"), "expr if($f1 > 0.97, 30000, 1000*pow(10, $f1*1.3))", "pack f 50", "line~")
     # (the time: free - Time, 20 ms .. 3 s; tempo - Time steps through DELAY_DIVS, in beats at the tempo)
     tempo = S("g", None, "Tempo")
-    tms = c.ch(ctl(f"min({DEL_MS - 60}, if(alp[{DL('Sync')}] >= 0.5, ({delay_beats()})*60000/{num(tempo)}, "
-                   f"20*pow(150, alp[{DL('Time')}])))", (DL("Time"), DL("Sync"), tempo)), "pack f 80", "line~")
+    tdel = ctl(f"min({DEL_MS - 300}, if(alp[{DL('Sync')}] >= 0.5, ({delay_beats()})*60000/{num(tempo)}, "
+               f"20*pow(500, alp[{DL('Time')}])))", (DL("Time"), DL("Sync"), tempo))
+    tms = c.ch(tdel, "pack f 80", "line~")
+    # (the line's rate: full up to 1 s, then lower - a quarter at 10 s - a sample held for 1 .. 4 of the system's,
+    # no filter before it: the aliasing of a long digital delay. m: how much of the held signal - none below 1 s)
+    dec = c.to(tdel, "expr 1 + 3*max(0, min(1, ($f1 - 1000)/9000)); min(1, max(0, ($f1 - 1000)/300))")
+    clk = c.ch(c.to((dec, 0), "expr 44100/$f1"), "pack f 80", "line~", "phasor~")
+    hm = c.ch((dec, 1), "pack f 80", "line~")
     wid = prm(c, DL("Width"))
+    xe = ctl(f"(1 - 0.5*alp[{DL('Width')}])/sqrt(pow(1 - 0.5*alp[{DL('Width')}], 2) + pow(0.5*alp[{DL('Width')}], 2)); "
+             f"0.5*alp[{DL('Width')}]/sqrt(pow(1 - 0.5*alp[{DL('Width')}], 2) + pow(0.5*alp[{DL('Width')}], 2))", (DL("Width"),))
+    xa, xb = (c.ch((xe, i), "pack f 50", "line~") for i in range(2))
     mod = c.ch(prm(c, DL("Mod")), "*~ 6")
     lfo = c.obj("osc~ 0.27")
     lfo2 = c.obj("osc~ 0.31")
@@ -263,9 +308,10 @@ def _delay(c, k):
         y = c.ch(c.to(dt, f"clip~ 1 {DEL_MS - 50}"), f"vd~ al-cd{name}")
         ys.append(y)
     for side, name in ((0, "L"), (1, "R")):
-        # (the feedback: this side's repeat and the other's, crossed by Width; pitched)
-        w = c.to(wid, "*~ 0.5")
-        mix = add(c, mul(c, ys[side], c.ch(w, "*~ -1", "+~ 1")), mul(c, ys[1 - side], w))
+        # (the feedback: this side's repeat and the other's, crossed by Width - in proportions that keep the power
+        # (a^2 + b^2 = 1): the two sides differ, and a plain mix of them lost 2 dB a pass, so even full feedback
+        # faded; pitched)
+        mix = add(c, mul(c, ys[side], xa), mul(c, ys[1 - side], xb))
         c.c(mix, 0, c.obj(f"delwrite~ al-cp{name} 100"), 0)
         heads = []
         for off in (0, 0.5):
@@ -279,7 +325,15 @@ def _delay(c, k):
         x = add(c, src, mul(c, fbsig, fb))
         lp = lop(c, x, tone)
         lim = div(c, lp, c.ch(lp, "abs~", "*~ 0.5", "+~ 1"))
-        c.c(lim, 0, c.obj(f"delwrite~ al-cd{name} {DEL_MS}"), 0)
+        # (12 bits: each pass rounded to 1/2048 - floor(x*2048 + 0.5), x - wrap~ - the repeats grainier as they go)
+        sc = c.ch(lim, "*~ 2048", "+~ 0.5")
+        q = c.to(sub(c, sc, c.to(sc, "wrap~")), "*~ 0.000488281")
+        # (the lower rate: held between the clock's turns, crossfaded in past 1 s)
+        sh = c.obj("samphold~")
+        c.c(q, 0, sh, 0)
+        c.c(clk, 0, sh, 1)
+        w_ = add(c, q, mul(c, sub(c, sh, q), hm))
+        c.c(w_, 0, c.obj(f"delwrite~ al-cd{name} {DEL_MS}"), 0)
         c.c(mul(c, c.to(ys[side], "*~ 0.8"), gain), 0, c.obj(f"throw~ al-cloud-{name}"), 0)
         c.col(300)
 

@@ -188,7 +188,8 @@ def layer_controls(layer, engines=()):
     d = LANE_DEFAULT.get(layer)
     eng = Param("Engine", d[0] if d else 0, opts=list(engines))
     common = [eng, Param("Level", 0.5), Param("Cutoff", 1.0), Param("Reso", 0.1)]
-    evolve = ("EVOLVE", [Param("Evolve", 0.6), Param("Pace", 0.55), Param("EvSync", 0, opts=["free", "bars"])]
+    # (each layer's Evolve low to start: a gentle drift - turn it up for more movement; the master is PERFRM's)
+    evolve = ("EVOLVE", [Param("Evolve", 0.2), Param("Pace", 0.55), Param("EvSync", 0, opts=["free", "bars"])]
                + ([] if perc else [Param("Drift", 0.0)]))
     feel = ("FEEL", [Param("Swing", 0.0), Param("Feel", 0, opts=FEELS)])
     lfos = [(f"LFO {n}", [Param("Target", 0, key=f"L{n}Tgt", target=True),
@@ -201,7 +202,8 @@ def layer_controls(layer, engines=()):
                          Param("ZoneLo", zone[0], lo=0, hi=127, key="ZnLo"), Param("ZoneHi", zone[1], lo=0, hi=127, key="ZnHi")])
     front = [("LAYER", common)]
     if layer == "cloud":
-        return front, lfos + [breath, ("EVOLVE", evolve[1][:3])]
+        # (its Evolve off to start: the cloud's settings - a delay, a rhythm - stay as set; turn it up to wander)
+        return front, lfos + [breath, ("EVOLVE", [Param("Evolve", 0.0)] + evolve[1][1:3])]
     if perc:
         return front, [
             ("HIT", [Param("Decay", d[7]), Param("Velo", 0.5), Param("Octave", OCT_DEFAULT[layer], opts=OCTAVES),
@@ -343,12 +345,12 @@ ENGINES = {
                     Param("Morph", 0.0, late=True), Param("Rate", 1, opts=["1/4", "1/8", "1/16"], late=True),
                     Param("Cascad", 0.5, late=True), Param("Scan", 0.15, late=True), Param("Jitter", 0.4, late=True),
                     Param("Source", 0, opts=["layers", "input", "both"], late=True)]),
-        # a digital delay after the RDS-8000: feedback (Hold: the loop kept - dub: and played into), each repeat
+        # a 12-bit digital delay after the RDS-8000 (up to 10 s, aliasing as it gets long): feedback (Hold: the loop kept - dub: and played into), each repeat
         # pitched (Pitch), the time wavering (Mod), the sides apart (Width) (cloud.delay)
         ("delay", [Param("Time", 0.5, late=True), Param("Fdbk", 0.45, late=True), Param("Width", 0.5, late=True),
                    Param("Mod", 0.2, late=True), Param("Pitch", 3, opts=DELAY_PITCHES, late=True),
                    Param("Hold", 0, opts=["off", "hold", "dub"], late=True),
-                   Param("Sync", 0, opts=["free", "tempo"], late=True), Param("Tone", 0.6, late=True),
+                   Param("Sync", 0, opts=["free", "tempo"], late=True), Param("Tone", 1.0, late=True),
                    Param("Source", 0, opts=["layers", "input", "both"], late=True)]),
     ],
     "perc": [
@@ -451,7 +453,7 @@ EVOLVE = {
     ("perc", "wave"): [("Pos", 0.5), ("Bright", 0.3)],
     ("cloud", "grains"): [("Scan", 0.5), ("Size", 0.4), ("Spread", 0.3), ("Jitter", 0.3), (None, 0.25)],
     ("cloud", "rhythm"): [("Scan", 0.5), ("Jitter", 0.3), ("Morph", 0.15), (None, 0.25)],
-    ("cloud", "delay"): [("Mod", 0.3), ("Tone", 0.3), (None, 0.25)],
+    ("cloud", "delay"): [("Mod", 0.25), ("Width", 0.3)],       # (not Tone, not the filter: the repeats stay bright)
     ("perc", "blip"): [("Cutoff", 0.5), ("Flick", 0.3), ("FEnv", 0.3)],
     ("perc", "lpg"): [("Fold", 0.5), ("Open", 0.5), ("Vactrl", 0.3)],
     ("perc", "bowl"): [("Hard", 0.5), ("Beat", 0.4), ("Strtch", 0.2)],
