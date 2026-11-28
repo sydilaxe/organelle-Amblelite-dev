@@ -208,6 +208,9 @@ DESC = {
     "cloud/delay/Tone": "Open at the top (the repeats as bright as they went in); lower, a low-pass in the loop darkens "
                         "them, down to 1 kHz.",
     "cloud/delay/Source": "What the delay takes: the layers, the input, or both.",
+    "cloud/delay/AAFilt": "The anti-alias filter before a long delay's lower rate (past 2 s): 0 open - all the "
+                          "aliasing - .. 1 smooth (1.4 kHz), smoothing the lower rate's steps. A touch to start, the aliasing only slightly filtered; "
+                          "the clean signal and the repeats are not touched.",
     "pad/voice/Source": "The source: a bright saw (0) to narrow glottal pulses (100) - vox to choir.",
     "pad/voice/Breath": "Breath noise under the voice.",
     "pad/string/Bow": "The excitation: breathy noise (0) to a saw (100).",

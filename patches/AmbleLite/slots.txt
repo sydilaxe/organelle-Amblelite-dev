@@ -624,3 +624,4 @@ cloud.delay.Hold
 cloud.delay.Sync
 cloud.delay.Tone
 cloud.delay.Source
+cloud.delay.AAFilt

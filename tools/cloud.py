@@ -17,7 +17,8 @@ delay   a 12-bit digital delay after the Digitech RDS-8000: Time 20 ms .. 10 s, 
         everything and builds, a soft limit holding it - a little lower, a loop whose layers slowly fade), Width (the
         right side longer, the repeats crossing between the sides), Mod (the time wavering: chorus to tape warble),
         Pitch (each repeat shifted by an interval: rising or falling cascades), Hold (hold: the loop kept, repeating
-        forever, nothing new in - dub: kept, and what plays is added to it), Tone (open at the top; lower, the
+        forever, nothing new in - dub: kept, and what plays is added to it), AAFilt (an anti-alias low-pass before
+        the long delay's lower rate: open .. smooth), Tone (open at the top; lower, the
         repeats darken).
 
 Out: each engine fades in and out over 40 ms as Engine changes, and is switched off once out (the recording
@@ -292,6 +293,9 @@ def _delay(c, k):
     dec = c.to(tdel, "expr 1 + 0.2*max(0, min(1, ($f1 - 2000)/8000)); 0.5*min(1, max(0, ($f1 - 2000)/300))")
     clk = c.ch(c.to((dec, 0), "expr 44100/$f1"), "pack f 80", "line~", "phasor~")
     hm = c.ch((dec, 1), "pack f 80", "line~")
+    # (the one-pole stages pass everything above about 7 kHz (their k reaches 1), so the knob spans 6.5 .. 1.4 kHz
+    # where they act; 0 open)
+    aaf = c.ch(c.recv(f"al-s{DL('AAFilt')}"), "expr if($f1 < 0.02, 30000, 6500*pow(0.22, $f1))", "pack f 50", "line~")
     wid = prm(c, DL("Width"))
     xe = ctl(f"(1 - 0.5*alp[{DL('Width')}])/sqrt(pow(1 - 0.5*alp[{DL('Width')}], 2) + pow(0.5*alp[{DL('Width')}], 2)); "
              f"0.5*alp[{DL('Width')}]/sqrt(pow(1 - 0.5*alp[{DL('Width')}], 2) + pow(0.5*alp[{DL('Width')}], 2))", (DL("Width"),))
@@ -323,11 +327,12 @@ def _delay(c, k):
         pitched = add(c, *heads)
         fbsig = add(c, mul(c, pitched, on), mul(c, mix, c.ch(on, "*~ -1", "+~ 1")))
         src0 = mul(c, c.obj(f"r~ al-crec{name}"), ing)
-        # (the lower rate on the way in: held between the clock's turns, crossfaded in past 2 s)
+        # (the lower rate on the way in: held between the clock's turns, its steps smoothed by AAFilt - a low-pass
+        # after the hold, as a converter's: open, then 6.5 .. 1.4 kHz, two stages - crossfaded in past 2 s)
         sh = c.obj("samphold~")
         c.c(src0, 0, sh, 0)
         c.c(clk, 0, sh, 1)
-        src = add(c, src0, mul(c, sub(c, sh, src0), hm))
+        src = add(c, src0, mul(c, sub(c, lop(c, lop(c, sh, aaf), aaf), src0), hm))
         x = add(c, src, mul(c, fbsig, fb))
         lp = lop(c, x, tone)
         lim = div(c, lp, c.ch(lp, "abs~", "*~ 0.5", "+~ 1"))

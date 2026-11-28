@@ -351,7 +351,10 @@ ENGINES = {
                    Param("Mod", 0.2, late=True), Param("Pitch", 3, opts=DELAY_PITCHES, late=True),
                    Param("Hold", 0, opts=["off", "hold", "dub"], late=True),
                    Param("Sync", 0, opts=["free", "tempo"], late=True), Param("Tone", 1.0, late=True),
-                   Param("Source", 0, opts=["layers", "input", "both"], late=True)]),
+                   Param("Source", 0, opts=["layers", "input", "both"], late=True),
+                   # (an anti-alias low-pass on what goes in, before the long delay's lower rate: 0 open - all the
+                   # aliasing - .. 1 smooth; a touch to start)
+                   Param("AAFilt", 0.15, late=True)]),
     ],
     "perc": [
         ("blip", [Param("Cutoff", 0.5), Param("Flick", 0.5), Param("FlTime", 0.3), Param("Reso", 0.4),
