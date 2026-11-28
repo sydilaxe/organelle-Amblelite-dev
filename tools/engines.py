@@ -578,3 +578,23 @@ BUILD = {
 
 from engines2 import BUILD2          # (the second set: engines2.py)
 BUILD.update(BUILD2)
+
+# the subs, levelled: each engine's trim (dB) so all sit near -11.5 dB RMS solo at Level 50 % (measured) - switching
+# engines doesn't jump; the sine a little above, as a pure sine sounds quieter than its level
+SUB_TRIM_DB = {"sine": 4.8, "warm": 3.3, "pulse": 0.4, "fm": 6.4, "boom": 0.0, "reese": 5.1, "dub": -0.7}
+
+
+def _trimmed(fn, db):
+    g = round(10 ** (db / 20), 3)
+
+    def build(s, ins, L):
+        l, r = fn(s, ins, L)
+        if l is r:
+            o = s.to(l, f"*~ {g}")
+            return o, o
+        return s.to(l, f"*~ {g}"), s.to(r, f"*~ {g}")
+    return build
+
+
+for _e, _db in SUB_TRIM_DB.items():
+    BUILD[("sub", _e)] = _trimmed(BUILD[("sub", _e)], _db)
