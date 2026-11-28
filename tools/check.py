@@ -1095,6 +1095,34 @@ if (step === "1") {
         check(f"every {M.kind(L)} engine sounds ({len(names)})", not quiet and not H.errors(log),
               f"quietest {min(lv):.0f} dB" + (f"; silent: {quiet}" if quiet else "") + (f"; {H.errors(log)[:1]}" if H.errors(log) else ""))
 
+    # the play view's rhythm, under load (the CPU above 70 %: whole frames only each 120 ms): the four lanes at 1/16,
+    # 7 hits of 16 - every hit's dot drawn at once (its zone alone, then shown), in under 100 OLED messages a second
+    r16_ = M.RATES.index("1/16")
+    ev = [(20 + i, f"al-inset {i} {1 if L in M.LANES else 0}") for i, L in enumerate(M.LAYERS)]
+    ev += [(30 + i, f"al-set {M.S(L, None, 'Rate')} {(r16_ + 0.5) / len(M.RATES)}") for i, L in enumerate(M.LANES)]
+    ev += [(40 + i, f"al-set {M.S(L, None, 'Hits')} {6 / 15}") for i, L in enumerate(M.LANES)]
+    ev += [START, (210, "notesRaw 72 0")] + [(t, f"h-mark {t}") for t in range(0, 10000, 5)]
+
+    def busy(c):
+        c.c(c.obj("r h-mark", 900, 700), 0, c.obj("print MARK", 900, 730), 0)
+        m = c.obj("metro 50", 1000, 700)
+        c.c(c.obj("loadbang", 1000, 680), 0, m, 0)
+        c.c(c.m(m, "80"), 0, c.obj("v alcpu", 1000, 760), 0)
+    log, _ = H.run(ev, 10, d=d, keep=True, prints=("oscOut",) + tuple(f"al-{L}-hit" for L in M.LANES), extra=busy)
+    cur, hits, flips, msgs = 0, [], [], 0
+    for l in log.splitlines():
+        if l.startswith("MARK"):
+            cur = int(l.split()[-1])
+        elif "-hit:" in l:
+            hits.append(cur)
+        elif l.startswith("oscOut"):
+            msgs += 1
+            if "gFlip" in l:
+                flips.append(cur)
+    seen = sum(1 for h in hits if any(0 <= f - h <= 5 for f in flips))
+    check("every hit is drawn at once, even under load", hits and seen == len(hits) and msgs / 10 < 100,
+          f"{seen} of {len(hits)} hits shown within 5 ms; {msgs / 10:.0f} OLED messages a second")
+
     # nothing piles up over a long session: the four lanes (the busiest messages) for 8 minutes - the last minutes'
     # CPU no more than the first's (a strike sent to every engine queued in the switched-off ones' [vline~]s: the CPU
     # doubled in 25 minutes)

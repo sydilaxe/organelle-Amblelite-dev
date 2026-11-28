@@ -18,7 +18,7 @@ MODE_SLOT, SCALE_SLOT = S("g", None, "Mode"), S("g", None, "Scale")
 PANIC_MS = 8000              # the panic's fade
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
-GLOBALS = dict(alpanicing=0, alhitv=0, alclin=0, alclfade=0, alcleng=0, alfps=0, alhomeh=0, alhkv=0, alth=0, altcm=0, altcs=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
+GLOBALS = dict(alzlp=0, alzrd=0, alpanicing=0, alhitv=0, alclin=0, alclfade=0, alcleng=0, alfps=0, alhomeh=0, alhkv=0, alth=0, altcm=0, altcs=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
                alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
                alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0, alcb=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
@@ -31,7 +31,7 @@ for k in range(4):
     GLOBALS.update({f"alsl{k}": -1, f"allat{k}": 0, f"alpv{k}": -1})
 for L in LANES:
     GLOBALS.update({f"al{L}n": 0, f"al{L}v": 0})
-ARRAYS = dict(algt=NL, alhitp=4, alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alks=0, alnp=0, aleng=NL, alusr=NL,
+ARRAYS = dict(algt=NL, alpdf=NL, alpdd=NL, alhitp=4, alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alks=0, alnp=0, aleng=NL, alusr=NL,
               allatch=NL, alin=NL, alprm=4, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
               alscn=len(M.MODES), alsk=0, alsd=0, alsr=0, alsy=0, alsdl=0, alsm=len(M.MODES) * 8,
               alsml=len(M.MODES), alty=0, altq=0, alpe=NSLOTS, alem=NSLOTS, alet=0, alew=0, alevs=0, alevp=0,
@@ -604,8 +604,12 @@ def transport(c):
         If("altick % 32 == 0", [Call("al-rbar")]),
         # (the play view's countdown: redrawn each beat while a roadmap runs - roadmap.al-rbar redraws each bar)
         # (and each 8th while a loop records, overdubs or plays: its line moves, a recording sign blinks)
-        If(f"alview == 0 && alpop == 0 && alpatv == 0 && ((altick % 8 == 4 && alrn > 0) || (altick % 4 == 0 && ("
-           + " || ".join(f"allps[{i}] > 0" for i in range(len(M.NOTE_LAYERS))) + ")))", [Call("al-redraw")]),
+        # (only their zones: screen.zones - not a whole frame)
+        If(f"alview == 0 && alpop == 0 && alpatv == 0", [
+            If("altick % 8 == 4 && alrn > 0", [V("alzrd", "1"), Send("al-playdraw")]),
+            If("altick % 4 == 0", [If(f"allps[{i}] > 0", [V("alzlp", "1"), Send("al-playdraw"),
+                                                          If(f"allps[{i}] == 1 || allps[{i}] == 3", [T("alpdf", str(i), "1")])])
+                                   for i in range(len(M.NOTE_LAYERS))])]),
         If("alpatv", [Call("al-patmark")])])
     proc(c, "al-phase", [If(f"{opt(S(L, None, 'Phase'))} > 0 && (altick/32) % "
                             f"{pick(M.PHASE_BARS, opt(S(L, None, 'Phase')))} == 0",
@@ -687,10 +691,10 @@ def gates(c):
         # (algt: the gate open - the play view shows the layer's icon while it is, nothing between: it flashes with
         # the gate)
         li = LAYERS.index(L)
-        proc(c, f"al-gate-{L}", on + [T("algt", str(li), "1"), Call("al-playdraw"),
+        proc(c, f"al-gate-{L}", on + [T("algt", str(li), "1"), T("alpdf", str(li), "1"), Send("al-playdraw"),
                                       Arm(f"al-gaterel-{L}", f"max(20, alp[{S(L, None, 'Length')}]*{rc}*{cms})",
                                           stop=f"al-gatestop-{L}")])
-        proc(c, f"al-gaterel-{L}", [If(f"{opt(gate)} >= 1", off), T("algt", str(li), "0"), Call("al-playdraw")])
+        proc(c, f"al-gaterel-{L}", [If(f"{opt(gate)} >= 1", off), T("algt", str(li), "0"), T("alpdf", str(li), "1"), Send("al-playdraw")])
         proc(c, f"al-gateoff-{L}", [Send(f"al-gatestop-{L}"), T("algt", str(li), "0"),
                                     If(f"{opt(gate)} == 0 && alrun", hold)])
         c.c(c.ch(c.recv(f"al-s{gate}"), "t b"), 0, c.obj(f"s al-gateoff-{L}"), 0)

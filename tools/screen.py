@@ -7,7 +7,7 @@ PLAY (home)                                  LAYER (5 s after a knob turns or a 
   y 22-52  a row per layer: > selected,        y 22-52  the 4 knobs: name, value, a bar
         name, engine, + / M (muted), level bar
 Redraws are throttled: at most one every 60 ms, however fast knobs turn."""
-from pdlib import Canvas, proc, If, Call, SendL, Send, run_steps, T, Arm
+from pdlib import Canvas, proc, If, Call, SendL, Send, run_steps, T, Arm, V
 import model as M
 from model import S, LAYERS
 from control import words, opt, num, ctx, npages, clocks, QUALS, MODE_SLOT, VIEW_GLOBAL, VIEW_MIX
@@ -132,7 +132,7 @@ ICON_Y, LABEL_Y = 45, 54
 def layer_icon(L, cx, cy):
     """a layer's icon on the play view: (steps when it is in - bold or filled, steps when out - a thin outline).
     drone a triangle; sub a wave; pads two circles (a figure of eight: their Lissajous in the visualizer); a lane a
-    stone's ring with the stone; the cloud a square"""
+    ring, the same in or out, with its stone - the centre dot - lit as it strikes; the cloud a square"""
     def ln(pts, dy=0):
         return [Send(OSC, f"/oled/gLine 3 {x1} {y1 + dy} {x2} {y2 + dy} 1") for (x1, y1), (x2, y2) in zip(pts, pts[1:])]
     circ = lambda r, fill=False, dx=0: Send(OSC, f"/oled/{'gFilledCircle' if fill else 'gCircle'} 3 {cx + dx} {cy} {r} 1")
@@ -148,7 +148,7 @@ def layer_icon(L, cx, cy):
         return [circ(3, True, -3), circ(3, True, 3)], [circ(3, False, -3), circ(3, False, 3)]
     if L == "cloud":
         return [Fill(cx - 5, cy - 5, 11, 11, 1)], [Send(OSC, f"/oled/gBox 3 {cx - 5} {cy - 5} 11 11 1")]
-    return [circ(5), circ(1, True)], [circ(4)]                 # (a lane)
+    return [circ(4), circ(1, True)], [circ(4)]                 # (a lane: the same ring in or out - only its dot moves)
 PAT_LAYERS = M.NOTE_LAYERS          # the pattern view's rows (the cloud has no pattern)
 
 
@@ -162,6 +162,25 @@ def rows_tables(c):
     for name, vals in tabs.items():
         c.obj(f"array define {name} {len(vals)}")
         c.c(c.m(c.recv("al-init"), " ".join(str(v) for v in vals)), 0, c.obj(f"array set {name}"), 0)
+
+
+def tile_icon(li, L):
+    """a layer's sign on the play view (its icon only - al-draw draws it in the frame, al-pulse alone, at once): in -
+    bold / filled, out - an outline. A lane's centre dot lit while a hit's gate is open (half its step); drone, sub,
+    pads with their gate's rhythm playing: shown while the gate is open, gone between; a loop recording or overdubbing
+    (allps 1, 3): it blinks on the 8ths (a free loop's on its own clock, each quarter second)"""
+    from features import FREE_MS
+    x = TILE_DX * li
+    on, off = layer_icon(L, x + TILE_W // 2, ICON_Y)
+    if M.kind(L) == "perc":
+        on = [on[0], If(f"alhitp[{M.LANES.index(L)}]", [on[1]])]
+    if L in ("drone", "sub", "pad"):
+        on = [If(f"alrun && {opt(S(L, None, 'Gate'))} >= 1 && algt[{li}] == 0", [], on)]
+    sign = [If(f"alin[{li}]", on, off)]
+    if li < len(M.NOTE_LAYERS):
+        blink = f"if(allpf[{li}], int(alfc*{FREE_MS}/250) % 2, int(max(0, altick)/4) % 2)"
+        sign = [If(f"(allps[{li}] == 1 || allps[{li}] == 3) && {blink}", [], sign)]
+    return sign
 
 
 def build(c):
@@ -204,26 +223,15 @@ def build(c):
     for li, L in enumerate(LAYERS):
         x = TILE_DX * li
         lab = M.SHORT[L][1] if M.kind(L) == "perc" else M.SHORT[L][0]
-        on, off = layer_icon(L, x + TILE_W // 2, ICON_Y)
-        if M.kind(L) == "perc":
-            # (a lane: its ring, and the stone in it - the centre dot - lit while a hit's gate is open: half its step)
-            lane = M.LANES.index(L)
-            on = [on[0], If(f"alhitp[{lane}]", [on[1]])]
-        if L in ("drone", "sub", "pad"):
-            # (its gate's rhythm playing: the icon flashes with it - shown while the gate is open, gone between)
-            on = [If(f"alrun && {opt(S(L, None, 'Gate'))} >= 1 && algt[{li}] == 0", [], on)]
-        # (a loop: recording or overdubbing (allps 1, 3) - the sign blinks on the 8ths; playing or overdubbing
-        # (2, 3) - a line under it fills as the loop goes round; stopped (4) - a dot there)
-        sign = [If(f"alin[{li}]", on, off)]
+        sign = tile_icon(li, L)
         if li < len(M.NOTE_LAYERS):
-            from features import ck, pmod, FREE_MS
+            # (a loop playing or overdubbing (2, 3): a line under its sign fills as the loop goes round; stopped (4): a
+            # dot there)
+            from features import ck, pmod
             ph = f"{pmod(f'{ck(li)} - allp0[{li}]', f'allpl[{li}]')}/max(1, allpl[{li}])"
-            # (the blink: on the transport's 8ths - a free loop's on its own clock, each quarter second)
-            blink = f"if(allpf[{li}], int(alfc*{FREE_MS}/250) % 2, int(max(0, altick)/4) % 2)"
-            sign = [If(f"(allps[{li}] == 1 || allps[{li}] == 3) && {blink}", [], sign),
-                    If(f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0",
-                       [SendL(OSC, [f"max(1, int({ph}*{TILE_W}))"], f"/oled/gFillArea 3 {x} {ICON_Y + 6} $1 1 1")]),
-                    If(f"allps[{li}] == 4", [Fill(x + TILE_W // 2, ICON_Y + 6, 1, 1, 1)])]
+            sign = sign + [If(f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0",
+                              [SendL(OSC, [f"max(1, int({ph}*{TILE_W}))"], f"/oled/gFillArea 3 {x} {ICON_Y + 6} $1 1 1")]),
+                           If(f"allps[{li}] == 4", [Fill(x + TILE_W // 2, ICON_Y + 6, 1, 1, 1)])]
         play += sign + [
                  Send(OSC, f"/oled/gPrintln 3 {x + 2} {LABEL_Y} 8 1 {lab}"),
                  If(f"allayer == {li}", [Send(OSC, f"/oled/gInvertArea 3 {x} {LABEL_Y - 1} 8 9")])]     # (the letter only: a loop's beside it stays clear)
@@ -243,7 +251,7 @@ def build(c):
         return [V("altcm", f"int({var}/60)"), V("altcs", f"int({var}) % 60"),
                 SendL(OSC, [f"{x_end} - 6*({w})", "altcm", "int(altcs/10)", "altcs % 10"],
                       f"/oled/gPrintln 3 $1 {INFO_Y} 8 1 {'-' if minus else ''}$2:$3$4")]
-    play += [If(f"alrn > 0 && {opt(road)} > 0", [
+    road_steps = [If(f"alrn > 0 && {opt(road)} > 0", [
         V("alrtot", "0"), V("alrsw", "0"),
         Loop("alrn", "alri", [If("alri < alrc", [V("alrsw", "alrsw + alrsL[alri]")]), V("alrtot", "alrtot + alrsL[alri]")]),
         V("alrsw", "alrsw + min(alrsL[alrc], max(0, altick/32 - alrb0))"),
@@ -259,6 +267,8 @@ def build(c):
                       f"/oled/gBox 3 $1 {ROAD_Y} $2 {ROAD_H} 1")]),
             V("alrsw", "alrsw + alrsL[alri]")]),
         SendL(OSC, ["min(126, int(alrt*127/alrtot))"], f"/oled/gInvertArea 3 $1 {ROAD_Y + 2} 2 {ROAD_H - 4}")])]
+    play += road_steps
+    zones(c, road_steps)
     # the MIDI-in light: a small square at the bottom right, on while a MIDI note is held (and 150 ms after each)
     play += [If("alminh > 0 || altime - almint < 0.15", [Fill(122, ICON_Y - 2, 5, 5, 1)])]
     # ---- layer view
@@ -364,17 +374,61 @@ def build(c):
                         Send(OSC, "/oled/gFlip 3")])
 
 
+def lane_dot(li, L):
+    """a lane's stone (its centre dot) alone: cleared, then lit while a hit's gate is open - if the lane is in and its
+    sign isn't blinked off (a loop recording)"""
+    from features import FREE_MS
+    cx = TILE_DX * li + TILE_W // 2
+    hid = f"(allps[{li}] == 1 || allps[{li}] == 3) && if(allpf[{li}], int(alfc*{FREE_MS}/250) % 2, int(max(0, altick)/4) % 2)"
+    return [Fill(cx - 1, ICON_Y - 1, 3, 3, 0),
+            If(f"alin[{li}] && alhitp[{M.LANES.index(L)}] && ({hid}) == 0",
+               [Send(OSC, f"/oled/gFilledCircle 3 {cx} {ICON_Y} 1 1")])]
+
+
+def zones(c, road_steps):
+    """the play view drawn in zones, each alone and at its own pace, then shown (gFlip) - not a whole frame
+    (al-redraw: throttled to one each 60 ms, 120 under load, so a short hit fell between them). Marked, then drawn
+    together at the end of the moment (delay 0):
+    - a lane's dot (alpdd): at each hit and as its gate closes - one message
+    - a sign (alpdf): drone, sub, pads as their gate opens and closes; a recording loop's sign as it blinks
+    - the loops' lines (alzlp): each 8th - the row under the signs
+    - the roadmap (alzrd): each beat - its info line and strip
+    Everything else (the head, the chord, the letters, the loops' states) with the frame, as it changes"""
+    c.c(c.ch(c.recv("al-playdraw"), "t b", "delay 0"), 0, c.obj("s al-pulse"), 0)
+    steps = []
+    for li, L in enumerate(LAYERS):
+        x = TILE_DX * li
+        full = [T("alpdf", str(li), "0"), T("alpdd", str(li), "0"), Fill(x, ICON_Y - 5, TILE_W, 11, 0)] + tile_icon(li, L)
+        if M.kind(L) == "perc":
+            steps.append(If(f"alpdf[{li}]", full, [If(f"alpdd[{li}]", [T("alpdd", str(li), "0")] + lane_dot(li, L))]))
+        elif li < len(M.NOTE_LAYERS):
+            steps.append(If(f"alpdf[{li}]", full))
+    from features import ck, pmod
+    lines = [Fill(0, ICON_Y + 6, TILE_DX * len(M.NOTE_LAYERS), 1, 0)]
+    for li in range(len(M.NOTE_LAYERS)):
+        x = TILE_DX * li
+        ph = f"{pmod(f'{ck(li)} - allp0[{li}]', f'allpl[{li}]')}/max(1, allpl[{li}])"
+        lines += [If(f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0",
+                     [SendL(OSC, [f"max(1, int({ph}*{TILE_W}))"], f"/oled/gFillArea 3 {x} {ICON_Y + 6} $1 1 1")]),
+                  If(f"allps[{li}] == 4", [Fill(x + TILE_W // 2, ICON_Y + 6, 1, 1, 1)])]
+    steps.append(If("alzlp", [V("alzlp", "0")] + lines))
+    steps.append(If("alzrd", [V("alzrd", "0"), Fill(0, INFO_Y, 128, ROAD_Y + ROAD_H - INFO_Y, 0)] + road_steps))
+    clear = [T("alpdf", str(li), "0") for li in range(len(LAYERS))] + [T("alpdd", str(li), "0") for li in range(len(LAYERS))]
+    proc(c, "al-pulse", [If("alview == 0 && alpatv == 0 && alpop == 0", steps + [Send(OSC, "/oled/gFlip 3")],
+                            clear + [V("alzlp", "0"), V("alzrd", "0")])])
+
+
 def pulses(c):
-    """the play view's rhythm: each lane's hit (its centre dot, lit for half its step) and the gates (control.gates) redraw it - only
-    while it shows (the redraws are throttled as every other: al-redraw)"""
-    proc(c, "al-playdraw", [If("alview == 0 && alpatv == 0 && alpop == 0", [Call("al-redraw")])])
+    """a lane's hit: its dot lit for half its step (the rhythm's zone: zones)"""
     for i, L in enumerate(M.LANES):
         hv = c.ch(c.recv(f"al-{L}-hit"), "unpack f f f f")
         tb = c.to((hv, 2), "t b f")
         c.c((tb, 1), 0, c.obj("v alhitv"), 0)
         gate = f"max(40, 0.5*{clocks(S(L, None, 'Rate'))}*60000/({num(S('g', None, 'Tempo'))}*24))"
-        run_steps(c, (tb, 0), [T("alhitp", str(i), "1"), Call("al-playdraw"), Arm(f"al-hitoff{i}", gate)])
-        proc(c, f"al-hitoff{i}", [T("alhitp", str(i), "0"), Call("al-playdraw")])
+        li = LAYERS.index(L)
+        run_steps(c, (tb, 0), [T("alhitp", str(i), "1"), T("alpdd", str(li), "1"), Send("al-playdraw"),
+                               Arm(f"al-hitoff{i}", gate)])
+        proc(c, f"al-hitoff{i}", [T("alhitp", str(i), "0"), T("alpdd", str(li), "1"), Send("al-playdraw")])
 
 
 def road_view(c):

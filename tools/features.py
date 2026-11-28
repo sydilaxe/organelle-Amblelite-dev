@@ -465,14 +465,16 @@ def pmod(x, n):
 
 def free_clock(c):
     """the free loops' clock: a tick each FREE_MS, always - the transport running or not. With the transport stopped
-    the play view is redrawn by it (each quarter second) while a free loop records or plays"""
+    the play view's loop zone is redrawn by it (each quarter second) while a free loop records or plays"""
     met = c.obj(f"metro {FREE_MS}")
     c.c(c.m(c.recv("al-init"), "1"), 0, met, 0)
     c.c(met, 0, c.obj("s al-ftick"), 0)
     act = " || ".join(f"(allpf[{li}] && allps[{li}] >= 1 && allps[{li}] <= 3)" for li in range(len(M.NOTE_LAYERS)))
     proc(c, "al-ftick", [V("alfc", "alfc + 1"), Call("al-floops"),
                          If(f"alrun == 0 && alfc % {250 // FREE_MS} == 0 && alview == 0 && alpop == 0 && alpatv == 0 && ({act})",
-                            [Call("al-redraw")])])
+                            [V("alzlp", "1"), Send("al-playdraw")] +
+                            [If(f"allps[{li}] == 1 || allps[{li}] == 3", [T("alpdf", str(li), "1")])
+                             for li in range(len(M.NOTE_LAYERS))])])
 
 
 def lock(c):
