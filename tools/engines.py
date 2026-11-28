@@ -1,7 +1,7 @@
 """The sound engines, by layer. Each builder takes (s, ins) - the engine canvas and its inputs (dsp.engine_canvas) -
 and returns (L, R) before the engine's own fade. Parameters by name: P(name) is the slot; prm / cx turn it into a
 signal. Nothing here is random: the only movement is what the parameters ask for."""
-from dsp import mul, add, sub, div, prm, prmx
+from dsp import mul, add, sub, div, prm, prmx, lop
 from model import S, ENGINES, kind
 
 FM_RATIOS = [0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7]
@@ -235,9 +235,7 @@ def sub_boom(s, ins, L):
     fq = mul(s, f, s.to(drop, "+~ 1"))
     y = _soft(s, s.to(fq, "osc~"), cx(s, [P("Drive")], f"1 + 6*{a(P('Drive'))}*{a(P('Drive'))}"))
     tone = cx(s, [P("Tone")], f"80*pow(15, {a(P('Tone'))})")
-    lp = s.obj("lop~")
-    s.c(y, 0, lp, 0)
-    s.c(tone, 0, lp, 1)
+    lp = lop(s, y, tone)
     o = s.to(add(s, lp, s.to(s.to(f, "osc~"), "*~ 0.3")), "*~ 0.8")
     return o, o
 
@@ -258,9 +256,7 @@ def sub_reese(s, ins, L):
         v = s.obj("vcf~ 2")
         s.c(x, 0, v, 0)
         s.c(tone, 0, v, 1)
-        lp = s.obj("lop~")
-        s.c((v, 1), 0, lp, 0)
-        s.c(tone, 0, lp, 1)
+        lp = lop(s, (v, 1), tone)
         outs.append(s.to(_soft(s, lp, drv), "*~ 0.7"))
     return outs[0], outs[1]
 
@@ -276,11 +272,8 @@ def sub_dub(s, ins, L):
     y = _soft(s, x, cx(s, [P("Warm")], f"1 + 4*{a(P('Warm'))}"))
     sw = mul(s, s.obj("osc~ 0.14"), prm(s, P("Swell")))
     cut = mul(s, cx(s, [P("Tone")], f"50*pow(12, {a(P('Tone'))})"), s.ch(sw, "*~ 0.6", "+~ 1"))
-    lp1, lp2 = s.obj("lop~"), s.obj("lop~")
-    s.c(y, 0, lp1, 0)
-    s.c(cut, 0, lp1, 1)
-    s.c(lp1, 0, lp2, 0)
-    s.c(cut, 0, lp2, 1)
+    lp1 = lop(s, y, cut)
+    lp2 = lop(s, lp1, cut)
     o = s.to(add(s, lp2, s.ch(f, "osc~", "*~ 0.35")), "*~ 0.85")
     return o, o
 

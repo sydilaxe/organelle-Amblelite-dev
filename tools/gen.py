@@ -9,7 +9,7 @@ import screen
 import voice
 import wavetables
 import features
-from dsp import mul, add, sub, div
+from dsp import mul, add, sub, div, lop
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "patches", "AmbleLite")
@@ -49,12 +49,8 @@ def layer_filter(c, L, *sides):
     # (the band-pass peaks at 1: its share rises with Q, as a resonant low-pass's peak does)
     k = f.ch(f.recv(f"al-s{res}"), f"expr 14*alpe[{res}]*alpe[{res}]", "pack f 40", "line~")
     for i, x in enumerate(fins):
-        l1 = f.obj("lop~")
-        f.c(x, 0, l1, 0)
-        f.c(hz, 0, l1, 1)
-        l2 = f.obj("lop~")
-        f.c(l1, 0, l2, 0)
-        f.c(hz, 0, l2, 1)
+        l1 = lop(f, x, hz)
+        l2 = lop(f, l1, hz)
         bp = f.obj("vcf~ 1")
         f.c(x, 0, bp, 0)
         f.c(hz, 0, bp, 1)
@@ -148,9 +144,7 @@ def shape_blur(c, sides):
             f.col(200)
         aL, aR = f.obj(f"delread~ al-blfL {FDN[0]}"), f.obj(f"delread~ al-blfR {FDN[1]}")
         for i, (src, mix) in enumerate(((dif[0], add(f, aL, aR)), (dif[1], sub(f, aL, aR)))):
-            lp = f.obj("lop~")
-            f.c(add(f, src, mul(f, mix, fb)), 0, lp, 0)
-            f.c(damp, 0, lp, 1)
+            lp = lop(f, add(f, src, mul(f, mix, fb)), damp)
             f.c(lp, 0, f.obj(f"delwrite~ al-blf{'LR'[i]} 100"), 0)
         return [add(f, mul(f, x, dryg), mul(f, wet, wetg)) for x, wet in zip(fins, (aL, aR))]
     return switched_fx(c, "blur", sides, b, "$f1 > 0.005", 400, build)
@@ -192,15 +186,9 @@ def shape_filter(c, sides):
         for x in fins:
             h = x
             for _ in range(2):                  # (x - a one-pole low-pass: a one-pole high-pass, twice)
-                l = f.obj("lop~")
-                f.c(h, 0, l, 0)
-                f.c(hp, 0, l, 1)
-                h = sub(f, h, l)
+                h = sub(f, h, lop(f, h, hp))
             for _ in range(2):
-                l = f.obj("lop~")
-                f.c(h, 0, l, 0)
-                f.c(lp, 0, l, 1)
-                h = l
+                h = lop(f, h, lp)
             bp = f.obj("vcf~ 1")
             f.c(h, 0, bp, 0)
             f.c(rc, 0, bp, 1)
