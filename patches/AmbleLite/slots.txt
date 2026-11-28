@@ -625,3 +625,17 @@ cloud.delay.Sync
 cloud.delay.Tone
 cloud.delay.Source
 cloud.delay.AAFilt
+drone.Lock
+drone.LpStrt
+sub.Lock
+sub.LpStrt
+pad.Lock
+pad.LpStrt
+perc1.Lock
+perc1.LpStrt
+perc2.Lock
+perc2.LpStrt
+perc3.Lock
+perc3.LpStrt
+perc4.Lock
+perc4.LpStrt

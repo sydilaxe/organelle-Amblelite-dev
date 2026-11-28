@@ -480,6 +480,89 @@ def main():
     ok = "al-user-sub: 40 0.787402" in log and "al-user-pad: 60 0.787402" in log
     check("zones split the keyboard", ok, "40 -> sub, 60 -> pads" if ok else log[-200:])
 
+    # ---- free loops (Len free): a 2.1 s loop played with the transport stopped. Lock off: it goes round on its own
+    # (the transport stays stopped); clock: it locks to 1 bar at 84 bpm and starts the transport; tempo: the tempo
+    # becomes 113, the loop 1 bar of it. On the clock, a loop starts from its beginning when the transport starts
+    lpl_, lck_ = S_("drone", None, "LpLen"), S_("drone", None, "Lock")
+    tmp_ = S_("g", None, "Tempo")
+
+    def freeloop(lockv, more=(), secs=9):
+        ev = solo("drone") + [(100, f"al-set {lpl_} {1.5 / len(M.LOOP_LENS)}"),
+                              (101, f"al-set {lck_} {(lockv + 0.5) / len(M.LOOP_LOCKS)}"),
+                              (300, "al-notesmode bang"), (320, "al-sel-drone bang"), (400, "al-loop bang"),
+                              (1000, "notesRaw 64 100"), (1200, "notesRaw 64 0"), (1700, "notesRaw 67 100"),
+                              (1900, "notesRaw 67 0"), (3100, "al-loop bang"), (8800, "h-q bang")] + list(more)
+        ev += [(t, f"h-mark {t}") for t in range(0, secs * 1000, 10)]
+
+        def probe(c):
+            c.c(c.obj("r h-mark", 900, 700), 0, c.obj("print MARK", 900, 730), 0)
+            c.c(c.ch(c.obj("r h-q", 900, 760), f"expr alrun*1000 + {num_(tmp_)}"), 0, c.obj("print Q", 900, 800), 0)
+        log, _ = H.run(ev, secs, d=d, keep=True, prints=("al-in-drone",), extra=probe)
+        cur, hits, q = 0, [], None
+        for l in log.splitlines():
+            if l.startswith("MARK"):
+                cur = int(l.split()[-1])
+            elif l.startswith("al-in-drone") and not l.endswith(" 0"):
+                hits.append((cur, int(l.split()[1])))
+            elif l.startswith("Q"):
+                q = float(l.split()[-1])
+        return hits, q
+    num_ = lambda sl: f"int({M.SLOTS[sl][1].lo} + alp[{sl}]*{M.SLOTS[sl][1].hi - M.SLOTS[sl][1].lo} + 0.5)"
+    # (the cycles from the first note's: the first, as played - then each repeat)
+    period = lambda hits: [b[0] - a[0] for a, b in zip([h for h in hits if h[1] == 64], [h for h in hits if h[1] == 64][1:])]
+    h0, q0 = freeloop(0)
+    p0 = period(h0)
+    check("a free loop plays on its own clock (Lock off)", q0 is not None and q0 < 1000 and len(p0) >= 3 and
+          all(abs(x - 2120) <= 30 for x in p0), f"transport {'running' if q0 and q0 >= 1000 else 'stopped'}, "
+          f"cycles {p0} ms (played 2.1 s)")
+    h1, q1 = freeloop(1)
+    p1 = period(h1)
+    bar84 = 240000 / 84
+    check("Lock clock: the loop fits to whole bars and starts the transport", q1 is not None and q1 >= 1000 and
+          len(p1) >= 2 and abs(p1[0] - 2100) <= 30 and all(abs(x - bar84) <= 30 for x in p1[1:]),
+          f"cycles {p1} ms (played 2.1 s; a bar at 84 bpm: {bar84:.0f})")
+    h2, q2 = freeloop(2)
+    p2 = period(h2)
+    check("Lock tempo: the tempo is set so the loop is whole bars", q2 is not None and int(q2) % 1000 == 113 and
+          len(p2) >= 2 and all(abs(x - 240000 / 113) <= 30 for x in p2[1:]),
+          f"tempo {int(q2) % 1000 if q2 else '-'}, cycles {p2} ms")
+    h3, _ = freeloop(1, [(6000, "al-startstop bang"), (7000, "al-startstop bang")], 10)
+    first = [t for t, n in h3 if t >= 6990]
+    check("on the clock, a loop starts from its beginning with the transport", bool(first) and first[0] <= 7040 and
+          [n for t, n in h3 if t >= 6990][:1] == [64], f"first note after the restart (7000 ms): {first[:1]}")
+
+    # Start (LOOP 2): when an armed loop begins recording - instant: at the press; 1 bar (the transport stopped, the
+    # press starts it): a bar later, the beats counted down 4 3 2 1; a free loop's 1 bar: a bar at the tempo later
+    st_ = S_("drone", None, "LpStrt")
+
+    def rec_at(lenv, sv):
+        ev = solo("drone") + [(100, f"al-set {lpl_} {(lenv + 0.5) / len(M.LOOP_LENS)}"),
+                              (101, f"al-set {st_} {(sv + 0.5) / len(M.LOOP_STARTS)}"),
+                              (300, "al-notesmode bang"), (320, "al-sel-drone bang"), (1000, "al-loop bang")]
+
+        def probe(c):
+            m = c.obj("metro 5", 900, 680)
+            c.c(c.obj("loadbang", 900, 660), 0, m, 0)
+            t = c.obj("timer", 1000, 700)
+            c.c(c.obj("loadbang", 1000, 660), 0, t, 0)
+            tb = c.to(c.ch(m, "expr allps[0]*1000 + altn + 1", "change"), "t b f")
+            pk = c.obj("pack f f", 900, 760)
+            c.c((tb, 1), 0, pk, 1)
+            c.c((tb, 0), 0, t, 1)
+            c.c(t, 0, pk, 0)
+            c.c(pk, 0, c.obj("print ST", 900, 800), 0)
+        log, _ = H.run(ev, 5, d=d, keep=True, prints=(), extra=probe)
+        ch = [(float(l.split()[1]), int(float(l.split()[2]))) for l in log.splitlines() if l.startswith("ST")]
+        rec = [t for t, v in ch if v // 1000 == 1]
+        cnt = [v % 1000 - 1 for t, v in ch if v // 1000 == 5 and v % 1000 > 1]
+        return (rec[0] if rec else None), cnt
+    ri, _ = rec_at(0, 1)
+    rb, cb = rec_at(0, 2)
+    rf, _ = rec_at(1, 2)
+    check("Start: instant, 1 bar (counted down), a free loop's 1 bar", ri is not None and abs(ri - 1000) <= 10 and
+          rb is not None and abs(rb - 1000 - bar84) <= 40 and cb == [4, 3, 2, 1] and rf is not None and
+          abs(rf - 1000 - bar84) <= 40, f"recording from {ri} / {rb} (count {cb}) / {rf} ms - pressed at 1000, a bar {bar84:.0f}")
+
     # a zone's breath, looped: the sub's breath (to its level) recorded with its notes in one bar; the next cycle
     # plays it back with no breath - loud where it blew, quiet where it didn't
     zb = solo("sub") + [(50, f"al-set {zones} 0.75"), (51, f"al-set {S_('sub', None, 'BTgt')} {M.target_value('sub', M.engines('sub')[0][0], 'Level')}"),
@@ -699,12 +782,13 @@ def main():
                                                                        (2700, "h-q bang"), (3000, "aux 1"), (3050, "notesRaw 63 100"),
                                                                        (3100, "notesRaw 63 0"), (3150, "aux 0"), (12500, "h-q bang")]
     log, a = H.run(ev, 13, d=d, keep=True, extra=vq, prints=("oscOut",))
+    # (the simpler visualizer: about 7 frames a second, the drone's, sub's and pads' shapes 6 + 3 + 5 lines)
     vw = [l.split()[-1] for l in log.splitlines() if l.startswith("VW")]
     osc = log.splitlines()
     waves = sum("gWaveform" in l for l in osc)
     lines = sum("gLine 3" in l for l in osc)
     check("visualizer: frames with the scope and the layers' waveform shapes; aux tap: home", vw[:2] == ["31", "1"] and
-          waves >= 10 and lines >= 20 * waves, f"view {vw[:2]}, {waves} scope frames, {lines / max(1, waves):.0f} lines a frame")
+          waves >= 10 and lines >= 12 * waves, f"view {vw[:2]}, {waves} scope frames, {lines / max(1, waves):.0f} lines a frame")
     # (the cinematic fade: 8 s - still sounding, lower, 3 s in; silent and stopped after it)
     pre, mid, end = H.rms_db(seg(a, 2.0, 2.9)), H.rms_db(seg(a, 6.0, 6.9)), H.rms_db(seg(a, 12.0, 12.9))
     check("panic: a long fade, then stops and releases everything", vw[2:3] == ["0"] and pre > -40 and
@@ -751,8 +835,9 @@ def main():
     log, _ = H.run(ev, 2, d=d, keep=True, extra=fq)
     fr = [float(l.split()[-1]) for l in log.splitlines() if l.startswith("FR")]
     p0 = fr[0] - 1000 if fr else -1
-    check("loop: free starts on the first note", fr and fr[0] >= 1000 and p0 % 96 != 0 and abs(p0 - 1500 / 29.76) < 3,
-          f"state {int(fr[0] // 1000) if fr else '-'}, from clock {p0:.0f} (the note: {1500 / 29.76:.0f})")
+    # (a free loop counts on its own clock - a tick each FREE_MS, running from the arming at 1000 ms: the note at 1700)
+    check("loop: free starts on the first note", fr and fr[0] >= 1000 and abs(p0 - 700 / M.FREE_MS) < 3,
+          f"state {int(fr[0] // 1000) if fr else '-'}, from tick {p0:.0f} of its own clock (the note: {700 / M.FREE_MS:.0f})")
 
     # ---- a tapped rhythm: aux + top D# with lane 1 shown, three notes at steps 0, 3 and 5 of the cycle (8 steps of a
     # 16th): it becomes the lane's pattern - those gaps (3 2 3), and then 3 hits a cycle (2 cycles: 6)
@@ -875,6 +960,30 @@ def main():
           f"pad {pad_e} (Source {vo_('Source'):g}, Vowel {vo_('Vowel'):g}, Motion {vo_('Motion'):g}, "
           f"Breath {vo_('Breath'):g}), sub {sub_e}, cloud {cl_e}")
 
+    # a save from before AAFilt (and Lock): 626 slots - the cloud on delay, the layers' latch and in as saved. Loaded
+    # and saved again: the cloud still on delay, AAFilt and Lock at their defaults, the latch and in in their places
+    h626 = M.SLOT_HISTORY[4]
+    nl_ = len(M.LAYERS)
+    l626 = [f"{p.default:g}" for _, p in M.SLOTS[:h626]] + ["0"] * (_F.SNAP - M.NSLOTS)
+    ce_ = M.S("cloud", None, "Engine")
+    l626[ce_] = f"{2.5 / 3:g}"
+    latch_ = ["0", "1"] + ["0"] * (nl_ - 2)
+    in_ = ["1", "0"] + ["1"] * (nl_ - 2)
+    l626[h626:h626 + 2 * nl_] = latch_ + in_
+    open(os.path.join(dl, "saves.txt"), "w").write(" ".join(l626) + "\n" + "-1\n" * (_F.SCRATCH + 1))
+    H.run([(40, f"al-set {M.S('g', None, 'Morph')} 0"), (100, "notesRaw 82 100"), (120, "notesRaw 60 100"),
+           (140, "notesRaw 60 0"), (300, "aux 1"), (320, "notesRaw 60 100"), (340, "notesRaw 60 0"), (360, "aux 0"),
+           (380, "notesRaw 82 0")], 0.7, d=dl, keep=True)
+    sv4 = open(os.path.join(dl, "saves.txt")).read().split("\n")[0].split()
+    cl4 = cl_n[min(len(cl_n) - 1, int(float(sv4[ce_]) * len(cl_n)))]
+    aa_ = M.S("cloud", "delay", "AAFilt")
+    lk_ = [M.S(L, None, "Lock") for L in M.NOTE_LAYERS]
+    ok = (len(sv4) == _F.SNAP and cl4 == "delay" and abs(float(sv4[aa_]) - M.SLOTS[aa_][1].default) < 1e-3 and
+          all(abs(float(sv4[k]) - M.SLOTS[k][1].default) < 1e-3 for k in lk_) and
+          sv4[M.NSLOTS:M.NSLOTS + 2 * nl_] == latch_ + in_)
+    check("a save from before AAFilt loads in place", ok,
+          f"cloud {cl4}, AAFilt {sv4[aa_]}, latch / in {' '.join(sv4[M.NSLOTS:M.NSLOTS + 2 * nl_])}")
+
     # ... and the web editor reads that loops.txt (the loop: 4 events, playing) and writes it back the same
     import shutil as _sh2
     if _sh2.which("node"):
@@ -986,6 +1095,61 @@ if (step === "1") {
         quiet = [f"{e} {v:.0f}" for e, v in zip(names, lv) if v < -50]
         check(f"every {M.kind(L)} engine sounds ({len(names)})", not quiet and not H.errors(log),
               f"quietest {min(lv):.0f} dB" + (f"; silent: {quiet}" if quiet else "") + (f"; {H.errors(log)[:1]}" if H.errors(log) else ""))
+
+    # the play view's rhythm, under load (the CPU above 70 %: whole frames only each 120 ms): the four lanes at 1/16,
+    # 7 hits of 16 - every hit's dot drawn at once (its zone alone, then shown), in under 100 OLED messages a second
+    r16_ = M.RATES.index("1/16")
+    ev = [(20 + i, f"al-inset {i} {1 if L in M.LANES else 0}") for i, L in enumerate(M.LAYERS)]
+    ev += [(30 + i, f"al-set {M.S(L, None, 'Rate')} {(r16_ + 0.5) / len(M.RATES)}") for i, L in enumerate(M.LANES)]
+    ev += [(40 + i, f"al-set {M.S(L, None, 'Hits')} {6 / 15}") for i, L in enumerate(M.LANES)]
+    ev += [START, (210, "notesRaw 72 0")] + [(t, f"h-mark {t}") for t in range(0, 10000, 5)]
+
+    def busy(c):
+        c.c(c.obj("r h-mark", 900, 700), 0, c.obj("print MARK", 900, 730), 0)
+        m = c.obj("metro 50", 1000, 700)
+        c.c(c.obj("loadbang", 1000, 680), 0, m, 0)
+        c.c(c.m(m, "80"), 0, c.obj("v alcpu", 1000, 760), 0)
+    log, _ = H.run(ev, 10, d=d, keep=True, prints=("oscOut",) + tuple(f"al-{L}-hit" for L in M.LANES), extra=busy)
+    cur, hits, flips, msgs = 0, [], [], 0
+    for l in log.splitlines():
+        if l.startswith("MARK"):
+            cur = int(l.split()[-1])
+        elif "-hit:" in l:
+            hits.append(cur)
+        elif l.startswith("oscOut"):
+            msgs += 1
+            if "gFlip" in l:
+                flips.append(cur)
+    seen = sum(1 for h in hits if any(0 <= f - h <= 5 for f in flips))
+    check("every hit is drawn at once, even under load", hits and seen == len(hits) and msgs / 10 < 100,
+          f"{seen} of {len(hits)} hits shown within 5 ms; {msgs / 10:.0f} OLED messages a second")
+
+    # a knob's zone draws what a whole frame would: a layer page and the MIX view, knob 2 turned (only its row /
+    # column redrawn), snapped; then a whole frame forced, snapped again - the same pixels (the MIX header, with its
+    # CPU reading, left out)
+    import oledemu as _oe
+    import tempfile as _tf
+    from PIL import ImageChops as _ic
+
+    def snapper(c):
+        c.c(c.obj("r h-snap", 900, 700), 0, c.obj("print SNAP", 900, 730), 0)
+    sweep = [(1200 + 30 * k, f"knob2 {abs(((k % 20) / 10) - 1):.2f}") for k in range(23)]
+    zev = {"page": [(200, "notesRaw 60 100"), (900, "notesRaw 60 0")],
+           "mix": [(200, "notesRaw 63 100"), (260, "notesRaw 63 0")]}
+    zres = []
+    for name, ev in zev.items():
+        log, _ = H.run(ev + sweep + [(2100, "h-snap a"), (2200, "al-redraw bang"), (2500, "h-snap b")], 2.7, d=d,
+                       keep=True, prints=("oscOut",), extra=snapper)
+        od = _tf.mkdtemp()
+        pa, pb = _oe.render(log, od)
+        from PIL import Image as _Im
+        ia, ib = _Im.open(pa).convert("L"), _Im.open(pb).convert("L")
+        top = 0 if name == "page" else 10 * 4
+        diff = _ic.difference(ia.crop((0, top, ia.width, ia.height)), ib.crop((0, top, ib.width, ib.height))).getbbox()
+        rows = sum(1 for l in log.splitlines() if "gFlip" in l)
+        zres.append((name, diff is None, rows))
+    check("a knob's zone draws what the whole frame would (page, MIX)", all(ok for _, ok, _ in zres),
+          ", ".join(f"{n}: {'same' if ok else 'differs'}" for n, ok, _ in zres))
 
     # nothing piles up over a long session: the four lanes (the busiest messages) for 8 minutes - the last minutes'
     # CPU no more than the first's (a strike sent to every engine queued in the switched-off ones' [vline~]s: the CPU

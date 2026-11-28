@@ -7,7 +7,7 @@ PLAY (home)                                  LAYER (5 s after a knob turns or a 
   y 22-52  a row per layer: > selected,        y 22-52  the 4 knobs: name, value, a bar
         name, engine, + / M (muted), level bar
 Redraws are throttled: at most one every 60 ms, however fast knobs turn."""
-from pdlib import Canvas, proc, If, Call, SendL, Send, run_steps, T, Arm
+from pdlib import Canvas, proc, If, Call, SendL, Send, run_steps, T, Arm, V
 import model as M
 from model import S, LAYERS
 from control import words, opt, num, ctx, npages, clocks, QUALS, MODE_SLOT, VIEW_GLOBAL, VIEW_MIX
@@ -132,7 +132,7 @@ ICON_Y, LABEL_Y = 45, 54
 def layer_icon(L, cx, cy):
     """a layer's icon on the play view: (steps when it is in - bold or filled, steps when out - a thin outline).
     drone a triangle; sub a wave; pads two circles (a figure of eight: their Lissajous in the visualizer); a lane a
-    stone's ring with the stone; the cloud a square"""
+    ring (bigger when in) with its stone - the centre dot - lit as it strikes; the cloud a square"""
     def ln(pts, dy=0):
         return [Send(OSC, f"/oled/gLine 3 {x1} {y1 + dy} {x2} {y2 + dy} 1") for (x1, y1), (x2, y2) in zip(pts, pts[1:])]
     circ = lambda r, fill=False, dx=0: Send(OSC, f"/oled/{'gFilledCircle' if fill else 'gCircle'} 3 {cx + dx} {cy} {r} 1")
@@ -148,7 +148,7 @@ def layer_icon(L, cx, cy):
         return [circ(3, True, -3), circ(3, True, 3)], [circ(3, False, -3), circ(3, False, 3)]
     if L == "cloud":
         return [Fill(cx - 5, cy - 5, 11, 11, 1)], [Send(OSC, f"/oled/gBox 3 {cx - 5} {cy - 5} 11 11 1")]
-    return [circ(5), circ(1, True)], [circ(4)]                 # (a lane)
+    return [circ(5), circ(1, True)], [circ(4)]                 # (a lane: in, a bigger ring; its dot lit as it strikes)
 PAT_LAYERS = M.NOTE_LAYERS          # the pattern view's rows (the cloud has no pattern)
 
 
@@ -164,11 +164,67 @@ def rows_tables(c):
         c.c(c.m(c.recv("al-init"), " ".join(str(v) for v in vals)), 0, c.obj(f"array set {name}"), 0)
 
 
+def tile_icon(li, L):
+    """a layer's sign on the play view (its icon only - al-draw draws it in the frame, al-pulse alone, at once): in -
+    bold / filled, out - an outline. A lane's centre dot lit while a hit's gate is open (half its step); drone, sub,
+    pads with their gate's rhythm playing: shown while the gate is open, gone between; a loop recording or overdubbing
+    (allps 1, 3): it blinks on the 8ths (a free loop's on its own clock, each quarter second)"""
+    from features import FREE_MS
+    x = TILE_DX * li
+    on, off = layer_icon(L, x + TILE_W // 2, ICON_Y)
+    if M.kind(L) == "perc":
+        on = [on[0], If(f"alhitp[{M.LANES.index(L)}]", [on[1]])]
+    if L in ("drone", "sub", "pad"):
+        on = [If(f"alrun && {opt(S(L, None, 'Gate'))} >= 1 && algt[{li}] == 0", [], on)]
+    sign = [If(f"alin[{li}]", on, off)]
+    if li < len(M.NOTE_LAYERS):
+        blink = f"if(allpf[{li}], int(alfc*{FREE_MS}/250) % 2, int(max(0, altick)/4) % 2)"
+        sign = [If(f"(allps[{li}] == 1 || allps[{li}] == 3) && {blink}", [], sign)]
+    return sign
+
+
+def knob_zones(c, rowk, colk, shape, mixing):
+    """a knob turned (al-set -> al-setdraw 'slot'): on a page (a layer's, a pop-up, SHAPE) only its row is redrawn;
+    on the MIX view only its column - cleared, drawn, shown - not a whole frame. A whole frame instead when the
+    screen shows something else, one is already coming (alfpend), or the slot changes more than its own row: an
+    Engine (the page's header and knobs), the cloud delay's Sync (how its Time reads). At most one zone drawing each
+    50 ms (100 under load): turned fast, the last value always drawn"""
+    full = [S(L, None, "Engine") for L in LAYERS] + [S("cloud", "delay", "Sync")]
+    notfull = " && ".join(f"alsds != {x}" for x in full)
+    pages = f"alshv == 1 && (alpop || ({shape}))"
+    mix = f"alshv == 2 && almixok && ({mixing})"
+    sd = c.to(c.recv("al-setdraw"), "t b f")
+    c.c((sd, 1), 0, c.obj("v alsds"), 0)
+    c.c((sd, 0), 0, c.obj("s al-setdraw2"), 0)
+    proc(c, "al-setdraw2", [V("alsdh", "0"), If(f"alfpend == 0 && {notfull}", [
+        If(pages, [If(f"alsl{k} == alsds && alsds >= 0", [T("alrk", str(k), "1"), V("alsdh", "1")]) for k in range(4)]),
+        If(mix, [If(f"alsds == {sl}", [T("alrk", str(4 + i), "1"), V("alsdh", "1")]) for i, (sl, _, _, _) in enumerate(colk)])]),
+        If("alsdh", [Call("al-zthr")], [Call("al-redraw")])])
+    # (the throttle: drawn at once, then at most once a window - what came in it drawn at its end)
+    proc(c, "al-zthr", [If("alzbusy", [V("alzpend", "1")],
+                           [V("alzbusy", "1"), Call("al-zdraw"), Arm("al-zfree", "if(alcpu > 70, 100, 50)")])])
+    proc(c, "al-zfree", [If("alzpend", [V("alzpend", "0"), Call("al-zdraw"), Arm("al-zfree", "if(alcpu > 70, 100, 50)")],
+                            [V("alzbusy", "0")])])
+    # (a row's band: from its own top line to the next row's; the row above's letters can hang into it, so its
+    # words are drawn again over themselves - the page's line for the first row)
+    above = lambda k: [Call(f"al-r-k{k - 1}")] if k else [Call("al-r-page")]
+    rows = [If(f"alrk[{k}]", [T("alrk", str(k), "0"), Fill(0, 22 + 10 * k, 128, 10, 0)] + above(k) + rowk[k])
+            for k in range(4)]
+    cols = [If(f"alrk[{4 + i}]", [T("alrk", str(4 + i), "0"), Fill(x, 14, w, 39, 0)] + st)
+            for i, (_, x, w, st) in enumerate(colk)]
+    clear = [T("alrk", str(i), "0") for i in range(4 + len(colk))]
+    proc(c, "al-zdraw", [If("alfpend == 0", [
+        If(f"alshv == 1 && (alpop || ({shape}))", rows + [Send(OSC, "/oled/gFlip 3")],
+           [If(f"alshv == 2 && ({mixing})", cols + [Send(OSC, "/oled/gFlip 3")])])]), *clear])
+
+
 def build(c):
     from pdlib import V, Loop
     c.comment("the screen: al-redraw (any change) -> at most every 60 ms (120 while the CPU is above 70 %) -> al-draw")
     sp = c.obj("spigot 1")
-    c.c(c.ch(c.recv("al-redraw"), "t b"), 0, sp, 0)
+    rq = c.ch(c.recv("al-redraw"), "t b b")
+    c.c(c.m((rq, 1), "1"), 0, c.obj("v alfpend"), 0)          # (a whole frame coming: the zones wait for it)
+    c.c((rq, 0), 0, sp, 0)
     tb = c.to(sp, "t b b b")
     c.c(c.m((tb, 2), "0"), 0, sp, 1)
     # (fewer frames when busy: the OLED's messages travel to its program on the same core - under load some are
@@ -204,23 +260,15 @@ def build(c):
     for li, L in enumerate(LAYERS):
         x = TILE_DX * li
         lab = M.SHORT[L][1] if M.kind(L) == "perc" else M.SHORT[L][0]
-        on, off = layer_icon(L, x + TILE_W // 2, ICON_Y)
-        if M.kind(L) == "perc":
-            # (a lane: its ring, and the stone in it - the centre dot - lit while a hit's gate is open: half its step)
-            lane = M.LANES.index(L)
-            on = [on[0], If(f"alhitp[{lane}]", [on[1]])]
-        if L in ("drone", "sub", "pad"):
-            # (its gate's rhythm playing: the icon flashes with it - shown while the gate is open, gone between)
-            on = [If(f"alrun && {opt(S(L, None, 'Gate'))} >= 1 && algt[{li}] == 0", [], on)]
-        # (a loop: recording or overdubbing (allps 1, 3) - the sign blinks on the 8ths; playing or overdubbing
-        # (2, 3) - a line under it fills as the loop goes round; stopped (4) - a dot there)
-        sign = [If(f"alin[{li}]", on, off)]
+        sign = tile_icon(li, L)
         if li < len(M.NOTE_LAYERS):
-            ph = f"((max(0, alc24) - allp0[{li}]) % max(1, allpl[{li}]))/max(1, allpl[{li}])"
-            sign = [If(f"(allps[{li}] == 1 || allps[{li}] == 3) && int(max(0, altick)/4) % 2", [], sign),
-                    If(f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0",
-                       [SendL(OSC, [f"max(1, int({ph}*{TILE_W}))"], f"/oled/gFillArea 3 {x} {ICON_Y + 6} $1 1 1")]),
-                    If(f"allps[{li}] == 4", [Fill(x + TILE_W // 2, ICON_Y + 6, 1, 1, 1)])]
+            # (a loop playing or overdubbing (2, 3): a line under its sign fills as the loop goes round; stopped (4): a
+            # dot there)
+            from features import ck, pmod
+            ph = f"{pmod(f'{ck(li)} - allp0[{li}]', f'allpl[{li}]')}/max(1, allpl[{li}])"
+            sign = sign + [If(f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0",
+                              [SendL(OSC, [f"max(1, int({ph}*{TILE_W}))"], f"/oled/gFillArea 3 {x} {ICON_Y + 6} $1 1 1")]),
+                           If(f"allps[{li}] == 4", [Fill(x + TILE_W // 2, ICON_Y + 6, 1, 1, 1)])]
         play += sign + [
                  Send(OSC, f"/oled/gPrintln 3 {x + 2} {LABEL_Y} 8 1 {lab}"),
                  If(f"allayer == {li}", [Send(OSC, f"/oled/gInvertArea 3 {x} {LABEL_Y - 1} 8 9")])]     # (the letter only: a loop's beside it stays clear)
@@ -240,7 +288,7 @@ def build(c):
         return [V("altcm", f"int({var}/60)"), V("altcs", f"int({var}) % 60"),
                 SendL(OSC, [f"{x_end} - 6*({w})", "altcm", "int(altcs/10)", "altcs % 10"],
                       f"/oled/gPrintln 3 $1 {INFO_Y} 8 1 {'-' if minus else ''}$2:$3$4")]
-    play += [If(f"alrn > 0 && {opt(road)} > 0", [
+    road_steps = [If(f"alrn > 0 && {opt(road)} > 0", [
         V("alrtot", "0"), V("alrsw", "0"),
         Loop("alrn", "alri", [If("alri < alrc", [V("alrsw", "alrsw + alrsL[alri]")]), V("alrtot", "alrtot + alrsL[alri]")]),
         V("alrsw", "alrsw + min(alrsL[alrc], max(0, altick/32 - alrb0))"),
@@ -256,6 +304,8 @@ def build(c):
                       f"/oled/gBox 3 $1 {ROAD_Y} $2 {ROAD_H} 1")]),
             V("alrsw", "alrsw + alrsL[alri]")]),
         SendL(OSC, ["min(126, int(alrt*127/alrtot))"], f"/oled/gInvertArea 3 $1 {ROAD_Y + 2} 2 {ROAD_H - 4}")])]
+    play += road_steps
+    zones(c, road_steps)
     # the MIDI-in light: a small square at the bottom right, on while a MIDI note is held (and 150 ms after each)
     play += [If("alminh > 0 || altime - almint < 0.15", [Fill(122, ICON_Y - 2, 5, 5, 1)])]
     # ---- layer view
@@ -266,6 +316,7 @@ def build(c):
                                 ("w", f"if(alview, {misc('-')}, {eng_word('allayer')})")])
     row(c, "al-r-page", 0, 11, [("w", f"{OFF['page']} + {ctx()}*{M.MAXPAGES} + alpage"),
                                 ("w", f"{OFF['frac']} + ({npages()} - 1)*{M.MAXPAGES} + alpage")])
+    rowk = []           # (each knob's row alone: the knob zones redraw only the turned one - knob_zones)
     for k in range(4):
         # (a global page's knob that is a layer's: the layer's name)
         gl = f"algl[alpage*4 + {k}]"
@@ -276,13 +327,14 @@ def build(c):
         y = 23 + 10 * k
         # (SHAPE's Filter: a mark at the middle, its bar from there to the left (low-pass) or the right (high-pass))
         fpx = f"(80 + int(alp[{fsl}]*46))"
-        lay += [Call(f"al-r-k{k}"),
+        rowk.append([Call(f"al-r-k{k}"),
                 If(f"alsl{k} == {fsl}", [Fill(103, y - 1, 1, 7, 1),
                                          SendL(OSC, [f"min(103, {fpx})", f"max(1, abs({fpx} - 103))"],
                                                f"/oled/gFillArea 3 $1 {y + 1} $2 3 1")],
                    [If(f"alsl{k} >= 0 && (aln[alsl{k}] == 0 || aln[alsl{k}] == -1)",
                        [SendL(OSC, [str(y), f"max(1, int(alp[alsl{k}]*46))"],
-                              "/oled/gFillArea 3 80 $1 $2 5 1")])])]
+                              "/oled/gFillArea 3 80 $1 $2 5 1")])])])
+        lay += rowk[k]
     # ---- mix view: every layer's level as a column, the master volume at the right; the shown page's columns
     # underlined
     row(c, "al-r-mixhead", 0, 0, [("w", f"{OFF['page']} + {ctx()}*{M.MAXPAGES} + alpage"),
@@ -304,17 +356,20 @@ def build(c):
         _V("alcpuh", "alcpuh + 1"), _V("alcpux", "if(alcpuh % 10 == 1, alcpu, max(alcpux, alcpu))"),
         If("alview == 2", [Call("al-redraw")])])
     mixv = [Call("al-r-mixhead")]
+    colk = []           # (each column alone, by its slot: the knob zones redraw only the turned one)
     for li, L in enumerate(LAYERS):
         lvl = S(L, None, "Level")
         x = MIX_X0 + MIX_DX * li
         # (a layer out: its column hollow)
-        mixv += [If(f"alin[{li}]", [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(1, int(alp[{lvl}]*38))"],
+        colk.append((lvl, x, MIX_W, [If(f"alin[{li}]", [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(1, int(alp[{lvl}]*38))"],
                                           f"/oled/gFillArea 3 $1 $2 {MIX_W} $3 1")],
                     [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(2, int(alp[{lvl}]*38))"],
-                           f"/oled/gBox 3 $1 $2 {MIX_W} $3 1")]),
+                           f"/oled/gBox 3 $1 $2 {MIX_W} $3 1")])]))
+        mixv += colk[-1][3] + [
                  If("almixok == 0", [Send(OSC, f"/oled/gPrintln 3 {x} 55 8 1 {M.SHORT[L][1] if M.kind(L) == 'perc' else M.SHORT[L][0]}")])]
     vol = S("g", None, "Volume")
-    mixv += [SendL(OSC, [f"52 - int(alp[{vol}]*38)", f"max(1, int(alp[{vol}]*38))"], "/oled/gFillArea 3 112 $1 14 $2 1")]
+    colk.append((vol, 112, 14, [SendL(OSC, [f"52 - int(alp[{vol}]*38)", f"max(1, int(alp[{vol}]*38))"], "/oled/gFillArea 3 112 $1 14 $2 1")]))
+    mixv += colk[-1][3]
     mixv += [If("almixok == 0", [Send(OSC, "/oled/gPrintln 3 114 55 8 1 V")]), V("almixok", "1")]
     # (the columns the knobs turn now: a line under them)
     for k in range(4):
@@ -354,24 +409,70 @@ def build(c):
     mixing = f"alpop == 0 && alview == 2 && ({shape}) == 0"
     import vis
     VIS, visv = vis.VIEW_VIS, vis.frame()
-    proc(c, "al-draw", [If(f"{mixing} && almixok", [Fill(0, 0, 128, 55, 0)], [Fill(0, 0, 128, 64, 0), V("almixok", "0")]),
+    knob_zones(c, rowk, colk, shape, mixing)
+    proc(c, "al-draw", [V("alfpend", "0"), V("alshv", f"if(alpop || ({shape}), 1, if(alview == 2, 2, 0))"),
+                        If(f"{mixing} && almixok", [Fill(0, 0, 128, 55, 0)], [Fill(0, 0, 128, 64, 0), V("almixok", "0")]),
                         If(f"alpop || ({shape})", lay, [If(f"alview == 2", mixv, [If(f"alview == {VIS}", visv, [If("alpatv == 1", patv,
                                                                        [If("alpatv == 2", roadv, play)])])])]),
                         If(f"({mixing}) == 0", [V("almixok", "0")]),
                         Send(OSC, "/oled/gFlip 3")])
 
 
+def lane_dot(li, L):
+    """a lane's stone (its centre dot) alone: cleared, then lit while a hit's gate is open - if the lane is in and its
+    sign isn't blinked off (a loop recording)"""
+    from features import FREE_MS
+    cx = TILE_DX * li + TILE_W // 2
+    hid = f"(allps[{li}] == 1 || allps[{li}] == 3) && if(allpf[{li}], int(alfc*{FREE_MS}/250) % 2, int(max(0, altick)/4) % 2)"
+    return [Fill(cx - 1, ICON_Y - 1, 3, 3, 0),
+            If(f"alin[{li}] && alhitp[{M.LANES.index(L)}] && ({hid}) == 0",
+               [Send(OSC, f"/oled/gFilledCircle 3 {cx} {ICON_Y} 1 1")])]
+
+
+def zones(c, road_steps):
+    """the play view drawn in zones, each alone and at its own pace, then shown (gFlip) - not a whole frame
+    (al-redraw: throttled to one each 60 ms, 120 under load, so a short hit fell between them). Marked, then drawn
+    together at the end of the moment (delay 0):
+    - a lane's dot (alpdd): at each hit and as its gate closes - one message
+    - a sign (alpdf): drone, sub, pads as their gate opens and closes; a recording loop's sign as it blinks
+    - the loops' lines (alzlp): each 8th - the row under the signs
+    - the roadmap (alzrd): each beat - its info line and strip
+    Everything else (the head, the chord, the letters, the loops' states) with the frame, as it changes"""
+    c.c(c.ch(c.recv("al-playdraw"), "t b", "delay 0"), 0, c.obj("s al-pulse"), 0)
+    steps = []
+    for li, L in enumerate(LAYERS):
+        x = TILE_DX * li
+        full = [T("alpdf", str(li), "0"), T("alpdd", str(li), "0"), Fill(x, ICON_Y - 5, TILE_W, 11, 0)] + tile_icon(li, L)
+        if M.kind(L) == "perc":
+            steps.append(If(f"alpdf[{li}]", full, [If(f"alpdd[{li}]", [T("alpdd", str(li), "0")] + lane_dot(li, L))]))
+        elif li < len(M.NOTE_LAYERS):
+            steps.append(If(f"alpdf[{li}]", full))
+    from features import ck, pmod
+    lines = [Fill(0, ICON_Y + 6, TILE_DX * len(M.NOTE_LAYERS), 1, 0)]
+    for li in range(len(M.NOTE_LAYERS)):
+        x = TILE_DX * li
+        ph = f"{pmod(f'{ck(li)} - allp0[{li}]', f'allpl[{li}]')}/max(1, allpl[{li}])"
+        lines += [If(f"(allps[{li}] == 2 || allps[{li}] == 3) && allpl[{li}] > 0",
+                     [SendL(OSC, [f"max(1, int({ph}*{TILE_W}))"], f"/oled/gFillArea 3 {x} {ICON_Y + 6} $1 1 1")]),
+                  If(f"allps[{li}] == 4", [Fill(x + TILE_W // 2, ICON_Y + 6, 1, 1, 1)])]
+    steps.append(If("alzlp", [V("alzlp", "0")] + lines))
+    steps.append(If("alzrd", [V("alzrd", "0"), Fill(0, INFO_Y, 128, ROAD_Y + ROAD_H - INFO_Y, 0)] + road_steps))
+    clear = [T("alpdf", str(li), "0") for li in range(len(LAYERS))] + [T("alpdd", str(li), "0") for li in range(len(LAYERS))]
+    proc(c, "al-pulse", [If("alview == 0 && alpatv == 0 && alpop == 0", steps + [Send(OSC, "/oled/gFlip 3")],
+                            clear + [V("alzlp", "0"), V("alzrd", "0")])])
+
+
 def pulses(c):
-    """the play view's rhythm: each lane's hit (its centre dot, lit for half its step) and the gates (control.gates) redraw it - only
-    while it shows (the redraws are throttled as every other: al-redraw)"""
-    proc(c, "al-playdraw", [If("alview == 0 && alpatv == 0 && alpop == 0", [Call("al-redraw")])])
+    """a lane's hit: its dot lit for half its step (the rhythm's zone: zones)"""
     for i, L in enumerate(M.LANES):
         hv = c.ch(c.recv(f"al-{L}-hit"), "unpack f f f f")
         tb = c.to((hv, 2), "t b f")
         c.c((tb, 1), 0, c.obj("v alhitv"), 0)
         gate = f"max(40, 0.5*{clocks(S(L, None, 'Rate'))}*60000/({num(S('g', None, 'Tempo'))}*24))"
-        run_steps(c, (tb, 0), [T("alhitp", str(i), "1"), Call("al-playdraw"), Arm(f"al-hitoff{i}", gate)])
-        proc(c, f"al-hitoff{i}", [T("alhitp", str(i), "0"), Call("al-playdraw")])
+        li = LAYERS.index(L)
+        run_steps(c, (tb, 0), [T("alhitp", str(i), "1"), T("alpdd", str(li), "1"), Send("al-playdraw"),
+                               Arm(f"al-hitoff{i}", gate)])
+        proc(c, f"al-hitoff{i}", [T("alhitp", str(i), "0"), T("alpdd", str(li), "1"), Send("al-playdraw")])
 
 
 def road_view(c):

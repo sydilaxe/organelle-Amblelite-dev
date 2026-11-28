@@ -18,7 +18,7 @@ MODE_SLOT, SCALE_SLOT = S("g", None, "Mode"), S("g", None, "Scale")
 PANIC_MS = 8000              # the panic's fade
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
-GLOBALS = dict(alpanicing=0, alhitv=0, alclin=0, alclfade=0, alcleng=0, alfps=0, alhomeh=0, alhkv=0, alth=0, altcm=0, altcs=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
+GLOBALS = dict(alzlp=0, alzrd=0, alfpend=0, alshv=0, alsds=0, alsdh=0, alzbusy=0, alzpend=0, alpanicing=0, alhitv=0, alclin=0, alclfade=0, alcleng=0, alfps=0, alhomeh=0, alhkv=0, alth=0, altcm=0, altcs=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
                alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
                alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0, alcb=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
@@ -31,7 +31,7 @@ for k in range(4):
     GLOBALS.update({f"alsl{k}": -1, f"allat{k}": 0, f"alpv{k}": -1})
 for L in LANES:
     GLOBALS.update({f"al{L}n": 0, f"al{L}v": 0})
-ARRAYS = dict(algt=NL, alhitp=4, alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alks=0, alnp=0, aleng=NL, alusr=NL,
+ARRAYS = dict(algt=NL, alpdf=NL, alpdd=NL, alrk=4 + NL + 1, alhitp=4, alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alks=0, alnp=0, aleng=NL, alusr=NL,
               allatch=NL, alin=NL, alprm=4, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
               alscn=len(M.MODES), alsk=0, alsd=0, alsr=0, alsy=0, alsdl=0, alsm=len(M.MODES) * 8,
               alsml=len(M.MODES), alty=0, altq=0, alpe=NSLOTS, alem=NSLOTS, alet=0, alew=0, alevs=0, alevp=0,
@@ -183,11 +183,12 @@ QUALS = M.QUALS
 def params(c):
     c.comment("al-set 'slot value': store it (alp), add Evolve's movement (alem) for the value the sound hears "
               "(alpe), send that to [r al-s<slot>], redraw. al-out 'slot': send alpe[slot] again.")
-    t = c.to(c.recv("al-set"), "t b l l l")
+    t = c.to(c.recv("al-set"), "t l l l l")
     c.c((t, 3), 0, c.obj("expr alp[$f1] = $f2"), 0)
     c.c((t, 2), 0, c.obj("expr alpe[$f1] = max(0, min(1, $f2 + alem[$f1] + alfm[$f1] + alfn[$f1] + alfb[$f1]))"), 0)
     c.c(c.to((t, 1), "list split 1"), 0, c.obj("s al-out"), 0)
-    c.c((t, 0), 0, c.obj("s al-redraw"), 0)
+    # (redrawn: its row or column alone where it shows - screen.knob_zones - else the whole frame)
+    c.c(c.to((t, 0), "list split 1"), 0, c.obj("s al-setdraw"), 0)
     o = c.to(c.recv("al-out"), "t f f")
     snd = c.obj("s")
     c.c(c.to((o, 1), "makefilename al-s%d"), 0, snd, 1)
@@ -244,8 +245,7 @@ def knobs(c):
         sc.c(lp, 0, sc.obj("s al-set"), 0)
     # pages opened on purpose (a held layer key, the global key, paging) stay until an aux tap (alstick); the
     # pop-up a knob gives in the play view closes 3 s after the last turn
-    proc(c, "al-popup", [If(f"alview != {VIEW_MIX}", [V("alpop", "1"), Later("al-popoff", 3000)],
-                            [Call("al-redraw")])])
+    proc(c, "al-popup", [If(f"alview != {VIEW_MIX}", [V("alpop", "1"), Later("al-popoff", 3000)])])
     proc(c, "al-popoff", [If("alstick == 0", [V("alpop", "0"), Call("al-redraw")])])
     # (the layer chosen by knob 1 on the play view: D S P 1 2 3 4 C across its turn; aux's tap after it isn't home)
     sel = f"min({NL - 1}, int(alhkv*{NL}))"
@@ -585,6 +585,8 @@ def transport(c):
         Send("al-panicstop"), V("alpanicing", "0"), SendL("al-panicg", ["1", "300"]),
         V("alrun", "1"), V("altick", "-1"), V("alc24", "-1"), V("alstep", "0"), Call("al-rstart"),
         Loop("4", "alj", [T("allane", "alj", "-1"), T("allrot", "alj", "0")]), Call("al-chord"),
+        # (each loop on the clock from its start, with the transport: a free one keeps its own time)
+        Loop(str(len(M.NOTE_LAYERS)), "alj", [If("allpf[alj] == 0", [T("allp0", "alj", "0"), T("allpi", "alj", "0")])]),
         If(f"{opt(clk)} == 1", [Send("al-midibyte", "250")]),
         If(f"{opt(sync)} == 0", [Send("al-clock", "1")]), Call("al-redraw")])])
     proc(c, "al-stop", [If("alrun", [
@@ -602,8 +604,12 @@ def transport(c):
         If("altick % 32 == 0", [Call("al-rbar")]),
         # (the play view's countdown: redrawn each beat while a roadmap runs - roadmap.al-rbar redraws each bar)
         # (and each 8th while a loop records, overdubs or plays: its line moves, a recording sign blinks)
-        If(f"alview == 0 && alpop == 0 && alpatv == 0 && ((altick % 8 == 4 && alrn > 0) || (altick % 4 == 0 && ("
-           + " || ".join(f"allps[{i}] > 0" for i in range(len(M.NOTE_LAYERS))) + ")))", [Call("al-redraw")]),
+        # (only their zones: screen.zones - not a whole frame)
+        If(f"alview == 0 && alpop == 0 && alpatv == 0", [
+            If("altick % 8 == 4 && alrn > 0", [V("alzrd", "1"), Send("al-playdraw")]),
+            If("altick % 4 == 0", [If(f"allps[{i}] > 0", [V("alzlp", "1"), Send("al-playdraw"),
+                                                          If(f"allps[{i}] == 1 || allps[{i}] == 3", [T("alpdf", str(i), "1")])])
+                                   for i in range(len(M.NOTE_LAYERS))])]),
         If("alpatv", [Call("al-patmark")])])
     proc(c, "al-phase", [If(f"{opt(S(L, None, 'Phase'))} > 0 && (altick/32) % "
                             f"{pick(M.PHASE_BARS, opt(S(L, None, 'Phase')))} == 0",
@@ -628,13 +634,15 @@ def lane_patterns(c):
                f"12*int((allane[{i}] % 8)/alscn[{m}]))")
         note = (f"if({pm} <= 2, alch[if({pm} == 2, if(allane[{i}] % 6 < 4, allane[{i}] % 6, 6 - allane[{i}] % 6), "
                 f"allane[{i}] % 4)] - 12, if({pm} == 3, alch[0] - 12, if({pm} == 4, alch[2] - 12, {scl})))")
-        steps.append(If(f"alin[{li}] && alc24 % {rc} == 0 && {euclid(L, f'alc24/{rc} + allrot[{i}]')}", [
+        # (the cheap test first - in, and on its step - the pattern only then: [expr] works out every part of a
+        # condition, so the whole pattern each clock cost the same whether the step fell or not)
+        steps.append(If(f"alin[{li}] && alc24 % {rc} == 0", [If(euclid(L, f'alc24/{rc} + allrot[{i}]'), [
             T("allane", str(i), f"if({pm} == 1 || {pm} == 6, allane[{i}] + 7, allane[{i}] + 1)"),
             V("allv", acc),
             V("allr", swing_ms(L)),
             If(f"{pm} == 7", [SendL(f"al-sw-{L}", [f"alch[{j}] - 12", "allv", "allr"]) for j in range(3)],
                [If(f"{pm} == 8", [Call(f"al-motif{i}"), SendL(f"al-sw-{L}", ["allmn", "allv", "allr"])],
-                   [SendL(f"al-sw-{L}", [note, "allv", "allr"])])])]))
+                   [SendL(f"al-sw-{L}", [note, "allv", "allr"])])])])]))
         # swing: the step's notes after their delay ([pipe] keeps each one's own)
         pp = c.ch(c.recv(f"al-sw-{L}"), "pipe f f 0")
         pk = c.obj("pack f f")
@@ -685,15 +693,16 @@ def gates(c):
         # (algt: the gate open - the play view shows the layer's icon while it is, nothing between: it flashes with
         # the gate)
         li = LAYERS.index(L)
-        proc(c, f"al-gate-{L}", on + [T("algt", str(li), "1"), Call("al-playdraw"),
+        proc(c, f"al-gate-{L}", on + [T("algt", str(li), "1"), T("alpdf", str(li), "1"), Send("al-playdraw"),
                                       Arm(f"al-gaterel-{L}", f"max(20, alp[{S(L, None, 'Length')}]*{rc}*{cms})",
                                           stop=f"al-gatestop-{L}")])
-        proc(c, f"al-gaterel-{L}", [If(f"{opt(gate)} >= 1", off), T("algt", str(li), "0"), Call("al-playdraw")])
+        proc(c, f"al-gaterel-{L}", [If(f"{opt(gate)} >= 1", off), T("algt", str(li), "0"), T("alpdf", str(li), "1"), Send("al-playdraw")])
         proc(c, f"al-gateoff-{L}", [Send(f"al-gatestop-{L}"), T("algt", str(li), "0"),
                                     If(f"{opt(gate)} == 0 && alrun", hold)])
         c.c(c.ch(c.recv(f"al-s{gate}"), "t b"), 0, c.obj(f"s al-gateoff-{L}"), 0)
-    proc(c, "al-gates", [If(f"alrun && alin[{LAYERS.index(L)}] && {opt(S(L, None, 'Gate'))} >= 1 && alc24 % {clocks(S(L, None, 'Rate'))} == 0 "
-                            f"&& {gate_hit(L)}", [SendL(f"al-gsw-{L}", ["0", swing_ms(L)])])
+    # (the cheap test first, the patterns - its own and, with Comp, the others' - only on its step)
+    proc(c, "al-gates", [If(f"alrun && alin[{LAYERS.index(L)}] && {opt(S(L, None, 'Gate'))} >= 1 && alc24 % {clocks(S(L, None, 'Rate'))} == 0",
+                            [If(gate_hit(L), [SendL(f"al-gsw-{L}", ["0", swing_ms(L)])])])
                          for L in ("drone", "sub", "pad")])
     for L in ("drone", "sub", "pad"):
         c.c(c.ch(c.recv(f"al-gsw-{L}"), "pipe", "t b"), 0, c.obj(f"s al-gate-{L}"), 0)
@@ -723,8 +732,8 @@ def taps(c):
     proc(c, "al-tapclock", [
         If(f"altarm >= 0 && alc24 % {96} == 0", [Call("al-tapstart")]),
         # (erasing: the step under the playhead, at each step)
-        If(f"altrl >= 0 && alerase && alc24 % ({rc}) == 0 && altapw[{idx}] != alersid",
-           [T("altap", idx, "0"), Call("al-redraw")])])
+        If("altrl >= 0 && alerase", [If(f"alc24 % ({rc}) == 0 && altapw[{idx}] != alersid",
+                                        [T("altap", idx, "0"), Call("al-redraw")])])])
     _entry(c, "al-note", ["altnl", "altnn", "altnv"], "al-tapnote")
     proc(c, "al-tapnote", [If("altnl == altrl && altnv > 0 && altrl >= 0", [
         T("altap", idx, "1"), T("altapw", idx, "if(alerase, alersid, -1)"), Call("al-redraw")])])

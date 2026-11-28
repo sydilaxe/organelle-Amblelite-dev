@@ -31,7 +31,7 @@ def engfix():
     lc = M.LAYERS.index("cloud")
     cfav = [[M.NSLOTS + 2 * nl + (lc * M.MAXENG + ei) * 4 + k, ks[((lc * M.MAXENG + ei) * M.MAXPAGES) * 4 + k]]
             for ei in range(M.CLOUD_OLD_ENGINES, len(M.engines("cloud"))) for k in range(4)]
-    return dict(cloudEng=M.S("cloud", None, "Engine"), nCloud=len(M.engines("cloud")), cloudFav=cfav,
+    return dict(cloudEng=M.S("cloud", None, "Engine"), nCloud=len(M.engines("cloud")), cloudFav=cfav, cloudUpto=M.CLOUD_FIX_UPTO,
                 subEng=M.S("sub", None, "Engine"), oldSub=M.OLD_ENGINES["sub"], nSub=len(M.engines("sub")),
                 padEng=M.S("pad", None, "Engine"), nPad=len(M.engines("pad")), choir=M.CHOIR_INDEX,
                 voice=M.VOICE_INDEX, src=vo("Source"), vowel=vo("Vowel"), motion=vo("Motion"), breath=vo("Breath"),
@@ -68,7 +68,7 @@ def data():
     nslots = M.NSLOTS
     lay = dict(nslots=nslots, history=M.SLOT_HISTORY, nl=nl, maxeng=M.MAXENG, latch=nslots, inn=nslots + nl, fav=nslots + 2 * nl,
                favn=F.FAVN, tap=nslots + 2 * nl + F.FAVN, tapn=F.TAPN, snap=F.SNAP, piece=F.PIECE, maxsec=M.MAXSEC,
-               pieces=F.PIECES, saves=F.SAVE_SLOTS, saveLines=F.SCRATCH + 2, loopLayers=F.LOOP_LAYERS,
+               pieces=F.PIECES, saves=F.SAVE_SLOTS, saveLines=F.SCRATCH + 2, loopLayers=F.LOOP_LAYERS, freeMs=M.FREE_MS,
                maxev=F.MAXEV, maxclk=F.MAXCLK, bar=F.BAR)
     assert lay["tap"] + lay["tapn"] == F.SNAP and F.SNAP + 1 + 4 * M.MAXSEC == F.PIECE
     return dict(
@@ -120,7 +120,9 @@ const C = (() => {
   // back to their defaults); the sub's FAV pages for its new engines take their defaults (features.engine_fix)
   function fixEngines(r, i) {
     const E = D.engfix;
-    // (every older layout: the cloud's engine grains - one of one then - its new engines' FAV pages their defaults)
+    // (the layouts before the cloud's engines: its engine grains - one of one then - its new engines' FAV pages their
+    // defaults; later layouts only take their new slots' defaults)
+    if (i >= E.cloudUpto) return r;
     r[E.cloudEng] = 0.5 / E.nCloud; E.cloudFav.forEach(([pos, v]) => { r[pos] = v; });
     if (i > 2) return r;            // (the sub and choir: only those from before the engine change)
     r[E.subEng] = (Math.min(E.oldSub - 1, Math.floor(r[E.subEng] * E.oldSub)) + 0.5) / E.nSub;
@@ -214,7 +216,8 @@ const C = (() => {
   }
   function loop(a) {
     const n = a[2], bn = a[3 + 4 * n] || 0, at = k => a.slice(3 + k * n, 3 + (k + 1) * n);
-    return { state: a[0], len: a[1], n, t: at(0), note: at(1), vel: at(2), root: at(3), bn, breath: a.slice(4 + 4 * n, 4 + 4 * n + bn) };
+    // (a free loop: its state + 10 - its times in ticks of its own clock, Y.freeMs each)
+    return { state: a[0] % 10, free: a[0] >= 10, len: a[1], n, t: at(0), note: at(1), vel: at(2), root: at(3), bn, breath: a.slice(4 + 4 * n, 4 + 4 * n + bn) };
   }
   // sections.txt: each piece's sections' parameter changes, a line a piece and section: 'n slot value ...'
   const okSec = a => a.length >= 1 && a.every(Number.isFinite) && a.length === 1 + 2 * a[0];
@@ -612,13 +615,13 @@ function loopsTab() {
     const at = cur.idx * Y.loopLayers + li, lp = C.loop(lib.loops[at]);
     const row = el("div", { className: "rhrow" });
     const head = el("div", {}, el("b", { textContent: D.llabels[li] }),
-      el("div", { className: "summary", textContent: lp.state ? `${STATES[lp.state] || lp.state} · ${+(lp.len / Y.bar).toFixed(2)} bars · ${lp.n} events` : "no loop" }));
+      el("div", { className: "summary", textContent: lp.state ? `${STATES[lp.state] || lp.state} · ${lp.free ? `free · ${(lp.len * Y.freeMs / 1000).toFixed(1)} s` : `${+(lp.len / Y.bar).toFixed(2)} bars`} · ${lp.n} events` : "no loop" }));
     const right = el("div", { style: "display:grid;gap:6px;min-width:0" });
     if (lp.state) {
       right.append(roll(lp));
       const st = el("select", { id: `lstate-${li}` }); st.add(new Option("plays when loaded", 2)); st.add(new Option("stopped when loaded", 4));
       st.value = lp.state === 4 ? 4 : 2;
-      st.onchange = () => { lib.loops[at][0] = +st.value; changed(true); };
+      st.onchange = () => { lib.loops[at][0] = +st.value + (lp.free ? 10 : 0); changed(true); };
       const clr = el("button", { type: "button", textContent: "Clear loop" });
       clr.onclick = () => { lib.loops[at] = [0, 0, 0, 0]; changed(true); };
       right.append(el("div", { className: "row" }, st, clr));
@@ -635,7 +638,7 @@ function roll(lp) {
   svg.setAttribute("viewBox", `0 0 ${len} ${span}`); svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("role", "img"); svg.setAttribute("aria-label", `${notes.length} notes over ${+(len / Y.bar).toFixed(2)} bars`);
   svg.style.cssText = "width:100%;height:56px;background:var(--bg);border:1px solid var(--line);border-radius:4px";
-  for (let b = Y.bar; b < len; b += Y.bar) {
+  for (let b = Y.bar; !lp.free && b < len; b += Y.bar) {
     const l = document.createElementNS(ns, "line");
     l.setAttribute("x1", b); l.setAttribute("x2", b); l.setAttribute("y1", 0); l.setAttribute("y2", span);
     l.setAttribute("stroke", "var(--line)"); l.setAttribute("vector-effect", "non-scaling-stroke"); svg.append(l);

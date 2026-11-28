@@ -625,6 +625,20 @@ Sync
 Tone
 Source
 AAFilt
+Lock
+Start
+Lock
+Start
+Lock
+Start
+Lock
+Start
+Lock
+Start
+Lock
+Start
+Lock
+Start
 C
 C#
 D
@@ -1790,6 +1804,55 @@ tempo
 layers
 input
 both
+off
+clock
+tempo
+auto
+instant
+1\ bar
+2\ bars
+off
+clock
+tempo
+auto
+instant
+1\ bar
+2\ bars
+off
+clock
+tempo
+auto
+instant
+1\ bar
+2\ bars
+off
+clock
+tempo
+auto
+instant
+1\ bar
+2\ bars
+off
+clock
+tempo
+auto
+instant
+1\ bar
+2\ bars
+off
+clock
+tempo
+auto
+instant
+1\ bar
+2\ bars
+off
+clock
+tempo
+auto
+instant
+1\ bar
+2\ bars
 FAV
 LAYER
 ANALOG\ 1
@@ -1806,6 +1869,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 FAV
 LAYER
 FM\ 1
@@ -1821,6 +1885,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 FAV
 LAYER
@@ -1837,6 +1902,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 FAV
 LAYER
@@ -1852,6 +1918,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -1868,6 +1935,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -1884,6 +1952,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -1900,6 +1969,16 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
+-
+-
+-
+-
+-
+-
+-
+-
+-
 -
 -
 -
@@ -2060,6 +2139,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -2076,6 +2156,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -2092,6 +2173,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -2108,6 +2190,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -2124,6 +2207,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -2140,6 +2224,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -2156,6 +2241,16 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
+-
+-
+-
+-
+-
+-
+-
+-
+-
 -
 -
 -
@@ -2318,6 +2413,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 FAV
 LAYER
 FM\ 1
@@ -2334,6 +2430,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 FAV
 LAYER
 SAWS\ 1
@@ -2350,6 +2447,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 FAV
 LAYER
 PWM\ 1
@@ -2366,6 +2464,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 FAV
 LAYER
 WAVE\ 1
@@ -2382,6 +2481,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 FAV
 LAYER
 VOICE\ 1
@@ -2398,6 +2498,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 FAV
 LAYER
 PART\ 1
@@ -2413,6 +2514,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 FAV
 LAYER
@@ -2429,6 +2531,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 FAV
 LAYER
@@ -2445,6 +2548,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 FAV
 LAYER
@@ -2461,6 +2565,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 FAV
 LAYER
@@ -2477,6 +2582,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 FAV
 LAYER
@@ -2493,6 +2599,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 FAV
 LAYER
@@ -2509,6 +2616,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 FAV
 LAYER
@@ -2525,6 +2633,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 FAV
 LAYER
@@ -2541,6 +2650,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 FAV
 LAYER
@@ -2558,6 +2668,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 FAV
 LAYER
 BLIP\ 1
@@ -2572,6 +2683,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -2588,6 +2700,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -2603,6 +2716,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 -
@@ -2619,6 +2733,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 -
@@ -2635,6 +2750,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 -
@@ -2651,6 +2767,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 -
@@ -2661,252 +2778,6 @@ LOOP
 -
 -
 -
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
-FAV
-LAYER
-BLIP\ 1
-BLIP\ 2
-HIT
-RHYTHM
-MOTION
-MOTIF
-FEEL
-LFO\ 1
-LFO\ 2
-BREATH
-EVOLVE
-LOOP
--
--
-FAV
-LAYER
-LPG\ 1
-LPG\ 2
-HIT
-RHYTHM
-MOTION
-MOTIF
-FEEL
-LFO\ 1
-LFO\ 2
-BREATH
-EVOLVE
-LOOP
--
--
-FAV
-LAYER
-BOWL\ 1
-HIT
-RHYTHM
-MOTION
-MOTIF
-FEEL
-LFO\ 1
-LFO\ 2
-BREATH
-EVOLVE
-LOOP
--
--
--
-FAV
-LAYER
-WOOD\ 1
-HIT
-RHYTHM
-MOTION
-MOTIF
-FEEL
-LFO\ 1
-LFO\ 2
-BREATH
-EVOLVE
-LOOP
--
--
--
-FAV
-LAYER
-METAL\ 1
-HIT
-RHYTHM
-MOTION
-MOTIF
-FEEL
-LFO\ 1
-LFO\ 2
-BREATH
-EVOLVE
-LOOP
--
--
--
-FAV
-LAYER
-WAVE\ 1
-HIT
-RHYTHM
-MOTION
-MOTIF
-FEEL
-LFO\ 1
-LFO\ 2
-BREATH
-EVOLVE
-LOOP
 -
 -
 -
@@ -3084,6 +2955,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -3100,6 +2972,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -3115,6 +2988,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 -
@@ -3131,6 +3005,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 -
@@ -3147,6 +3022,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 -
@@ -3163,6 +3039,17 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
 -
 -
 -
@@ -3340,6 +3227,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -3356,6 +3244,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 FAV
@@ -3371,6 +3260,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 -
@@ -3387,6 +3277,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 -
@@ -3403,6 +3294,7 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
 -
 -
 -
@@ -3419,6 +3311,289 @@ LFO\ 2
 BREATH
 EVOLVE
 LOOP
+LOOP\ 2
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+FAV
+LAYER
+BLIP\ 1
+BLIP\ 2
+HIT
+RHYTHM
+MOTION
+MOTIF
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
+LOOP\ 2
+-
+-
+FAV
+LAYER
+LPG\ 1
+LPG\ 2
+HIT
+RHYTHM
+MOTION
+MOTIF
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
+LOOP\ 2
+-
+-
+FAV
+LAYER
+BOWL\ 1
+HIT
+RHYTHM
+MOTION
+MOTIF
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
+LOOP\ 2
+-
+-
+-
+FAV
+LAYER
+WOOD\ 1
+HIT
+RHYTHM
+MOTION
+MOTIF
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
+LOOP\ 2
+-
+-
+-
+FAV
+LAYER
+METAL\ 1
+HIT
+RHYTHM
+MOTION
+MOTIF
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
+LOOP\ 2
+-
+-
+-
+FAV
+LAYER
+WAVE\ 1
+HIT
+RHYTHM
+MOTION
+MOTIF
+FEEL
+LFO\ 1
+LFO\ 2
+BREATH
+EVOLVE
+LOOP
+LOOP\ 2
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
 -
 -
 -
@@ -3598,6 +3773,7 @@ EVOLVE
 -
 -
 -
+-
 FAV
 LAYER
 RHYTHM\ 1
@@ -3614,6 +3790,7 @@ EVOLVE
 -
 -
 -
+-
 FAV
 LAYER
 DELAY\ 1
@@ -3623,6 +3800,20 @@ LFO\ 1
 LFO\ 2
 BREATH
 EVOLVE
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
 -
 -
 -
@@ -4094,10 +4285,42 @@ SECTN
 -
 -
 -
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
 MIX\ 1
 MIX\ 2
 MIX\ 3
 SHAPE
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
 -
 -
 -
@@ -4669,6 +4892,7 @@ B6/9
 14/1
 15/1
 16/1
+17/1
 1/2
 2/2
 3/2
@@ -4685,6 +4909,7 @@ B6/9
 14/2
 15/2
 16/2
+17/2
 1/3
 2/3
 3/3
@@ -4701,6 +4926,7 @@ B6/9
 14/3
 15/3
 16/3
+17/3
 1/4
 2/4
 3/4
@@ -4717,6 +4943,7 @@ B6/9
 14/4
 15/4
 16/4
+17/4
 1/5
 2/5
 3/5
@@ -4733,6 +4960,7 @@ B6/9
 14/5
 15/5
 16/5
+17/5
 1/6
 2/6
 3/6
@@ -4749,6 +4977,7 @@ B6/9
 14/6
 15/6
 16/6
+17/6
 1/7
 2/7
 3/7
@@ -4765,6 +4994,7 @@ B6/9
 14/7
 15/7
 16/7
+17/7
 1/8
 2/8
 3/8
@@ -4781,6 +5011,7 @@ B6/9
 14/8
 15/8
 16/8
+17/8
 1/9
 2/9
 3/9
@@ -4797,6 +5028,7 @@ B6/9
 14/9
 15/9
 16/9
+17/9
 1/10
 2/10
 3/10
@@ -4813,6 +5045,7 @@ B6/9
 14/10
 15/10
 16/10
+17/10
 1/11
 2/11
 3/11
@@ -4829,6 +5062,7 @@ B6/9
 14/11
 15/11
 16/11
+17/11
 1/12
 2/12
 3/12
@@ -4845,6 +5079,7 @@ B6/9
 14/12
 15/12
 16/12
+17/12
 1/13
 2/13
 3/13
@@ -4861,6 +5096,7 @@ B6/9
 14/13
 15/13
 16/13
+17/13
 1/14
 2/14
 3/14
@@ -4877,6 +5113,7 @@ B6/9
 14/14
 15/14
 16/14
+17/14
 1/15
 2/15
 3/15
@@ -4893,6 +5130,7 @@ B6/9
 14/15
 15/15
 16/15
+17/15
 1/16
 2/16
 3/16
@@ -4909,6 +5147,24 @@ B6/9
 14/16
 15/16
 16/16
+17/16
+1/17
+2/17
+3/17
+4/17
+5/17
+6/17
+7/17
+8/17
+9/17
+10/17
+11/17
+12/17
+13/17
+14/17
+15/17
+16/17
+17/17
 +
 GLOBAL
 off
@@ -4942,6 +5198,8 @@ HOLD
 CAPTURED
 FULL
 NO\ ROAD
+LOCKED
+TEMPO
 +
 R
 P
