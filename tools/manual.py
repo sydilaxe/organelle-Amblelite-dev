@@ -39,13 +39,14 @@ def key_name(k):
 
 # the SHAPE page's knobs (model.SHAPE)
 SHAPE_DESC = {
-    "Filter": "One sweep from high-pass to low-pass, shown from the middle (-50 .. 0 .. 50, its bar from a mark "
-              "at the middle). Left of the middle a high-pass rises from 20 Hz to 6 kHz (thinner); right of it a "
-              "low-pass falls from 20 kHz to 100 Hz (darker). The knob upright - anywhere within 4 of the middle, "
-              "shown as 0 - filters nothing and costs nothing; that is its default. Like every knob it takes over "
-              "only once it passes the stored value (pickup).",
-    "Reso": "The filter's resonance: a peak at the moving cutoff, rising as Filter leaves the middle - up high it "
-            "sings.",
+    "Filter": "One sweep, as a DJ filter, shown from the middle (-50 .. 0 .. 50, its bar from a mark at the "
+              "middle). Left of the middle a low-pass closes the sound down (to 40 Hz fully left); at the middle it is "
+              "open and clean; right of it a high-pass sweeps up and thins it (to 1 kHz fully right). One cutoff and "
+              "one resonance: only the side the knob is on filters. The knob upright - anywhere within 4 of the "
+              "middle, shown as 0 - filters nothing and costs nothing; that is its default. Like every knob it takes "
+              "over only once it passes the stored value (pickup).",
+    "Reso": "The filter's resonance: a peak at the moving cutoff, on either side, rising as Filter leaves the middle "
+            "- turned up it sings, near the top it whistles (Q up to 30).",
     "Drive": "Soft saturation of the whole mix, a little lopsided for even harmonics: warm at first, raw and electric "
              "turned up. The level is held about where it was.",
     "Blur": "A diffuse smear: the sound spread into a short, wide wash; turned up, more of it and a longer, darker "
@@ -63,14 +64,14 @@ FUNCS = {
     "al-patview": ("PATT", "The pattern view (every gate and lane as steps, a playhead under each), then the "
                               "roadmap view, then neither."),
     "al-global": ("GLOB", "The global pages (MAIN first); again: the next one."),
-    "al-notesmode": ("NOTES", "Notes mode (N at the play view's right edge): the Organelle keys play the shown layer; aux + low A# goes back to "
+    "al-notesmode": ("NOTES", "Notes mode (N at the play view's right edge): the Organelle keys play the shown layer (its letter inverted on the play view) - aux + a layer key (low white keys, top G the cloud) chooses another and stays on the play view (so does knob 1 with aux held, or with low C# held outside notes mode); aux + top F loops it; aux + low A# goes back to "
                               "functions."),
     "al-startstop": ("START", "Start / stop the clock (the patch loads silent and waits for it)."),
     "al-pgprev": ("PAGE <", "Page back (the shown layer's or the global pages)."),
     "al-pgnext": ("PAGE >", "Page forward."),
     "al-chordprev": ("CHORD <", "The chord story's previous chord."),
     "al-chordnext": ("CHORD >", "The chord story's next chord."),
-    "al-loop": ("LOOP", "The shown layer's looper: arm, the first pass, overdub, play (see Looping)."),
+    "al-loop": ("LOOP", "The shown layer's looper: arm, the first pass, overdub, play (see Looping). With aux, held half a second: stop / play its loop."),
     "al-loopstop": ("STOP", "Stop / play the shown layer's loop."),
     "al-loopclear": ("CLR LOOP", "Clear the shown layer's loop (or cancel an armed one)."),
     "al-latch": ("LATCH", "Latch on / off for the shown layer (drone, sub, pads): notes keep sounding."),
@@ -118,6 +119,18 @@ ENGINE_DESC = {
     ("sub", "warm"): "A rounder saturation and the octave above.",
     ("sub", "pulse"): "A pulse of adjustable width, low-passed twice.",
     ("sub", "fm"): "2-operator FM with a slow growl in its index.",
+    ("cloud", "rhythm"): "Grains in time with the piece: three levels - Rate, then twice and four times as fine - each "
+                         "a Euclidean pattern of 8 steps whose hits strike a grain, cascading one into the next; Morph "
+                         "turns each level's pattern its own amount, so they morph against each other.",
+    ("cloud", "delay"): "A digital delay after the Digitech RDS-8000: free, or tempo-synced (Time then picks a subdivision), feedback up to a "
+                        "held loop, each repeat pitched (rising or falling cascades), the time wavering, the sides "
+                        "apart; Hold keeps the loop - hold: nothing new in, dub: what plays is added.",
+    ("sub", "boom"): "A deep sine that drops into each new note from up to an octave above (an 808's boom), "
+                     "driven and darkened.",
+    ("sub", "reese"): "Two saws a little apart over a sine, through a resonant low-pass and driven: thick, slowly "
+                      "phasing.",
+    ("sub", "dub"): "A dub bass: round and held - a sine with a touch of triangle, warmed, dark, the low-pass "
+                    "breathing slowly. For long held notes: Gate off or long, Sustain high, Release long.",
     ("pad", "sine"): "A sine with up to 8 harmonics built from it (Chebyshev), their slope and odd / even balance; "
                      "Chorus detunes the right side.",
     ("pad", "fm"): "Classic 2-operator FM with an index envelope at each note (EnvAmt, EnvDec).",
@@ -127,7 +140,8 @@ ENGINE_DESC = {
                     "sweeping low-pass - a Juno-like string.",
     ("pad", "wave"): "A wavetable from the shared bank: Pos scans its frames, 8-bit or smooth, a shimmer an octave "
                      "up, the right side detuned.",
-    ("pad", "vox"): "A saw through two vowel formants that drift; the right side sings the mirror vowel.",
+    ("pad", "voice"): "A voice: a source - from a bright saw to narrow glottal pulses (Source) - and a little breath "
+                      "through two vowel formants that drift; the right side sings the mirror vowel.",
     ("pad", "part"): "Four sines at a set of ratios (harmonic, bell, fifths, odd, stretched), each swelling on its "
                      "own cycle, placed left and right.",
     ("pad", "fold"): "A sine wavefolded and ringed by its sub-octave; Bias makes the fold lopsided (even "
@@ -137,8 +151,8 @@ ENGINE_DESC = {
     ("pad", "sync"): "A hard-synced saw, the slave's ratio sweeping slowly - an electric lead.",
     ("pad", "cz"): "Phase distortion (the Casio CZ): a bent-phase wave on the left, the resonant wave on the "
                    "right, crossed by Mix.",
-    ("pad", "choir"): "Glottal pulses and breath through two formants wandering through nine vowels; each side its "
-                      "own vowel.",
+    ("pad", "string"): "A bowed string: breathy noise or a saw through four narrow resonances at the note's "
+                       "harmonics, a hair stretched; long and singing with Decay up, the right side a little sharp.",
     ("pad", "vosim"): "VOSIM: three sin-squared pulses each period at a formant, each weaker than the last - "
                       "vowel-like, a little nasal.",
     ("pad", "lissa"): "Lissajous: the note on the left, a ratio of it on the right drifting in phase, so the "
@@ -162,6 +176,44 @@ ENGINE_DESC = {
 # ---------------------------------------------------------------------------------------------- the knobs
 # by name, or by context: 'page:Name' (a layer page), 'kind/engine/Name' (an engine), 'g:PAGE:Name' (global)
 DESC = {
+    "cloud/rhythm/Size": "Each grain's length: a share of its step (short ticks .. legato).",
+    "cloud/rhythm/Densty": "Hits per 8 steps (1 .. 8), in each level's Euclidean pattern.",
+    "cloud/rhythm/Spread": "How far the grains are placed between the sides.",
+    "cloud/rhythm/Morph": "The patterns' variation: each level's pattern turned its own amount - turn it slowly and "
+                          "the cascade shifts.",
+    "cloud/rhythm/Rate": "The first level's step: 1/4, 1/8 or 1/16 (the others twice and four times as fine, never "
+                         "finer than a 32nd).",
+    "cloud/rhythm/Cascad": "How many levels sound: the first only .. all three.",
+    "cloud/rhythm/Scan": "How far back in the 8 s recording the grains read.",
+    "cloud/rhythm/Jitter": "How far around Scan each grain starts (up to 2 s).",
+    "cloud/rhythm/Source": "What the cloud records: the layers, the input, or both.",
+    "cloud/delay/Time": "The delay: free - 20 ms .. 3 s; with Sync tempo - steps through 1/16, 1/8T, 1/8, 1/8., 1/4, "
+                        "1/4., 1/2 and a bar at the piece's tempo (the screen shows which).",
+    "cloud/delay/Fdbk": "Feedback: one repeat .. endless (a little over, held by a soft limit).",
+    "cloud/delay/Width": "The right side longer and the repeats crossing between the sides: mono .. wide ping-pong.",
+    "cloud/delay/Mod": "The time wavering (two slow sines, a side each): chorus .. tape warble.",
+    "cloud/delay/Pitch": "Each repeat shifted by an interval: -12 .. +12 semitones - rising or falling cascades.",
+    "cloud/delay/Hold": "off; hold - the loop kept, repeating forever, nothing new in; dub - kept, and what plays "
+                        "is added to it.",
+    "cloud/delay/Sync": "free (Time in ms) or tempo (Time picks a subdivision of the beat).",
+    "cloud/delay/Tone": "The repeats darkening: a low-pass in the loop, 800 Hz .. 12 kHz.",
+    "cloud/delay/Source": "What the delay takes: the layers, the input, or both.",
+    "pad/voice/Source": "The source: a bright saw (0) to narrow glottal pulses (100) - vox to choir.",
+    "pad/voice/Breath": "Breath noise under the voice.",
+    "pad/string/Bow": "The excitation: breathy noise (0) to a saw (100).",
+    "pad/string/Bright": "How strongly the upper harmonics ring.",
+    "pad/string/Decay": "How narrow the resonances: how long the string rings and sings.",
+    "pad/string/Spread": "The right side's string a little sharp: width and a slow beat.",
+    "sub/boom/Drop": "How far each note drops in from (up to an octave above, over 120 ms).",
+    "sub/boom/Drive": "Saturation: harmonics that carry the sub on small speakers.",
+    "sub/boom/Tone": "A low-pass over it, 80 Hz .. 1.2 kHz.",
+    "sub/reese/Detune": "How far apart the two saws: the speed of the phasing.",
+    "sub/reese/Tone": "The resonant low-pass, 60 Hz .. 1.5 kHz.",
+    "sub/reese/Drive": "Saturation.",
+    "sub/dub/Round": "A sine (0) towards a triangle (100): a little more body.",
+    "sub/dub/Warm": "Soft saturation.",
+    "sub/dub/Tone": "The low-pass, 50 .. 600 Hz.",
+    "sub/dub/Swell": "The low-pass moving slowly (about every 7 s): a held note breathes.",
     # layer controls
     "LAYER:Engine": "The layer's sound engine (also on the LAYERS / LANES global pages).",
     "LAYER:Level": "The layer's level in the mix (as its MIX column).",
@@ -667,9 +719,14 @@ def story():
                  ["First pass", "-", "Len bars, or (auto / free) until your next press sets the length"],
                  ["Overdub", "automatic after the first pass", "pass after pass, until a press"],
                  ["Play", "a press", "a press again: overdub"],
-                 ["Stop / clear", "top F# / top G#", "top G# also cancels an armed loop"]], [1.0, 1.9, 4.3]),
+                 ["Stop / clear", "top F# / top G#", "top G# also cancels an armed loop"],
+                 ["In notes mode", "aux + top F; held: stop / play", "aux + a layer key chooses the layer (the play "
+                                   "view stays); aux + top F taps through arm, pass, overdub, play as above; held "
+                                   "half a second it stops the loop, or starts it again; aux + top G# clears"]],
+                [1.0, 1.9, 4.3]),
           Spacer(1, 6),
-          P("<b>Erase</b>: while anything records, hold aux alone for a moment. What passes under the playhead is "
+          P("<b>Erase</b>: while anything records, hold aux alone for a moment (0.6 s - an aux combo pressed within "
+            "it never erases). What passes under the playhead is "
             "erased, and what you play meanwhile replaces it (in notes mode the keys play while aux erases). Let go: "
             "it overdubs again."),
           P("<b>Tapped rhythms</b>: aux + top F# arms the shown layer's pattern the same way; every cycle (Steps x "

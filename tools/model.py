@@ -241,7 +241,9 @@ def targets(layer, engine):
     else:
         own = ["Cutoff", "Level", "Pan", "Attack", "Decay", "Sustn", "Releas", "GAtk", "GDec", "GSus", "GRel",
                "Length", "Swing"]
-    out = [S(layer, engine, p.key) for p in dict(engines(layer))[engine]] + [S(layer, None, k) for k in own]
+    ps = dict(engines(layer))[engine]
+    out = ([S(layer, engine, p.key) for p in ps if not p.late] + [S(layer, None, k) for k in own] +
+           [S(layer, engine, p.key) for p in ps if p.late])      # (added later: last, so the others keep their places)
     assert len(out) < MAXC, (layer, engine, len(out))
     return out
 
@@ -271,6 +273,10 @@ def target_value(layer, engine, name):
 # ---- engines: (name, [Param ...]); the DSP of each is in eng_<layer>.py under the same name
 WAVE_TABLES = ["amble", "basic", "reson", "pulse", "formnt", "harmon", "mini"] + [f"user{i + 1}" for i in range(8)]
 
+DELAY_PITCHES = ["-12", "-7", "-5", "0", "+5", "+7", "+12"]      # (the delay's Pitch: semitones a repeat)
+# (the delay's Sync: free - Time in ms - or tempo - Time steps through these, in beats at the piece's tempo)
+DELAY_DIVS = [("1/16", 0.25), ("1/8T", 1 / 3), ("1/8", 0.5), ("1/8.", 0.75), ("1/4", 1), ("1/4.", 1.5), ("1/2", 2),
+              ("bar", 4)]
 ENGINES = {
     "drone": [
         ("analog", [Param("WaveA", 0.67), Param("WaveB", 0.67), Param("Intvl", 0, opts=["unison", "5th", "oct", "-oct", "4th"]),
@@ -292,6 +298,11 @@ ENGINES = {
         ("pulse", [Param("Width", 0.5), Param("Body", 0.5)]),
         ("fm", [Param("Ratio", 1, opts=["0.5", "1", "1.5", "2", "3"]), Param("Index", 0.3), Param("Fdbk", 0.0),
                 Param("Growl", 0.3)]),
+        # (added later: their slots after all the others - late)
+        ("boom", [Param("Drop", 0.5, late=True), Param("Drive", 0.4, late=True), Param("Tone", 0.4, late=True)]),
+        ("reese", [Param("Detune", 0.4, late=True), Param("Tone", 0.4, late=True), Param("Drive", 0.3, late=True)]),
+        ("dub", [Param("Round", 0.3, late=True), Param("Warm", 0.4, late=True), Param("Tone", 0.35, late=True),
+                 Param("Swell", 0.3, late=True)]),
     ],
     "pad": [
         ("sine", [Param("Harm", 0.0), Param("Slope", 0.5), Param("OddEv", 0.5), Param("Count", 6, opts=[str(n) for n in range(2, 9)]),
@@ -304,14 +315,17 @@ ENGINES = {
                  Param("Bright", 0.6), Param("Sweep", 0.4)]),
         ("wave", [Param("Table", 0, opts=WAVE_TABLES), Param("Pos", 0.3), Param("Mode", 1, opts=["8bit", "smooth"]),
                   Param("Shimr", 0.0), Param("Detune", 0.3)]),
-        ("vox", [Param("Vowel", 0.5), Param("Motion", 0.4), Param("Reso", 0.4), Param("Body", 0.4)]),
+        # voice (vox and choir together): Source from a saw to glottal pulses, Breath (both added later: late)
+        ("voice", [Param("Vowel", 0.5), Param("Motion", 0.4), Param("Reso", 0.4), Param("Body", 0.4),
+                   Param("Source", 0.0, late=True), Param("Breath", 0.0, late=True)]),
         ("part", [Param("Set", 0, opts=["harm", "bell", "fifths", "odd", "strtch"]), Param("Tilt", 0.5),
                   Param("Swell", 0.4), Param("Spread", 0.6)]),
         ("fold", [Param("Fold", 0.4), Param("Sub", 0.3), Param("Bias", 0.5), Param("Motion", 0.3)]),
         ("pulsr", [Param("Formnt", 0.5), Param("Cycles", 0.4), Param("Sweep", 0.4), Param("Spread", 0.5)]),
         ("sync", [Param("Ratio", 0.4), Param("Sweep", 0.4), Param("Rate", 0.3), Param("Detune", 0.3)]),
         ("cz", [Param("Bend", 0.4), Param("Reso", 0.3), Param("Mix", 0.5), Param("Sweep", 0.4)]),
-        ("choir", [Param("Vowel", 0.5), Param("Drift", 0.5), Param("Bright", 0.5), Param("Breath", 0.2)]),
+        # string (in choir's place - its four slots, so nothing saved moves)
+        ("string", [Param("Bow", 0.4), Param("Bright", 0.5), Param("Decay", 0.6), Param("Spread", 0.5)]),
         ("vosim", [Param("Formnt", 0.5), Param("Decay", 0.5), Param("Sweep", 0.3), Param("Spread", 0.5)]),
         ("lissa", [Param("Ratio", 1, opts=["1:1", "3:2", "2:1", "4:3", "5:4"]), Param("Drift", 0.4),
                    Param("Bright", 0.3), Param("Cross", 0.25)]),
@@ -323,6 +337,19 @@ ENGINES = {
         ("grains", [Param("Size", 0.55), Param("Densty", 1.0), Param("Pitch", 0, opts=CLOUD_PITCHES),
                     Param("Spread", 0.9), Param("Scan", 0.15), Param("Jitter", 0.7), Param("Revrse", 0.2),
                     Param("Source", 0, opts=["layers", "input", "both"])]),
+        # (added later - late): grains in time with the piece, on Euclidean patterns at three subdivisions that
+        # cascade one into the next (cloud.rhythm)
+        ("rhythm", [Param("Size", 0.6, late=True), Param("Densty", 0.5, late=True), Param("Spread", 0.8, late=True),
+                    Param("Morph", 0.0, late=True), Param("Rate", 1, opts=["1/4", "1/8", "1/16"], late=True),
+                    Param("Cascad", 0.5, late=True), Param("Scan", 0.15, late=True), Param("Jitter", 0.4, late=True),
+                    Param("Source", 0, opts=["layers", "input", "both"], late=True)]),
+        # a digital delay after the RDS-8000: feedback (Hold: the loop kept - dub: and played into), each repeat
+        # pitched (Pitch), the time wavering (Mod), the sides apart (Width) (cloud.delay)
+        ("delay", [Param("Time", 0.5, late=True), Param("Fdbk", 0.45, late=True), Param("Width", 0.5, late=True),
+                   Param("Mod", 0.2, late=True), Param("Pitch", 3, opts=DELAY_PITCHES, late=True),
+                   Param("Hold", 0, opts=["off", "hold", "dub"], late=True),
+                   Param("Sync", 0, opts=["free", "tempo"], late=True), Param("Tone", 0.6, late=True),
+                   Param("Source", 0, opts=["layers", "input", "both"], late=True)]),
     ],
     "perc": [
         ("blip", [Param("Cutoff", 0.5), Param("Flick", 0.5), Param("FlTime", 0.3), Param("Reso", 0.4),
@@ -345,7 +372,7 @@ VOICES = {"drone": 1, "sub": 1, "pad": 4, "perc1": 3, "perc2": 3, "perc3": 3, "p
 GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, lo=30, hi=200),
                           Param("Scale", 0, opts=[n for n, _ in SCALES]),
                           Param("Mode", 1, opts=[str(i + 1) for i in range(MAX_MODES)])]),
-                ("LAYERS", [("drone", "Engine"), ("sub", "Engine"), ("pad", "Engine"), ("cloud", "Source")]),
+                ("LAYERS", [("drone", "Engine"), ("sub", "Engine"), ("pad", "Engine"), ("cloud", "Engine")]),
                 ("LANES", [("perc1", "Engine"), ("perc2", "Engine"), ("perc3", "Engine"), ("perc4", "Engine")]),
                 # pieces (features.pieces): the slot (top A#: load it; aux + top A#: save to it), and how layers
                 # enter and leave - over the Fade time, or by their own envelope (FadeBy env: Attack in, Release out)
@@ -378,8 +405,8 @@ GLOBAL_PAGES = [("MAIN", [Param("Key", 0, opts=NOTE_NAMES), Param("Tempo", 84, l
                 ("SECTN", [Param("Sect", 1, lo=1, hi=MAXSEC), Param("Bars", 16, lo=4, hi=64, key="SBars"),
                            Param("Story", 0, opts=[n for n, _, _ in STORIES], key="SStory"),
                            Param("Role", 0, opts=ROLES, key="SRole")])]
-# SHAPE: the whole sound at once, on the master (gen.master_shape) - Filter (high-pass left of the middle, neutral at
-# it, low-pass right of it), its Reso, Drive (saturation), Blur (a diffuse smear). Their slots come after every other
+# SHAPE: the whole sound at once, on the master (gen.master_shape) - Filter (low-pass left of the middle, neutral at
+# it, high-pass right of it: a DJ filter), its Reso, Drive (saturation), Blur (a diffuse smear). Their slots come after every other
 # slot (SLOTS), so snapshots and pieces saved before them still load (features.widened)
 SHAPE = [Param("Filter", 0.5), Param("Reso", 0.3), Param("Drive", 0.0), Param("Blur", 0.0)]
 # the MIX view's pages: existing slots (layer, name); SHAPE last (the MIX key held: straight to it)
@@ -398,6 +425,9 @@ EVOLVE = {
     ("sub", "warm"): [("Octave", 0.4), ("Body", 0.3)],
     ("sub", "pulse"): [("Width", 0.5), ("Body", 0.3)],
     ("sub", "fm"): [("Index", 0.4), ("Growl", 0.3)],
+    ("sub", "boom"): [("Tone", 0.3), ("Drive", 0.2)],
+    ("sub", "reese"): [("Detune", 0.4), ("Tone", 0.3)],
+    ("sub", "dub"): [("Tone", 0.3), ("Round", 0.3)],
     ("pad", "sine"): [("Harm", 0.5), ("Slope", 0.4), ("OddEv", 0.5), (None, 0.3)],
     ("pad", "fm"): [("Index", 0.5), ("Fdbk", 0.3), ("EnvAmt", 0.3), (None, 0.3)],
     ("pad", "saws"): [("Detune", 0.3), ("Spread", 0.4), ("Centre", 0.4), ("Bright", 0.4), (None, 0.3)],
@@ -407,19 +437,21 @@ EVOLVE = {
     ("drone", "choir"): [("Vowel", 0.5), ("Breath", 0.3), (None, 0.2)],
     ("drone", "bowed"): [("Press", 0.4), ("Body", 0.3), (None, 0.2)],
     ("drone", "gendy"): [("Steps", 0.4), ("Rough", 0.3), (None, 0.2)],
-    ("pad", "vox"): [("Vowel", 0.4), ("Reso", 0.2), (None, 0.3)],
+    ("pad", "voice"): [("Vowel", 0.4), ("Reso", 0.2), (None, 0.3)],
     ("pad", "part"): [("Tilt", 0.4), ("Swell", 0.3), (None, 0.3)],
     ("pad", "fold"): [("Fold", 0.4), ("Bias", 0.3), (None, 0.25)],
     ("pad", "pulsr"): [("Formnt", 0.4), ("Cycles", 0.3), (None, 0.3)],
     ("pad", "sync"): [("Ratio", 0.3), (None, 0.3)],
     ("pad", "cz"): [("Bend", 0.4), ("Mix", 0.3), (None, 0.3)],
-    ("pad", "choir"): [("Vowel", 0.5), ("Bright", 0.3), (None, 0.2)],
+    ("pad", "string"): [("Bright", 0.3), ("Bow", 0.3), (None, 0.2)],
     ("pad", "vosim"): [("Formnt", 0.4), ("Decay", 0.3), (None, 0.2)],
     ("pad", "lissa"): [("Drift", 0.3), ("Bright", 0.3), ("Cross", 0.3)],
     ("pad", "chip"): [("Tri", 0.3), ("Crush", 0.2)],
     ("pad", "vector"): [("X", 0.6), ("Y", 0.6), (None, 0.2)],
     ("perc", "wave"): [("Pos", 0.5), ("Bright", 0.3)],
     ("cloud", "grains"): [("Scan", 0.5), ("Size", 0.4), ("Spread", 0.3), ("Jitter", 0.3), (None, 0.25)],
+    ("cloud", "rhythm"): [("Scan", 0.5), ("Jitter", 0.3), ("Morph", 0.15), (None, 0.25)],
+    ("cloud", "delay"): [("Mod", 0.3), ("Tone", 0.3), (None, 0.25)],
     ("perc", "blip"): [("Cutoff", 0.5), ("Flick", 0.3), ("FEnv", 0.3)],
     ("perc", "lpg"): [("Fold", 0.5), ("Open", 0.5), ("Vactrl", 0.3)],
     ("perc", "bowl"): [("Hard", 0.5), ("Beat", 0.4), ("Strtch", 0.2)],
@@ -460,7 +492,8 @@ for L in LAYERS:
             _add((L, None, p.key), p)
     for e, ps in engines(L):
         for p in ps:
-            _add((L, e, p.key), p)
+            if not p.late:
+                _add((L, e, p.key), p)
 # slots added since files were first saved go after all the others, so an older file's line is only shorter: its
 # slots stay where they are, and the newer ones take their defaults (features.widened, the editor's widen).
 # SLOT_HISTORY: how many slots there were before each addition, oldest first
@@ -472,7 +505,25 @@ for _, ps in GLOBAL_PAGES:          # (NoteOut)
     for p in ps:
         if isinstance(p, Param) and p.late:
             _add(("g", None, p.key), p)
+SLOT_HISTORY.append(len(SLOTS))
+for L in LAYERS:                    # (voice's Source and Breath; the subs boom, reese, dub)
+    if L in ("pad", "sub"):
+        for e, ps in engines(L):
+            for p in ps:
+                if p.late:
+                    _add((L, e, p.key), p)
+SLOT_HISTORY.append(len(SLOTS))
+for e, ps in engines("cloud"):      # (the cloud's rhythm and delay)
+    for p in ps:
+        if p.late:
+            _add(("cloud", e, p.key), p)
 NSLOTS = len(SLOTS)
+# the engine change (a file from before it: the sub's Engine was 1 of 4; a pad on choir becomes voice) -
+# features.engine_fix, the editor's widen
+OLD_ENGINES = {"sub": 4}
+# (the cloud's engines: a file from before them - SLOT_HISTORY up to the last - had the one, grains)
+CLOUD_OLD_ENGINES = 1
+CHOIR_INDEX, VOICE_INDEX = 11, 5
 OLD_NSLOTS = SLOT_HISTORY[0]
 
 
@@ -491,7 +542,8 @@ def pages(layer, engine):
         chunk = [S(layer, engine, p.key) for p in eps[k:k + 4]]
         ep.append((f"{engine.upper()} {k // 4 + 1}", chunk + [-1] * (4 - len(chunk))))
     # FAV: the engine choice on knob 1 (when the layer has more than one), then the engine's first parameters
-    fav = ([S(layer, None, "Engine")] + ep[0][1][:3]) if len(engines(layer)) > 1 else list(ep[0][1])
+    # (the cloud: its engine's own four - its engine is on the LAYERS page and its LAYER page)
+    fav = ([S(layer, None, "Engine")] + ep[0][1][:3]) if len(engines(layer)) > 1 and layer != "cloud" else list(ep[0][1])
     out = [("FAV", fav)]
     out += [(n, [S(layer, None, p.key) for p in ps] + [-1] * (4 - len(ps))) for n, ps in front]
     out += ep

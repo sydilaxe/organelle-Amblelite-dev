@@ -395,7 +395,7 @@ def main():
     saws = solo("pad") + [(52, f"al-set {M.S('pad', None, 'Evolve')} 0"),
                           (54, f"al-set {M.S('pad', None, 'Engine')} {M.engine_value('pad', 'saws')}"), START]
     shp = {}
-    for name, ev in (("flat", []), ("lp", [(60, f"al-set {fl} 0.85")]), ("hp", [(60, f"al-set {fl} 0.15")]),
+    for name, ev in (("flat", []), ("lp", [(60, f"al-set {fl} 0.15")]), ("hp", [(60, f"al-set {fl} 1")]),
                      ("drive", [(60, f"al-set {dr} 1")]), ("blur", [(60, f"al-set {bl} 1")])):
         _, x = run(saws + ev, 3)
         shp[name] = seg(x, 1.5, 3)
@@ -408,7 +408,7 @@ def main():
         f = np.fft.rfftfreq(len(m), 1 / SR)
         return 10 * np.log10(sp[f < hz].sum() + 1e-12)
     lo_cut = low_db(shp["flat"]) - low_db(shp["hp"])
-    check("SHAPE Filter: low-pass right, high-pass left", br["lp"] < 0.6 * br["flat"] and lo_cut > 12,
+    check("SHAPE Filter: low-pass left, high-pass right", br["lp"] < 0.6 * br["flat"] and lo_cut > 12,
           f"brightness {br['flat']:.0f} Hz, LP {br['lp']:.0f}; HP: below 250 Hz {lo_cut:.1f} dB down")
     check("SHAPE Drive: brighter, the level kept", br["drive"] > 1.15 * br["flat"] and abs(lvl["drive"] - lvl["flat"]) < 6
           and sane, f"brightness {br['drive']:.0f} Hz, level {lvl['flat']:.1f} -> {lvl['drive']:.1f} dB")
@@ -432,6 +432,47 @@ def main():
           len(xs) > 8, f"{len(xs)} messages, channels {chans}, still on after NoteOt off: {hanging or 'none'}")
     log, _ = H.run([START], 1.5, d=d, keep=True, prints=("al-xnote",))
     check("notes out: nothing while off", "al-xnote" not in log, "silent" if "al-xnote" not in log else "sent")
+
+    # notes mode: aux + a layer key chooses the pads; aux + top F taps arm, record, overdub, play; held 0.5 s it
+    # stops the loop, held again plays it - and aux held so long in a combo never erases
+    import re as _re
+    tp = lambda t, k: [(t, f"notesRaw {k} 100"), (t + 60, f"notesRaw {k} 0")]
+    ev = tp(100, 72) + tp(200, 70) + [(300, "aux 1")] + tp(320, 64) + [(400, "aux 0")]
+    ev += [(500, "aux 1")] + tp(520, 77) + [(600, "aux 0")]
+    ev += [(3000 + 200 * i, f"notesRaw {60 + i} 100") for i in range(4)] + [(3100 + 200 * i, f"notesRaw {60 + i} 0") for i in range(4)]
+    ev += [(4000, "aux 1")] + tp(4020, 77) + [(4100, "aux 0"), (5000, "aux 1")] + tp(5020, 77) + [(5100, "aux 0")]
+    ev += [(6000, "aux 1"), (6020, "notesRaw 77 100"), (6800, "notesRaw 77 0"), (6850, "aux 0")]
+    ev += [(7500, "aux 1"), (7520, "notesRaw 77 100"), (8300, "notesRaw 77 0"), (8350, "aux 0")]
+    log, _ = H.run(ev, 9, d=d, keep=True, prints=("oscOut",))
+    seen = []
+    for l in log.splitlines():
+        m = _re.search(r"gPrintln 3 0 0 8 1 (\S+)", l)
+        if m and m.group(1) in ("ARMED", "REC", "DUB", "PLAY", "STOPPED", "ERASE") and (not seen or seen[-1] != m.group(1)):
+            seen.append(m.group(1))
+    check("notes mode: the loop by aux + top F, held to stop and start",
+          seen == ["ARMED", "REC", "DUB", "PLAY", "DUB", "STOPPED", "PLAY"], " -> ".join(seen))
+
+    # the cloud's engines on the drone: each adds to the sound (grains, rhythm in time, the delay); the delay held
+    # keeps its loop after the drone has gone - without Hold (and no feedback) it falls silent
+    ce = M.S("cloud", None, "Engine")
+    cl_names = [e for e, _ in M.engines("cloud")]
+    dron = [(60 + i, f"al-inset {i} {1 if o in ('drone', 'cloud') else 0}") for i, o in enumerate(M.LAYERS)]
+    # (measured once the drone has left - only the cloud can sound there: grains and rhythm read the recording,
+    # the delay repeats)
+    gone = (2600, f"al-inset {M.LAYERS.index('drone')} 0")
+    lv = []
+    for e in cl_names:
+        _, a1 = run(dron + [(70, f"al-set {ce} {M.engine_value('cloud', e)}"), START, gone], 4)
+        lv.append((e, H.rms_db(seg(a1, 3.2, 4))))
+    check("every cloud engine sounds", all(v > -60 for _, v in lv), ", ".join(f"{e} {v:.0f} dB" for e, v in lv) +
+          " (after the drone left)")
+    dl = lambda k: M.S("cloud", "delay", k)
+    held = dron + [(70, f"al-set {ce} {M.engine_value('cloud', 'delay')}"), (71, f"al-set {dl('Time')} 0.6"), START,
+                   (2500, f"al-set {dl('Hold')} 0.5"), (2600, f"al-inset {M.LAYERS.index('drone')} 0")]
+    _, ah = run(held, 7)
+    _, af = run(held[:-2] + [(2500, f"al-set {dl('Fdbk')} 0"), (2600, f"al-inset {M.LAYERS.index('drone')} 0")], 7)
+    check("the delay held keeps its loop", H.rms_db(seg(ah, 5.5, 7)) > H.rms_db(seg(af, 5.5, 7)) + 30,
+          f"held {H.rms_db(seg(ah, 5.5, 7)):.0f} dB, not held {H.rms_db(seg(af, 5.5, 7)):.0f} dB, 3 s after the drone went")
 
     # zones: low notes to the sub, middle ones to the pads (whatever is shown)
     log, _ = H.run([(50, f"al-set {zones} 0.75"), START, (500, "al-midi 40 100 1"), (600, "al-midi 60 100 1")], 1,
@@ -680,7 +721,7 @@ def main():
                         (1000, "notesRaw 77 100"), (1100, "h-q bang"), (int(T0 + BARMS + 100), "h-q bang"),
                         (int(T0 + BARMS + 200), "al-midi 57 100 1"), (int(T0 + BARMS + 500), "al-midi 57 0 1"),
                         (int(T0 + 2 * BARMS + 100), "h-q bang"), (int(T0 + 2 * BARMS + 150), "h-n bang"),
-                        (int(T0 + 3 * BARMS - 300), "aux 1"), (int(T0 + 3 * BARMS + 250), "al-midi 62 100 1"),
+                        (int(T0 + 3 * BARMS - 750), "aux 1"), (int(T0 + 3 * BARMS + 250), "al-midi 62 100 1"),
                         (int(T0 + 3 * BARMS + 600), "al-midi 62 0 1"), (int(T0 + 3 * BARMS + 900), "aux 0"),
                         (int(T0 + 4 * BARMS - 100), "h-n bang"), (int(T0 + 4 * BARMS + 100), "notesRaw 77 100"),
                         (int(T0 + 4 * BARMS + 200), "h-q bang")]
@@ -797,6 +838,33 @@ def main():
     check("an older saves.txt still loads (SHAPE added)", ok,
           f"{len(sv)} fields (of {_F.SNAP}; older {_F.SNAP - added}), Volume {sv[vol] if len(sv) > vol else '-'}")
 
+    # a saves.txt from before the engine change (596 slots: the layout recorded in layout_v2.json): a pad on choir
+    # (its four values) and the sub on pulse - loaded and saved again: the pad on voice from glottal pulses with
+    # choir's vowel, drift and breath; the sub still on pulse (1 of 7 now)
+    import json as _json
+    lay2 = _json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "layout_v2.json")))
+    old = [f"{v:g}" for v in lay2["defaults"]] + ["0"] * (_F.SNAP - M.NSLOTS)
+    pe_, se_ = M.S("pad", None, "Engine"), M.S("sub", None, "Engine")
+    st_ = [M.S("pad", "string", p.key) for p in dict(M.engines("pad"))["string"]]
+    old[pe_], old[se_] = f"{11.5 / 16:g}", f"{2.5 / 4:g}"
+    for sl, v in zip(st_, ("0.8", "0.7", "0.2", "0.6")):
+        old[sl] = v
+    open(os.path.join(dl, "saves.txt"), "w").write(" ".join(old) + "\n" + "-1\n" * (_F.SCRATCH + 1))
+    H.run([(40, f"al-set {M.S('g', None, 'Morph')} 0"), (100, "notesRaw 82 100"), (120, "notesRaw 60 100"),
+           (140, "notesRaw 60 0"), (300, "aux 1"), (320, "notesRaw 60 100"), (340, "notesRaw 60 0"), (360, "aux 0"),
+           (380, "notesRaw 82 0")], 0.7, d=dl, keep=True)
+    sv3 = [float(x) for x in open(os.path.join(dl, "saves.txt")).read().split("\n")[0].split()]
+    vo_ = lambda k: sv3[M.S("pad", "voice", k)]
+    names_p, names_s = [e for e, _ in M.engines("pad")], [e for e, _ in M.engines("sub")]
+    pad_e, sub_e = names_p[min(15, int(sv3[pe_] * 16))], names_s[min(6, int(sv3[se_] * 7))]
+    cl_n = [e for e, _ in M.engines("cloud")]
+    cl_e = cl_n[min(len(cl_n) - 1, int(sv3[M.S("cloud", None, "Engine")] * len(cl_n)))]
+    ok = (len(sv3) == _F.SNAP and pad_e == "voice" and sub_e == "pulse" and cl_e == "grains" and abs(vo_("Source") - 1) < 1e-3 and
+          abs(vo_("Vowel") - 0.8) < 1e-3 and abs(vo_("Motion") - 0.7) < 1e-3 and abs(vo_("Breath") - 0.6) < 1e-3)
+    check("an older save: choir becomes voice, the sub keeps its engine", ok,
+          f"pad {pad_e} (Source {vo_('Source'):g}, Vowel {vo_('Vowel'):g}, Motion {vo_('Motion'):g}, "
+          f"Breath {vo_('Breath'):g}), sub {sub_e}, cloud {cl_e}")
+
     # ... and the web editor reads that loops.txt (the loop: 4 events, playing) and writes it back the same
     import shutil as _sh2
     if _sh2.which("node"):
@@ -866,7 +934,7 @@ if (step === "1") {
     check("only Pd's core objects (nothing from extra)", not found, ", ".join(found) or "none")
 
     # ---- every engine of every layer sounds (one second each, in turn), and nothing in Pd complains
-    for L in ("drone", "pad", "perc1"):
+    for L in ("drone", "sub", "pad", "perc1"):
         names = [e for e, _ in M.engines(L)]
         ev = solo(L) + [START] + [(1000 + 1000 * i, f"al-set {M.S(L, None, 'Engine')} {M.engine_value(L, e)}")
                                   for i, e in enumerate(names)]

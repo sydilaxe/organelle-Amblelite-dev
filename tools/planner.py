@@ -20,6 +20,24 @@ ROLE_NAMES = ["emerge", "establish", "develop", "intensify", "climax", "break", 
 ARC_NAMES = ["arch", "build", "waves", "twin", "journey"]
 
 
+def engfix():
+    """the engine change, for an older line (features.engine_fix, the same in the page)"""
+    ks, _, _ = M.knob_table()
+    li, nl = M.LAYERS.index("sub"), len(M.LAYERS)
+    st = dict(M.engines("pad"))["string"]
+    fav = [[M.NSLOTS + 2 * nl + (li * M.MAXENG + ei) * 4 + k, ks[((li * M.MAXENG + ei) * M.MAXPAGES) * 4 + k]]
+           for ei in range(M.OLD_ENGINES["sub"], len(M.engines("sub"))) for k in range(4)]
+    vo = lambda k: M.S("pad", "voice", k)
+    lc = M.LAYERS.index("cloud")
+    cfav = [[M.NSLOTS + 2 * nl + (lc * M.MAXENG + ei) * 4 + k, ks[((lc * M.MAXENG + ei) * M.MAXPAGES) * 4 + k]]
+            for ei in range(M.CLOUD_OLD_ENGINES, len(M.engines("cloud"))) for k in range(4)]
+    return dict(cloudEng=M.S("cloud", None, "Engine"), nCloud=len(M.engines("cloud")), cloudFav=cfav,
+                subEng=M.S("sub", None, "Engine"), oldSub=M.OLD_ENGINES["sub"], nSub=len(M.engines("sub")),
+                padEng=M.S("pad", None, "Engine"), nPad=len(M.engines("pad")), choir=M.CHOIR_INDEX,
+                voice=M.VOICE_INDEX, src=vo("Source"), vowel=vo("Vowel"), motion=vo("Motion"), breath=vo("Breath"),
+                string=[M.S("pad", "string", p.key) for p in st], stringDef=[p.default for p in st], fav=fav)
+
+
 def data():
     import features as F
     from control import IN_AT_START, FIRST_LANE, MODE_SLOT, SCALE_SLOT
@@ -54,7 +72,7 @@ def data():
                maxev=F.MAXEV, maxclk=F.MAXCLK, bar=F.BAR)
     assert lay["tap"] + lay["tapn"] == F.SNAP and F.SNAP + 1 + 4 * M.MAXSEC == F.PIECE
     return dict(
-        capt=RM.capturable(), maxch=RM.MAXCH,
+        capt=RM.capturable(), maxch=RM.MAXCH, engfix=engfix(),
         slots=slots, layers=layers, fav0=fav0, latch0=[1 if li < FIRST_LANE else 0 for li in range(nl)],
         in0=[1 if L in IN_AT_START else 0 for L in M.LAYERS], gpages=gpages, rhythm=rhythm, layout=lay,
         modeSlot=MODE_SLOT, scaleSlot=SCALE_SLOT, scaleModes=[[n for n, _ in ms] for _, ms in M.SCALES],
@@ -92,10 +110,27 @@ const C = (() => {
   // came after the others: the line that much shorter) gets their defaults where they sit now
   // (Y.history: the slot counts before each addition - the added slots always come after the others)
   function widen(a, len) {
-    for (const h of Y.history)
+    for (const [i, h] of Y.history.entries())
       if (a.length === len - (Y.nslots - h))
-        return [...a.slice(0, h), ...D.slots.slice(h).map(s => s.d), ...a.slice(h)];
+        return fixEngines([...a.slice(0, h), ...D.slots.slice(h).map(s => s.d), ...a.slice(h)], i);
     return a;
+  }
+  // an older line, after the engine change: the sub's Engine was 1 of 4 (now more, the first four the same); a pad
+  // on choir becomes voice from glottal pulses with choir's vowel, drift and breath (its slots are string's now:
+  // back to their defaults); the sub's FAV pages for its new engines take their defaults (features.engine_fix)
+  function fixEngines(r, i) {
+    const E = D.engfix;
+    // (every older layout: the cloud's engine grains - one of one then - its new engines' FAV pages their defaults)
+    r[E.cloudEng] = 0.5 / E.nCloud; E.cloudFav.forEach(([pos, v]) => { r[pos] = v; });
+    if (i > 2) return r;            // (the sub and choir: only those from before the engine change)
+    r[E.subEng] = (Math.min(E.oldSub - 1, Math.floor(r[E.subEng] * E.oldSub)) + 0.5) / E.nSub;
+    if (Math.min(E.nPad - 1, Math.floor(r[E.padEng] * E.nPad)) === E.choir) {
+      r[E.padEng] = (E.voice + 0.5) / E.nPad; r[E.src] = 1;
+      r[E.vowel] = r[E.string[0]]; r[E.motion] = r[E.string[1]]; r[E.breath] = r[E.string[3]];
+      E.string.forEach((s, i) => { r[s] = E.stringDef[i]; });
+    }
+    E.fav.forEach(([pos, v]) => { r[pos] = v; });
+    return r;
   }
   const olderLen = len => Y.history.map(h => len - (Y.nslots - h));
   function parse(text, len) {

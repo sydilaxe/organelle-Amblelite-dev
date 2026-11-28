@@ -17,7 +17,7 @@ PIECE_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("PIECE")
 MODE_SLOT, SCALE_SLOT = S("g", None, "Mode"), S("g", None, "Scale")
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
-GLOBALS = dict(alth=0, altcm=0, altcs=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
+GLOBALS = dict(alclin=0, alclfade=0, alcleng=0, alfps=0, alhomeh=0, alhkv=0, alth=0, altcm=0, altcs=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
                alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
                alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0, alcb=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
@@ -216,10 +216,18 @@ def knobs(c):
         ka = sc.to(sc.recv(f"knob{k + 1}"), "t f b f")
         sc.c((ka, 2), 0, sc.obj("v alasv"), 0)
         lp0 = sc.obj("list prepend")
-        sc.c(sc.to((ka, 1), f"expr alaux && alview == 0 && !{rec_any()}"), 0, lp0, 1)
+        assign = f"alaux && alview == 0 && !{rec_any()}"
+        if k == 0:      # (knob 1 on the play view with aux or the home key held: which layer is shown - and played)
+            play = "alview == 0 && alstick == 0 && alpop == 0 && alpatv == 0"
+            assign = f"if(({play}) && (alaux || alhomeh), 2, {assign})"
+        sc.c(sc.to((ka, 1), f"expr {assign}"), 0, lp0, 1)
         sc.c((ka, 0), 0, lp0, 0)
-        rt0 = sc.to(lp0, "route 0 1")
+        rt0 = sc.to(lp0, "route 0 1 2")
         sc.c(sc.to((rt0, 1), "t b"), 0, sc.obj(f"s al-assign{k}"), 0)
+        if k == 0:
+            hk = sc.to((rt0, 2), "t b f")
+            sc.c((hk, 1), 0, sc.obj("v alhkv"), 0)
+            sc.c(hk, 0, sc.obj("s al-homeknob"), 0)
         t = sc.to(rt0, "t f f f")
         sc.c(t, 2, sc.obj(f"expr alsl{k} = alks[({ctx()}*{MAXPAGES} + alpage)*4 + {k}]"), 0)
         sc.c(t, 1, sc.obj(f"expr allat{k} = if(alsl{k} < 0, 0, allat{k} || abs($f1 - alp[alsl{k}]) < 0.025 || "
@@ -238,6 +246,11 @@ def knobs(c):
     proc(c, "al-popup", [If(f"alview != {VIEW_MIX}", [V("alpop", "1"), Later("al-popoff", 3000)],
                             [Call("al-redraw")])])
     proc(c, "al-popoff", [If("alstick == 0", [V("alpop", "0"), Call("al-redraw")])])
+    # (the layer chosen by knob 1 on the play view: D S P 1 2 3 4 C across its turn; aux's tap after it isn't home)
+    sel = f"min({NL - 1}, int(alhkv*{NL}))"
+    proc(c, "al-homeknob", [V("alauxu", "if(alaux, 1, alauxu)"), If(f"{sel} != allayer", [
+        V("allayer", sel), If(f"allayer >= {FIRST_LANE} && allayer < {NL - 1}", [V("alplane", "allayer")]),
+        Call("al-pickreset")])])
 
 
 # ---------------------------------------------------------------------------------------------- in / out
@@ -312,8 +325,11 @@ def pages(c):
     proc(c, "al-pgprev", [V("alstick", "1"), V("alpage", f"(alpage + {npages()} - 1) % {npages()}"),
                           Call("al-pickreset"), Call("al-popup")])
     for li, L in enumerate(LAYERS):
-        proc(c, f"al-sel-{L}", [V("alstick", "1"), V("allayer", str(li)), V("alview", "0"), V("alpage", "0"), Call("al-pickreset"),
-                                Call("al-popup")] + ([V("alplane", str(li))] if L in LANES else []))
+        # (in notes mode - aux + a layer key - the layer only becomes the one the keys play: the play view stays)
+        proc(c, f"al-sel-{L}", [V("allayer", str(li)), V("alview", "0"), V("alpage", "0")]
+             + ([V("alplane", str(li))] if L in LANES else [])
+             + [If("alnotes", [V("alstick", "0"), V("alpop", "0"), V("alpatv", "0"), Call("al-pickreset")],
+                   [V("alstick", "1"), Call("al-pickreset"), Call("al-popup")])])
     layer_switches(c)
     proc(c, "al-global", [V("alstick", "1"), If(f"alview == {VIEW_GLOBAL}", [V("alpage", f"(alpage + 1) % {len(M.GLOBAL_PAGES)}")],
                              [V("alview", str(VIEW_GLOBAL)), V("alpage", "0")]), Call("al-pickreset"), Call("al-popup")])
@@ -373,7 +389,9 @@ def rec_any():
         " || altrl >= 0)"
 
 
-ERASE_HOLD = 250        # ms: aux held this long, alone, while something records = erase
+ERASE_HOLD = 600        # ms: aux held this long, alone, while something records = erase (time to reach a key
+                        # for an aux combo first)
+LOOP_HOLD = 500         # ms: aux + the loop key held this long - the shown layer's loop stopped (or started again)
 
 
 def organelle(c):
@@ -386,15 +404,25 @@ def organelle(c):
     # a layer key pressed: wait - held LAYER_HOLD ms shows its pages; let go before: a tap toggles it in / out
     key_down = [If(f"alaux == 0 && ({lk})",
                    [V("alhk", "alkn"), V("alhd", "0"), Arm("al-khold", str(LAYER_HOLD), stop="al-khstop")],
-                   [V("alauxu", "if(alaux, 1, alauxu)"), Send("al-keyfn"),
+                   [V("alauxu", "if(alaux, 1, alauxu)"),
+                    If(f"allayer < {len(M.NOTE_LAYERS)}", [V("alfps", "allps[allayer]")]),       # (before the tap moves it)
+                    Send("al-keyfn"),
                     # (the MIX key: a press as ever; held MIX_HOLD ms, the SHAPE page)
-                    If(f"alaux == 0 && alkn == {KEY['mix']}", [Arm("al-shape", str(MIX_HOLD), stop="al-mixhstop")])])]
+                    If(f"alaux == 0 && alkn == {KEY['mix']}", [Arm("al-shape", str(MIX_HOLD), stop="al-mixhstop")]),
+                    # (the home key held: knob 1 chooses the layer - al-homeknob)
+                    If(f"alaux == 0 && alkn == {KEY['home']}", [V("alhomeh", "1")]),
+                    # (aux + the loop key: a tap as ever; held LOOP_HOLD ms - al-loophold - the loop stopped / started)
+                    If(f"alaux && alkn == {KEY['loop']} && allayer < {len(M.NOTE_LAYERS)}",
+                       [Arm("al-loophold", str(LOOP_HOLD), stop="al-loophstop")])])]
     key_up = [If("alkn == alhk", [Send("al-khstop"), If("alhd == 0", [SendL("al-togk", ["alkn"])]),
                                   V("alhk", "-1")]),
-              If(f"alkn == {KEY['mix']}", [Send("al-mixhstop")])]
+              If(f"alkn == {KEY['mix']}", [Send("al-mixhstop")]),
+              If(f"alkn == {KEY['home']}", [V("alhomeh", "0")])]
     # (while aux erases, the keys in notes mode play - what you play replaces what is erased - but the loop key
     # still switches to play)
-    normal = [If(f"alnotes && (alaux == 0 || (alerase && alkn != {KEY['loop']}))",
+    # (the loop key let go - whatever aux does meanwhile - ends its hold)
+    normal = [If(f"alkvel == 0 && alkn == {KEY['loop']}", [Send("al-loophstop")]),
+              If(f"alnotes && (alaux == 0 || (alerase && alkn != {KEY['loop']}))",
                  [SendL("al-note", ["allayer", "alkn", "alkvel/127"])],
                  [If("alkvel > 0", key_down, key_up)])]
     slots = [If("alslh && alkvel > 0 && alkn >= 60 && alkn <= 75",
@@ -413,6 +441,9 @@ def organelle(c):
                                         [If(sectn, [If("alaux", [V("alauxu", "1"), Call("al-rcclear")], [Call("al-rccapture")])],
                                             [If("alcmph", [Call("al-cmpoff")], [Call("al-compare")])])])])])], slots)])
     proc(c, "al-cmphold", [If("alslh && alslu == 0", [V("alcmph", "1"), Call("al-cmpon")])])
+    # (the hold: the tap has already moved the loop on - from stopped it now plays, so that stays; from anything
+    # else it stops. A loop only armed stays armed)
+    proc(c, "al-loophold", [If("alfps != 4", [Call("al-loopstop")])])
     tg = c.ch(c.recv("al-togk"), "route " + " ".join(str(k) for k in LAYER_KEYS))
     hx = c.ch(c.recv("al-khold"), "t b", "expr alhd = 1; alhk")
     hl = c.to((hx, 1), "route " + " ".join(str(k) for k in LAYER_KEYS))
@@ -536,6 +567,7 @@ def transport(c):
     proc(c, "al-24", [V("alc24", "alc24 + 1"),
                       If(f"{opt(clk)} == 1", [Send("al-midibyte", "248")]),
                       Call("al-lanes"), Call("al-gates"), Call("al-loops"), Call("al-lines"), Call("al-tapclock"),
+                      Call("al-crhythm"),
                       If("alc24 % 3 == 0", [Call("al-tick")])])
     proc(c, "al-startstop", [If("alrun", [Call("al-stop")], [Call("al-start")])])
     # PANIC (aux + low D#): everything fades out over 1.5 s, then the clock stops and every note is released
