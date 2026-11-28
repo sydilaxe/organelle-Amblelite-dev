@@ -624,6 +624,7 @@ Hold
 Sync
 Tone
 Source
+AAFilt
 C
 C#
 D

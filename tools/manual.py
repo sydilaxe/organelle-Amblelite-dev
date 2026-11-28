@@ -40,8 +40,9 @@ def key_name(k):
 # the SHAPE page's knobs (model.SHAPE)
 SHAPE_DESC = {
     "Filter": "One sweep, as a DJ filter, shown from the middle (-50 .. 0 .. 50, its bar from a mark at the "
-              "middle). Left of the middle a low-pass closes the sound down (to 40 Hz fully left); at the middle it is "
-              "open and clean; right of it a high-pass sweeps up and thins it (to 1 kHz fully right). One cutoff and "
+              "middle). Left of the middle a low-pass (24 dB an octave) closes the sound down (to 25 Hz fully left: all "
+              "but silent); at the middle it is open and clean; right of it a high-pass (24 dB an octave) sweeps up and "
+              "thins it (to 12 kHz fully right: a thin edge of air). One cutoff and "
               "one resonance: only the side the knob is on filters. The knob upright - anywhere within 4 of the "
               "middle, shown as 0 - filters nothing and costs nothing; that is its default. Like every knob it takes "
               "over only once it passes the stored value (pickup).",
@@ -123,8 +124,12 @@ ENGINE_DESC = {
     ("cloud", "rhythm"): "Grains in time with the piece: three levels - Rate, then twice and four times as fine - each "
                          "a Euclidean pattern of 8 steps whose hits strike a grain, cascading one into the next; Morph "
                          "turns each level's pattern its own amount, so they morph against each other.",
-    ("cloud", "delay"): "A digital delay after the Digitech RDS-8000: free, or tempo-synced (Time then picks a subdivision), feedback up to a "
-                        "held loop, each repeat pitched (rising or falling cascades), the time wavering, the sides "
+    ("cloud", "delay"): "A clean 12-bit digital delay after the Digitech RDS-8000, up to 10 s: each pass rounded to 12 bits, "
+                        "and past 2 s what goes in is taken at a slightly lower rate - a hint of aliasing on long delays; "
+                        "the repeats stay clean. Free, or "
+                        "tempo-synced (Time then picks a subdivision); feedback at the top just over unity - the loop "
+                        "keeps everything and builds, layering on itself; a little lower, a loop whose layers slowly "
+                        "fade. Each repeat can be pitched (rising or falling cascades), the time wavering, the sides "
                         "apart; Hold keeps the loop - hold: nothing new in, dub: what plays is added.",
     ("sub", "boom"): "A deep sine that drops into each new note from up to an octave above (an 808's boom), "
                      "driven and darkened.",
@@ -186,19 +191,26 @@ DESC = {
                          "finer than a 32nd).",
     "cloud/rhythm/Cascad": "How many levels sound: the first only .. all three.",
     "cloud/rhythm/Scan": "How far back in the 8 s recording the grains read.",
-    "cloud/rhythm/Jitter": "How far around Scan each grain starts (up to 2 s).",
+    "cloud/rhythm/Jitter": "Looser, more granular: how far around Scan each grain reads (up to 2 s), how far off its step "
+                           "it starts (up to half a step), and how often an extra grain falls somewhere in the step - "
+                           "0 locked to the pattern, up: a spray of grains around it.",
     "cloud/rhythm/Source": "What the cloud records: the layers, the input, or both.",
-    "cloud/delay/Time": "The delay: free - 20 ms .. 3 s; with Sync tempo - steps through 1/16, 1/8T, 1/8, 1/8., 1/4, "
+    "cloud/delay/Time": "The delay: free - 20 ms .. 10 s (past 2 s, a hint of aliasing, more the longer); with Sync tempo - steps through 1/16, 1/8T, 1/8, 1/8., 1/4, "
                         "1/4., 1/2 and a bar at the piece's tempo (the screen shows which).",
-    "cloud/delay/Fdbk": "Feedback: one repeat .. endless (a little over, held by a soft limit).",
+    "cloud/delay/Fdbk": "Feedback: one repeat .. a loop whose layers slowly fade .. at the top just over unity, held by a "
+                        "soft limit: everything kept, layering and oscillating.",
     "cloud/delay/Width": "The right side longer and the repeats crossing between the sides: mono .. wide ping-pong.",
     "cloud/delay/Mod": "The time wavering (two slow sines, a side each): chorus .. tape warble.",
     "cloud/delay/Pitch": "Each repeat shifted by an interval: -12 .. +12 semitones - rising or falling cascades.",
     "cloud/delay/Hold": "off; hold - the loop kept, repeating forever, nothing new in; dub - kept, and what plays "
                         "is added to it.",
     "cloud/delay/Sync": "free (Time in ms) or tempo (Time picks a subdivision of the beat).",
-    "cloud/delay/Tone": "The repeats darkening: a low-pass in the loop, 800 Hz .. 12 kHz.",
+    "cloud/delay/Tone": "Open at the top (the repeats as bright as they went in); lower, a low-pass in the loop darkens "
+                        "them, down to 1 kHz.",
     "cloud/delay/Source": "What the delay takes: the layers, the input, or both.",
+    "cloud/delay/AAFilt": "The anti-alias filter before a long delay's lower rate (past 2 s): 0 open - all the "
+                          "aliasing - .. 1 smooth (1.4 kHz), smoothing the lower rate's steps. A touch to start, the aliasing only slightly filtered; "
+                          "the clean signal and the repeats are not touched.",
     "pad/voice/Source": "The source: a bright saw (0) to narrow glottal pulses (100) - vox to choir.",
     "pad/voice/Breath": "Breath noise under the voice.",
     "pad/string/Bow": "The excitation: breathy noise (0) to a saw (100).",
