@@ -81,8 +81,9 @@ FUNCS = {
                          "the sub its waveform along the bottom, the pads a Lissajous of their sides, the cloud points "
                          "rings sent out from the drone's shape; each lane's hit a rock falling into water, a spreading ring. "
                          "Aux tap: home."),
-    "al-panic": ("PANIC", "Panic: everything fades out over 1.5 s, then the clock stops and every note is released "
-                          "(latched ones too); silent - the cloud too - until Start. Loops are kept."),
+    "al-panic": ("PANIC", "Panic: a cinematic fade - everything plays on as it sinks away over 8 s, evenly in loudness, "
+                          "then the clock stops and every note is released (latched ones too); silent - the cloud too - "
+                          "until Start. Pressed again while it fades: the rest of the fade at once (0.4 s). Loops are kept."),
     "al-taprec": ("TAP", "Tapped rhythm for the shown layer: arm, every cycle takes your taps, again: play."),
     "al-ownclear": ("OWN CLR", "Clear your own chord story (the suggestions you accepted)."),
     "al-sugaccept": ("ACCEPT", "Play the HARMNY page's suggestion now and add it to your own story."),
@@ -637,7 +638,9 @@ def story():
                         "eight, the lanes a stone in its ring, the cloud a square; under each its letter (the shown "
                         "layer's inverted) and a loop's state beside it (R recording, P playing, O overdub, s "
                         "stopped). A loop also shows on its layer's sign: it blinks while recording or "
-                        "overdubbing, a line under it fills as the loop goes round, a dot there when stopped. At "
+                        "overdubbing, a line under it fills as the loop goes round, a dot there when stopped. The "
+                        "rhythm shows too: a lane's stone swells as each hit lands (more for an accent), and a gated "
+                        "drone, sub or pads sign shows while its gate is open, gone between. At "
                         "the right edge the MIDI-in light and N in notes mode."),
              ("2-layer-fav", "A layer's pages: the layer and engine, the page (n / count), the four knobs."),
              ("4-layer-lfo", "An LFO page: its target is any of the layer's parameters."),

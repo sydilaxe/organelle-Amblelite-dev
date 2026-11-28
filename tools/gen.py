@@ -254,10 +254,12 @@ def mix():
     c.col(260)
     sh = shape_filter(c, shape_blur(c, shape_drive(c, [mL, mR])))
     vol = c.ch(c.recv(f"al-s{M.S('g', None, 'Volume')}"), "expr $f1*$f1*2", "pack f 30", "line~")
-    # (PANIC, aux + low D#: everything fades out over 1.5 s - control.panic - then back up)
+    # (PANIC, aux + low D#: everything fades out over 8 s - control.panic - then back up at Start)
     pg = c.ch(c.recv("al-panicg"), "line~")
     c.c(c.m(c.recv("al-init"), "1"), 0, pg, 0)
-    vol = mul(c, vol, pg)
+    # (the panic's fade cubed: a straight line in level falls away too late and then all at once; cubed it sinks
+    # about evenly in loudness - -6 dB at a fifth of the way, -18 at half, -36 at three quarters - then to silence)
+    vol = mul(c, vol, mul(c, pg, mul(c, pg, pg)))
     for x, o in ((sh[0], "outL"), (sh[1], "outR")):
         # (a soft limit above 0.8: the excess e eased to 0.2 e / (0.2 + |e|), so it never passes 1)
         y0 = c.ch(mul(c, x, vol), "hip~ 5")

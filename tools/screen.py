@@ -7,7 +7,7 @@ PLAY (home)                                  LAYER (5 s after a knob turns or a 
   y 22-52  a row per layer: > selected,        y 22-52  the 4 knobs: name, value, a bar
         name, engine, + / M (muted), level bar
 Redraws are throttled: at most one every 60 ms, however fast knobs turn."""
-from pdlib import Canvas, proc, If, Call, SendL, Send, run_steps
+from pdlib import Canvas, proc, If, Call, SendL, Send, run_steps, T, Arm
 import model as M
 from model import S, LAYERS
 from control import words, opt, num, ctx, npages, QUALS, MODE_SLOT, VIEW_GLOBAL, VIEW_MIX
@@ -205,6 +205,13 @@ def build(c):
         x = TILE_DX * li
         lab = M.SHORT[L][1] if M.kind(L) == "perc" else M.SHORT[L][0]
         on, off = layer_icon(L, x + TILE_W // 2, ICON_Y)
+        if M.kind(L) == "perc":
+            # (a lane's stone: its dot, larger as a hit lands - larger still for an accent - for 100 ms)
+            lane = M.LANES.index(L)
+            on = [on[0], SendL(OSC, [f"1 + alhitp[{lane}]"], f"/oled/gFilledCircle 3 {x + TILE_W // 2} {ICON_Y} $1 1")]
+        if L in ("drone", "sub", "pad"):
+            # (its gate's rhythm playing: the icon flashes with it - shown while the gate is open, gone between)
+            on = [If(f"alrun && {opt(S(L, None, 'Gate'))} >= 1 && algt[{li}] == 0", [], on)]
         # (a loop: recording or overdubbing (allps 1, 3) - the sign blinks on the 8ths; playing or overdubbing
         # (2, 3) - a line under it fills as the loop goes round; stopped (4) - a dot there)
         sign = [If(f"alin[{li}]", on, off)]
@@ -341,6 +348,7 @@ def build(c):
         Send(OSC, "/oled/gFlip 3")]
     proc(c, "al-patmark", [If("alpatv == 1 && alpop == 0 && altick % 2 == 0", mark)])
     roadv = road_view(c)
+    pulses(c)
     # (the MIX view, after its first frame: only the header and the columns cleared and drawn - its labels stay)
     shape = f"alview == {VIEW_MIX} && alpage == {M.SHAPE_PAGE}"     # (SHAPE: drawn as a page of knobs)
     mixing = f"alpop == 0 && alview == 2 && ({shape}) == 0"
@@ -351,6 +359,19 @@ def build(c):
                                                                        [If("alpatv == 2", roadv, play)])])])]),
                         If(f"({mixing}) == 0", [V("almixok", "0")]),
                         Send(OSC, "/oled/gFlip 3")])
+
+
+def pulses(c):
+    """the play view's rhythm: each lane's hit (its dot, 100 ms) and the gates (control.gates) redraw it - only
+    while it shows (the redraws are throttled as every other: al-redraw)"""
+    proc(c, "al-playdraw", [If("alview == 0 && alpatv == 0 && alpop == 0", [Call("al-redraw")])])
+    for i, L in enumerate(M.LANES):
+        hv = c.ch(c.recv(f"al-{L}-hit"), "unpack f f f f")
+        tb = c.to((hv, 2), "t b f")
+        c.c((tb, 1), 0, c.obj("v alhitv"), 0)
+        run_steps(c, (tb, 0), [T("alhitp", str(i), "if(alhitv > 0.95, 2, 1)"), Call("al-playdraw"),
+                               Arm(f"al-hitoff{i}", "100")])
+        proc(c, f"al-hitoff{i}", [T("alhitp", str(i), "0"), Call("al-playdraw")])
 
 
 def road_view(c):
