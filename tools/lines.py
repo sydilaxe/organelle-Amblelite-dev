@@ -69,7 +69,8 @@ def counterpoint(c):
                [T("alpls", "alnj", "2")],
                [V("alnn", "alplh[alnj]"), T("alpls", "alnj", "0")])]),
         T("alpvn", "alnj", "alnn"), SendL("al-pad-n", ["alnj", "alnn", "80"])])]
-    proc(c, "al-lines", [If(f"alrun && alin[2] && {hits} > 0 && alc24 % {rc} == 0 && {hit}", choose + move)])
+    # (the cheap test first, the pattern only on its step)
+    proc(c, "al-lines", [If(f"alrun && alin[2] && {hits} > 0 && alc24 % {rc} == 0", [If(hit, choose + move)])])
 
 
 def motifs(c):

@@ -634,13 +634,15 @@ def lane_patterns(c):
                f"12*int((allane[{i}] % 8)/alscn[{m}]))")
         note = (f"if({pm} <= 2, alch[if({pm} == 2, if(allane[{i}] % 6 < 4, allane[{i}] % 6, 6 - allane[{i}] % 6), "
                 f"allane[{i}] % 4)] - 12, if({pm} == 3, alch[0] - 12, if({pm} == 4, alch[2] - 12, {scl})))")
-        steps.append(If(f"alin[{li}] && alc24 % {rc} == 0 && {euclid(L, f'alc24/{rc} + allrot[{i}]')}", [
+        # (the cheap test first - in, and on its step - the pattern only then: [expr] works out every part of a
+        # condition, so the whole pattern each clock cost the same whether the step fell or not)
+        steps.append(If(f"alin[{li}] && alc24 % {rc} == 0", [If(euclid(L, f'alc24/{rc} + allrot[{i}]'), [
             T("allane", str(i), f"if({pm} == 1 || {pm} == 6, allane[{i}] + 7, allane[{i}] + 1)"),
             V("allv", acc),
             V("allr", swing_ms(L)),
             If(f"{pm} == 7", [SendL(f"al-sw-{L}", [f"alch[{j}] - 12", "allv", "allr"]) for j in range(3)],
                [If(f"{pm} == 8", [Call(f"al-motif{i}"), SendL(f"al-sw-{L}", ["allmn", "allv", "allr"])],
-                   [SendL(f"al-sw-{L}", [note, "allv", "allr"])])])]))
+                   [SendL(f"al-sw-{L}", [note, "allv", "allr"])])])])]))
         # swing: the step's notes after their delay ([pipe] keeps each one's own)
         pp = c.ch(c.recv(f"al-sw-{L}"), "pipe f f 0")
         pk = c.obj("pack f f")
@@ -698,8 +700,9 @@ def gates(c):
         proc(c, f"al-gateoff-{L}", [Send(f"al-gatestop-{L}"), T("algt", str(li), "0"),
                                     If(f"{opt(gate)} == 0 && alrun", hold)])
         c.c(c.ch(c.recv(f"al-s{gate}"), "t b"), 0, c.obj(f"s al-gateoff-{L}"), 0)
-    proc(c, "al-gates", [If(f"alrun && alin[{LAYERS.index(L)}] && {opt(S(L, None, 'Gate'))} >= 1 && alc24 % {clocks(S(L, None, 'Rate'))} == 0 "
-                            f"&& {gate_hit(L)}", [SendL(f"al-gsw-{L}", ["0", swing_ms(L)])])
+    # (the cheap test first, the patterns - its own and, with Comp, the others' - only on its step)
+    proc(c, "al-gates", [If(f"alrun && alin[{LAYERS.index(L)}] && {opt(S(L, None, 'Gate'))} >= 1 && alc24 % {clocks(S(L, None, 'Rate'))} == 0",
+                            [If(gate_hit(L), [SendL(f"al-gsw-{L}", ["0", swing_ms(L)])])])
                          for L in ("drone", "sub", "pad")])
     for L in ("drone", "sub", "pad"):
         c.c(c.ch(c.recv(f"al-gsw-{L}"), "pipe", "t b"), 0, c.obj(f"s al-gate-{L}"), 0)
@@ -729,8 +732,8 @@ def taps(c):
     proc(c, "al-tapclock", [
         If(f"altarm >= 0 && alc24 % {96} == 0", [Call("al-tapstart")]),
         # (erasing: the step under the playhead, at each step)
-        If(f"altrl >= 0 && alerase && alc24 % ({rc}) == 0 && altapw[{idx}] != alersid",
-           [T("altap", idx, "0"), Call("al-redraw")])])
+        If("altrl >= 0 && alerase", [If(f"alc24 % ({rc}) == 0 && altapw[{idx}] != alersid",
+                                        [T("altap", idx, "0"), Call("al-redraw")])])])
     _entry(c, "al-note", ["altnl", "altnn", "altnv"], "al-tapnote")
     proc(c, "al-tapnote", [If("altnl == altrl && altnv > 0 && altrl >= 0", [
         T("altap", idx, "1"), T("altapw", idx, "if(alerase, alersid, -1)"), Call("al-redraw")])])

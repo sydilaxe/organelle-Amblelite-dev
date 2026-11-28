@@ -638,7 +638,8 @@ def looper(c):
     # playback, each clock: the events at this point of the cycle (up to 6 at one clock), transposed with the
     # chord (worked out at the cycle's start)
     def loop_steps(free):
-        return [st for li, L in enumerate(M.NOTE_LAYERS) for st in layer_steps(li, L, free)]
+        # (a layer with no loop - empty: allps 0 - passed over in one test)
+        return [If(f"allps[{li}] > 0", layer_steps(li, L, free)) for li, L in enumerate(M.NOTE_LAYERS)]
 
     def layer_steps(li, L, free):
         steps = []
