@@ -697,17 +697,27 @@ def main():
                                                                        (1100, "notesRaw 61 0"), (1150, "aux 0"),
                                                                        (2500, "h-q bang"), (2600, "aux 1"), (2650, "aux 0"),
                                                                        (2700, "h-q bang"), (3000, "aux 1"), (3050, "notesRaw 63 100"),
-                                                                       (3100, "notesRaw 63 0"), (3150, "aux 0"), (5500, "h-q bang")]
-    log, a = H.run(ev, 6, d=d, keep=True, extra=vq, prints=("oscOut",))
+                                                                       (3100, "notesRaw 63 0"), (3150, "aux 0"), (12500, "h-q bang")]
+    log, a = H.run(ev, 13, d=d, keep=True, extra=vq, prints=("oscOut",))
     vw = [l.split()[-1] for l in log.splitlines() if l.startswith("VW")]
     osc = log.splitlines()
     waves = sum("gWaveform" in l for l in osc)
     lines = sum("gLine 3" in l for l in osc)
     check("visualizer: frames with the scope and the layers' waveform shapes; aux tap: home", vw[:2] == ["31", "1"] and
           waves >= 10 and lines >= 20 * waves, f"view {vw[:2]}, {waves} scope frames, {lines / max(1, waves):.0f} lines a frame")
-    check("panic: fades out, stops, releases everything", vw[2:3] == ["0"] and H.rms_db(seg(a, 5.0, 5.9)) < -70
-          and H.rms_db(seg(a, 2.0, 2.9)) > -40, f"running {vw[2:3]} (0: stopped), level {H.rms_db(seg(a, 2.0, 2.9)):.0f} -> "
-                                                f"{H.rms_db(seg(a, 5.0, 5.9)):.0f} dB")
+    # (the cinematic fade: 8 s - still sounding, lower, 3 s in; silent and stopped after it)
+    pre, mid, end = H.rms_db(seg(a, 2.0, 2.9)), H.rms_db(seg(a, 6.0, 6.9)), H.rms_db(seg(a, 12.0, 12.9))
+    check("panic: a long fade, then stops and releases everything", vw[2:3] == ["0"] and pre > -40 and
+          pre - 30 < mid < pre - 6 and end < -70,
+          f"running {vw[2:3]} (0: stopped), level {pre:.0f} -> {mid:.0f} (3 s in) -> {end:.0f} dB")
+    # (pressed again while it fades: the rest in 0.4 s)
+    ev2 = [(20 + i, f"al-inset {i} 1") for i in range(len(M.LAYERS))] + [
+        START, (1000, "aux 1"), (1050, "notesRaw 63 100"), (1100, "notesRaw 63 0"), (2000, "notesRaw 63 100"),
+        (2050, "notesRaw 63 0"), (2100, "aux 0"), (3000, "h-q bang")]
+    log, a = H.run(ev2, 3.5, d=d, keep=True, extra=vq)
+    vw2 = [l.split()[-1] for l in log.splitlines() if l.startswith("VW")]
+    check("panic pressed twice: the rest of the fade at once", vw2 == ["0"] and H.rms_db(seg(a, 2.6, 3.4)) < -70,
+          f"running {vw2} (0: stopped), level after {H.rms_db(seg(a, 2.6, 3.4)):.0f} dB")
 
     # ---- the looper's flow (the sub, Len 1 bar): armed until the bar line, the first pass, then overdub; a press:
     # play. Aux held over the start of a pass erases the A there while the D played meanwhile replaces it

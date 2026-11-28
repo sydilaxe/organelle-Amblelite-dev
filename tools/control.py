@@ -15,9 +15,10 @@ VIEW_LAYER, VIEW_GLOBAL, VIEW_MIX = 0, 1, 2
 SECTN_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("SECTN")
 PIECE_PAGE = [n for n, _ in M.GLOBAL_PAGES].index("PIECE")
 MODE_SLOT, SCALE_SLOT = S("g", None, "Mode"), S("g", None, "Scale")
+PANIC_MS = 8000              # the panic's fade
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
-GLOBALS = dict(alclin=0, alclfade=0, alcleng=0, alfps=0, alhomeh=0, alhkv=0, alth=0, altcm=0, altcs=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
+GLOBALS = dict(alpanicing=0, alhitv=0, alclin=0, alclfade=0, alcleng=0, alfps=0, alhomeh=0, alhkv=0, alth=0, altcm=0, altcs=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
                alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
                alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0, alcb=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
@@ -30,7 +31,7 @@ for k in range(4):
     GLOBALS.update({f"alsl{k}": -1, f"allat{k}": 0, f"alpv{k}": -1})
 for L in LANES:
     GLOBALS.update({f"al{L}n": 0, f"al{L}v": 0})
-ARRAYS = dict(alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alks=0, alnp=0, aleng=NL, alusr=NL,
+ARRAYS = dict(algt=NL, alhitp=4, alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alks=0, alnp=0, aleng=NL, alusr=NL,
               allatch=NL, alin=NL, alprm=4, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
               alscn=len(M.MODES), alsk=0, alsd=0, alsr=0, alsy=0, alsdl=0, alsm=len(M.MODES) * 8,
               alsml=len(M.MODES), alty=0, altq=0, alpe=NSLOTS, alem=NSLOTS, alet=0, alew=0, alevs=0, alevp=0,
@@ -570,13 +571,18 @@ def transport(c):
                       Call("al-crhythm"),
                       If("alc24 % 3 == 0", [Call("al-tick")])])
     proc(c, "al-startstop", [If("alrun", [Call("al-stop")], [Call("al-start")])])
-    # PANIC (aux + low D#): everything fades out over 1.5 s, then the clock stops and every note is released
-    # (latched ones too); silent until the next Start (the cloud's grains too), which brings the level back. Loops kept.
-    proc(c, "al-panic", [SendL("al-panicg", ["0", "1500"]), Arm("al-panic2", "1550", stop="al-panicstop")])
-    proc(c, "al-panic2", [Call("al-stop"), Loop(str(NL), "alj", [T("allatch", "alj", "0")]), Call("al-prelall"),
+    # PANIC (aux + low D#): a cinematic fade - everything goes on playing as it sinks away over 8 s (the curve in
+    # gen.mix: even in loudness, then to silence) - then the clock stops and every note is released (latched ones
+    # too); silent until the next Start (the cloud's grains too), which brings the level back. Loops kept. Pressed
+    # again while it fades: the rest of the fade in 0.4 s
+    proc(c, "al-panic", [If("alpanicing", [
+        Send("al-panicstop"), SendL("al-panicg", ["0", "400"]), Arm("al-panic2", "450", stop="al-panicstop")], [
+        V("alpanicing", "1"), SendL("al-panicg", ["0", str(PANIC_MS)]),
+        Arm("al-panic2", str(PANIC_MS + 50), stop="al-panicstop")])])
+    proc(c, "al-panic2", [V("alpanicing", "0"), Call("al-stop"), Loop(str(NL), "alj", [T("allatch", "alj", "0")]), Call("al-prelall"),
                           SendL("al-drone-g", ["0", "0", "0"]), SendL("al-sub-g", ["0", "0", "0"])])
     proc(c, "al-start", [If("alrun == 0", [
-        Send("al-panicstop"), SendL("al-panicg", ["1", "300"]),
+        Send("al-panicstop"), V("alpanicing", "0"), SendL("al-panicg", ["1", "300"]),
         V("alrun", "1"), V("altick", "-1"), V("alc24", "-1"), V("alstep", "0"), Call("al-rstart"),
         Loop("4", "alj", [T("allane", "alj", "-1"), T("allrot", "alj", "0")]), Call("al-chord"),
         If(f"{opt(clk)} == 1", [Send("al-midibyte", "250")]),
@@ -676,10 +682,15 @@ def gates(c):
             on = [If(f"al{x}on", [SendL(f"al-{L}-g", ["0", f"0.85*{acc}", "1"])])]
             off = [If(f"al{x}on", [SendL(f"al-{L}-g", ["0", "0", "1"])])]
             hold = [If(f"al{x}on", [SendL(f"al-{L}-g", ["0", "0.85", "0"])])]
-        proc(c, f"al-gate-{L}", on + [Arm(f"al-gaterel-{L}", f"max(20, alp[{S(L, None, 'Length')}]*{rc}*{cms})",
+        # (algt: the gate open - the play view shows the layer's icon while it is, nothing between: it flashes with
+        # the gate)
+        li = LAYERS.index(L)
+        proc(c, f"al-gate-{L}", on + [T("algt", str(li), "1"), Call("al-playdraw"),
+                                      Arm(f"al-gaterel-{L}", f"max(20, alp[{S(L, None, 'Length')}]*{rc}*{cms})",
                                           stop=f"al-gatestop-{L}")])
-        proc(c, f"al-gaterel-{L}", [If(f"{opt(gate)} >= 1", off)])
-        proc(c, f"al-gateoff-{L}", [Send(f"al-gatestop-{L}"), If(f"{opt(gate)} == 0 && alrun", hold)])
+        proc(c, f"al-gaterel-{L}", [If(f"{opt(gate)} >= 1", off), T("algt", str(li), "0"), Call("al-playdraw")])
+        proc(c, f"al-gateoff-{L}", [Send(f"al-gatestop-{L}"), T("algt", str(li), "0"),
+                                    If(f"{opt(gate)} == 0 && alrun", hold)])
         c.c(c.ch(c.recv(f"al-s{gate}"), "t b"), 0, c.obj(f"s al-gateoff-{L}"), 0)
     proc(c, "al-gates", [If(f"alrun && alin[{LAYERS.index(L)}] && {opt(S(L, None, 'Gate'))} >= 1 && alc24 % {clocks(S(L, None, 'Rate'))} == 0 "
                             f"&& {gate_hit(L)}", [SendL(f"al-gsw-{L}", ["0", swing_ms(L)])])
