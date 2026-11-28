@@ -782,12 +782,13 @@ def main():
                                                                        (2700, "h-q bang"), (3000, "aux 1"), (3050, "notesRaw 63 100"),
                                                                        (3100, "notesRaw 63 0"), (3150, "aux 0"), (12500, "h-q bang")]
     log, a = H.run(ev, 13, d=d, keep=True, extra=vq, prints=("oscOut",))
+    # (the simpler visualizer: about 7 frames a second, the drone's, sub's and pads' shapes 6 + 3 + 5 lines)
     vw = [l.split()[-1] for l in log.splitlines() if l.startswith("VW")]
     osc = log.splitlines()
     waves = sum("gWaveform" in l for l in osc)
     lines = sum("gLine 3" in l for l in osc)
     check("visualizer: frames with the scope and the layers' waveform shapes; aux tap: home", vw[:2] == ["31", "1"] and
-          waves >= 10 and lines >= 20 * waves, f"view {vw[:2]}, {waves} scope frames, {lines / max(1, waves):.0f} lines a frame")
+          waves >= 10 and lines >= 12 * waves, f"view {vw[:2]}, {waves} scope frames, {lines / max(1, waves):.0f} lines a frame")
     # (the cinematic fade: 8 s - still sounding, lower, 3 s in; silent and stopped after it)
     pre, mid, end = H.rms_db(seg(a, 2.0, 2.9)), H.rms_db(seg(a, 6.0, 6.9)), H.rms_db(seg(a, 12.0, 12.9))
     check("panic: a long fade, then stops and releases everything", vw[2:3] == ["0"] and pre > -40 and
@@ -1122,6 +1123,33 @@ if (step === "1") {
     seen = sum(1 for h in hits if any(0 <= f - h <= 5 for f in flips))
     check("every hit is drawn at once, even under load", hits and seen == len(hits) and msgs / 10 < 100,
           f"{seen} of {len(hits)} hits shown within 5 ms; {msgs / 10:.0f} OLED messages a second")
+
+    # a knob's zone draws what a whole frame would: a layer page and the MIX view, knob 2 turned (only its row /
+    # column redrawn), snapped; then a whole frame forced, snapped again - the same pixels (the MIX header, with its
+    # CPU reading, left out)
+    import oledemu as _oe
+    import tempfile as _tf
+    from PIL import ImageChops as _ic
+
+    def snapper(c):
+        c.c(c.obj("r h-snap", 900, 700), 0, c.obj("print SNAP", 900, 730), 0)
+    sweep = [(1200 + 30 * k, f"knob2 {abs(((k % 20) / 10) - 1):.2f}") for k in range(23)]
+    zev = {"page": [(200, "notesRaw 60 100"), (900, "notesRaw 60 0")],
+           "mix": [(200, "notesRaw 63 100"), (260, "notesRaw 63 0")]}
+    zres = []
+    for name, ev in zev.items():
+        log, _ = H.run(ev + sweep + [(2100, "h-snap a"), (2200, "al-redraw bang"), (2500, "h-snap b")], 2.7, d=d,
+                       keep=True, prints=("oscOut",), extra=snapper)
+        od = _tf.mkdtemp()
+        pa, pb = _oe.render(log, od)
+        from PIL import Image as _Im
+        ia, ib = _Im.open(pa).convert("L"), _Im.open(pb).convert("L")
+        top = 0 if name == "page" else 10 * 4
+        diff = _ic.difference(ia.crop((0, top, ia.width, ia.height)), ib.crop((0, top, ib.width, ib.height))).getbbox()
+        rows = sum(1 for l in log.splitlines() if "gFlip" in l)
+        zres.append((name, diff is None, rows))
+    check("a knob's zone draws what the whole frame would (page, MIX)", all(ok for _, ok, _ in zres),
+          ", ".join(f"{n}: {'same' if ok else 'differs'}" for n, ok, _ in zres))
 
     # nothing piles up over a long session: the four lanes (the busiest messages) for 8 minutes - the last minutes'
     # CPU no more than the first's (a strike sent to every engine queued in the switched-off ones' [vline~]s: the CPU

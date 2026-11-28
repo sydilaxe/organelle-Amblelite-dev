@@ -183,11 +183,48 @@ def tile_icon(li, L):
     return sign
 
 
+def knob_zones(c, rowk, colk, shape, mixing):
+    """a knob turned (al-set -> al-setdraw 'slot'): on a page (a layer's, a pop-up, SHAPE) only its row is redrawn;
+    on the MIX view only its column - cleared, drawn, shown - not a whole frame. A whole frame instead when the
+    screen shows something else, one is already coming (alfpend), or the slot changes more than its own row: an
+    Engine (the page's header and knobs), the cloud delay's Sync (how its Time reads). At most one zone drawing each
+    50 ms (100 under load): turned fast, the last value always drawn"""
+    full = [S(L, None, "Engine") for L in LAYERS] + [S("cloud", "delay", "Sync")]
+    notfull = " && ".join(f"alsds != {x}" for x in full)
+    pages = f"alshv == 1 && (alpop || ({shape}))"
+    mix = f"alshv == 2 && almixok && ({mixing})"
+    sd = c.to(c.recv("al-setdraw"), "t b f")
+    c.c((sd, 1), 0, c.obj("v alsds"), 0)
+    c.c((sd, 0), 0, c.obj("s al-setdraw2"), 0)
+    proc(c, "al-setdraw2", [V("alsdh", "0"), If(f"alfpend == 0 && {notfull}", [
+        If(pages, [If(f"alsl{k} == alsds && alsds >= 0", [T("alrk", str(k), "1"), V("alsdh", "1")]) for k in range(4)]),
+        If(mix, [If(f"alsds == {sl}", [T("alrk", str(4 + i), "1"), V("alsdh", "1")]) for i, (sl, _, _, _) in enumerate(colk)])]),
+        If("alsdh", [Call("al-zthr")], [Call("al-redraw")])])
+    # (the throttle: drawn at once, then at most once a window - what came in it drawn at its end)
+    proc(c, "al-zthr", [If("alzbusy", [V("alzpend", "1")],
+                           [V("alzbusy", "1"), Call("al-zdraw"), Arm("al-zfree", "if(alcpu > 70, 100, 50)")])])
+    proc(c, "al-zfree", [If("alzpend", [V("alzpend", "0"), Call("al-zdraw"), Arm("al-zfree", "if(alcpu > 70, 100, 50)")],
+                            [V("alzbusy", "0")])])
+    # (a row's band: from its own top line to the next row's; the row above's letters can hang into it, so its
+    # words are drawn again over themselves - the page's line for the first row)
+    above = lambda k: [Call(f"al-r-k{k - 1}")] if k else [Call("al-r-page")]
+    rows = [If(f"alrk[{k}]", [T("alrk", str(k), "0"), Fill(0, 22 + 10 * k, 128, 10, 0)] + above(k) + rowk[k])
+            for k in range(4)]
+    cols = [If(f"alrk[{4 + i}]", [T("alrk", str(4 + i), "0"), Fill(x, 14, w, 39, 0)] + st)
+            for i, (_, x, w, st) in enumerate(colk)]
+    clear = [T("alrk", str(i), "0") for i in range(4 + len(colk))]
+    proc(c, "al-zdraw", [If("alfpend == 0", [
+        If(f"alshv == 1 && (alpop || ({shape}))", rows + [Send(OSC, "/oled/gFlip 3")],
+           [If(f"alshv == 2 && ({mixing})", cols + [Send(OSC, "/oled/gFlip 3")])])]), *clear])
+
+
 def build(c):
     from pdlib import V, Loop
     c.comment("the screen: al-redraw (any change) -> at most every 60 ms (120 while the CPU is above 70 %) -> al-draw")
     sp = c.obj("spigot 1")
-    c.c(c.ch(c.recv("al-redraw"), "t b"), 0, sp, 0)
+    rq = c.ch(c.recv("al-redraw"), "t b b")
+    c.c(c.m((rq, 1), "1"), 0, c.obj("v alfpend"), 0)          # (a whole frame coming: the zones wait for it)
+    c.c((rq, 0), 0, sp, 0)
     tb = c.to(sp, "t b b b")
     c.c(c.m((tb, 2), "0"), 0, sp, 1)
     # (fewer frames when busy: the OLED's messages travel to its program on the same core - under load some are
@@ -279,6 +316,7 @@ def build(c):
                                 ("w", f"if(alview, {misc('-')}, {eng_word('allayer')})")])
     row(c, "al-r-page", 0, 11, [("w", f"{OFF['page']} + {ctx()}*{M.MAXPAGES} + alpage"),
                                 ("w", f"{OFF['frac']} + ({npages()} - 1)*{M.MAXPAGES} + alpage")])
+    rowk = []           # (each knob's row alone: the knob zones redraw only the turned one - knob_zones)
     for k in range(4):
         # (a global page's knob that is a layer's: the layer's name)
         gl = f"algl[alpage*4 + {k}]"
@@ -289,13 +327,14 @@ def build(c):
         y = 23 + 10 * k
         # (SHAPE's Filter: a mark at the middle, its bar from there to the left (low-pass) or the right (high-pass))
         fpx = f"(80 + int(alp[{fsl}]*46))"
-        lay += [Call(f"al-r-k{k}"),
+        rowk.append([Call(f"al-r-k{k}"),
                 If(f"alsl{k} == {fsl}", [Fill(103, y - 1, 1, 7, 1),
                                          SendL(OSC, [f"min(103, {fpx})", f"max(1, abs({fpx} - 103))"],
                                                f"/oled/gFillArea 3 $1 {y + 1} $2 3 1")],
                    [If(f"alsl{k} >= 0 && (aln[alsl{k}] == 0 || aln[alsl{k}] == -1)",
                        [SendL(OSC, [str(y), f"max(1, int(alp[alsl{k}]*46))"],
-                              "/oled/gFillArea 3 80 $1 $2 5 1")])])]
+                              "/oled/gFillArea 3 80 $1 $2 5 1")])])])
+        lay += rowk[k]
     # ---- mix view: every layer's level as a column, the master volume at the right; the shown page's columns
     # underlined
     row(c, "al-r-mixhead", 0, 0, [("w", f"{OFF['page']} + {ctx()}*{M.MAXPAGES} + alpage"),
@@ -317,17 +356,20 @@ def build(c):
         _V("alcpuh", "alcpuh + 1"), _V("alcpux", "if(alcpuh % 10 == 1, alcpu, max(alcpux, alcpu))"),
         If("alview == 2", [Call("al-redraw")])])
     mixv = [Call("al-r-mixhead")]
+    colk = []           # (each column alone, by its slot: the knob zones redraw only the turned one)
     for li, L in enumerate(LAYERS):
         lvl = S(L, None, "Level")
         x = MIX_X0 + MIX_DX * li
         # (a layer out: its column hollow)
-        mixv += [If(f"alin[{li}]", [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(1, int(alp[{lvl}]*38))"],
+        colk.append((lvl, x, MIX_W, [If(f"alin[{li}]", [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(1, int(alp[{lvl}]*38))"],
                                           f"/oled/gFillArea 3 $1 $2 {MIX_W} $3 1")],
                     [SendL(OSC, [f"{x}", f"52 - int(alp[{lvl}]*38)", f"max(2, int(alp[{lvl}]*38))"],
-                           f"/oled/gBox 3 $1 $2 {MIX_W} $3 1")]),
+                           f"/oled/gBox 3 $1 $2 {MIX_W} $3 1")])]))
+        mixv += colk[-1][3] + [
                  If("almixok == 0", [Send(OSC, f"/oled/gPrintln 3 {x} 55 8 1 {M.SHORT[L][1] if M.kind(L) == 'perc' else M.SHORT[L][0]}")])]
     vol = S("g", None, "Volume")
-    mixv += [SendL(OSC, [f"52 - int(alp[{vol}]*38)", f"max(1, int(alp[{vol}]*38))"], "/oled/gFillArea 3 112 $1 14 $2 1")]
+    colk.append((vol, 112, 14, [SendL(OSC, [f"52 - int(alp[{vol}]*38)", f"max(1, int(alp[{vol}]*38))"], "/oled/gFillArea 3 112 $1 14 $2 1")]))
+    mixv += colk[-1][3]
     mixv += [If("almixok == 0", [Send(OSC, "/oled/gPrintln 3 114 55 8 1 V")]), V("almixok", "1")]
     # (the columns the knobs turn now: a line under them)
     for k in range(4):
@@ -367,7 +409,9 @@ def build(c):
     mixing = f"alpop == 0 && alview == 2 && ({shape}) == 0"
     import vis
     VIS, visv = vis.VIEW_VIS, vis.frame()
-    proc(c, "al-draw", [If(f"{mixing} && almixok", [Fill(0, 0, 128, 55, 0)], [Fill(0, 0, 128, 64, 0), V("almixok", "0")]),
+    knob_zones(c, rowk, colk, shape, mixing)
+    proc(c, "al-draw", [V("alfpend", "0"), V("alshv", f"if(alpop || ({shape}), 1, if(alview == 2, 2, 0))"),
+                        If(f"{mixing} && almixok", [Fill(0, 0, 128, 55, 0)], [Fill(0, 0, 128, 64, 0), V("almixok", "0")]),
                         If(f"alpop || ({shape})", lay, [If(f"alview == 2", mixv, [If(f"alview == {VIS}", visv, [If("alpatv == 1", patv,
                                                                        [If("alpatv == 2", roadv, play)])])])]),
                         If(f"({mixing}) == 0", [V("almixok", "0")]),

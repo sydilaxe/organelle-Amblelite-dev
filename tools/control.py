@@ -18,7 +18,7 @@ MODE_SLOT, SCALE_SLOT = S("g", None, "Mode"), S("g", None, "Scale")
 PANIC_MS = 8000              # the panic's fade
 IN_AT_START = ("drone", "sub", "pad", "perc1")      # the layers in when the patch loads (the others out)
 # globals and their start values (each gets a [v name])
-GLOBALS = dict(alzlp=0, alzrd=0, alpanicing=0, alhitv=0, alclin=0, alclfade=0, alcleng=0, alfps=0, alhomeh=0, alhkv=0, alth=0, altcm=0, altcs=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
+GLOBALS = dict(alzlp=0, alzrd=0, alfpend=0, alshv=0, alsds=0, alsdh=0, alzbusy=0, alzpend=0, alpanicing=0, alhitv=0, alclin=0, alclfade=0, alcleng=0, alfps=0, alhomeh=0, alhkv=0, alth=0, altcm=0, altcs=0, alcmph=0, alerase=0, alersid=0, altarm=-1, altrl=-1, altr0=0, altrn=0, altri=0, altnl=0, altnn=0, altnv=0, alstick=0, allayer=0, alview=0, alpage=0, alrun=0, alnotes=0, alaux=0, alauxu=0, alpop=0, altick=-1, alc24=-1,
                alstep=0, alclock=0, alphc=0, alptn=0, alptv=0, alpkey=-1, alpj=0, alpbest=0, alj=0,
                alkn=0, alkvel=0, almn=0, almv=0, almc=0, alcs=0, alcr=0, alcq=0, alnxr=0, alnxq=0, alcb=0,
                aldn=0, aldv=0, aldhc=0, aldon=0, aldtn=0, aldtv=0, alsn=0, alsv2=0, alshc=0, alson=0, alstn=0,
@@ -31,7 +31,7 @@ for k in range(4):
     GLOBALS.update({f"alsl{k}": -1, f"allat{k}": 0, f"alpv{k}": -1})
 for L in LANES:
     GLOBALS.update({f"al{L}n": 0, f"al{L}v": 0})
-ARRAYS = dict(algt=NL, alpdf=NL, alpdd=NL, alhitp=4, alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alks=0, alnp=0, aleng=NL, alusr=NL,
+ARRAYS = dict(algt=NL, alpdf=NL, alpdd=NL, alrk=4 + NL + 1, alhitp=4, alp=NSLOTS, aln=NSLOTS, allo=NSLOTS, alhi=NSLOTS, alob=NSLOTS, alks=0, alnp=0, aleng=NL, alusr=NL,
               allatch=NL, alin=NL, alprm=4, alpvn=4, alpg=4, alpa=4, alpt=4, alpk=4, alch=4, alct=4, alsc=len(M.MODES) * 7,
               alscn=len(M.MODES), alsk=0, alsd=0, alsr=0, alsy=0, alsdl=0, alsm=len(M.MODES) * 8,
               alsml=len(M.MODES), alty=0, altq=0, alpe=NSLOTS, alem=NSLOTS, alet=0, alew=0, alevs=0, alevp=0,
@@ -183,11 +183,12 @@ QUALS = M.QUALS
 def params(c):
     c.comment("al-set 'slot value': store it (alp), add Evolve's movement (alem) for the value the sound hears "
               "(alpe), send that to [r al-s<slot>], redraw. al-out 'slot': send alpe[slot] again.")
-    t = c.to(c.recv("al-set"), "t b l l l")
+    t = c.to(c.recv("al-set"), "t l l l l")
     c.c((t, 3), 0, c.obj("expr alp[$f1] = $f2"), 0)
     c.c((t, 2), 0, c.obj("expr alpe[$f1] = max(0, min(1, $f2 + alem[$f1] + alfm[$f1] + alfn[$f1] + alfb[$f1]))"), 0)
     c.c(c.to((t, 1), "list split 1"), 0, c.obj("s al-out"), 0)
-    c.c((t, 0), 0, c.obj("s al-redraw"), 0)
+    # (redrawn: its row or column alone where it shows - screen.knob_zones - else the whole frame)
+    c.c(c.to((t, 0), "list split 1"), 0, c.obj("s al-setdraw"), 0)
     o = c.to(c.recv("al-out"), "t f f")
     snd = c.obj("s")
     c.c(c.to((o, 1), "makefilename al-s%d"), 0, snd, 1)
@@ -244,8 +245,7 @@ def knobs(c):
         sc.c(lp, 0, sc.obj("s al-set"), 0)
     # pages opened on purpose (a held layer key, the global key, paging) stay until an aux tap (alstick); the
     # pop-up a knob gives in the play view closes 3 s after the last turn
-    proc(c, "al-popup", [If(f"alview != {VIEW_MIX}", [V("alpop", "1"), Later("al-popoff", 3000)],
-                            [Call("al-redraw")])])
+    proc(c, "al-popup", [If(f"alview != {VIEW_MIX}", [V("alpop", "1"), Later("al-popoff", 3000)])])
     proc(c, "al-popoff", [If("alstick == 0", [V("alpop", "0"), Call("al-redraw")])])
     # (the layer chosen by knob 1 on the play view: D S P 1 2 3 4 C across its turn; aux's tap after it isn't home)
     sel = f"min({NL - 1}, int(alhkv*{NL}))"
